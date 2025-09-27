@@ -48,13 +48,11 @@
     "typescript": "^5.9.2",
     "unplugin-raw": "^0.5.1",
     "vite": "catalog:",
-    "vitest": "catalog:",
-    "vue-jsx-vapor": "workspace:*"
+    "vitest": "catalog:"
   },
   "pnpm": {
     "overrides": {
-      "estree-walker": "2.0.2",
-      "ts-macro": "catalog:"
+      "estree-walker": "2.0.2"
     }
   }
 }

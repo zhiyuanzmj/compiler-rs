@@ -1,7 +1,7 @@
 import { parse } from '@babel/parser'
 import { extend, isString } from '@vue/shared'
 import { generate, type VaporCodegenResult } from './generate'
-import { IRNodeTypes, type HackOptions, type RootNode } from './ir'
+import { IRNodeTypes, type RootNode } from './ir'
 import {
   transform,
   type DirectiveTransform,
@@ -24,7 +24,6 @@ import { transformVSlot } from './transforms/vSlot'
 import { transformVSlots } from './transforms/vSlots'
 import { transformVText } from './transforms/vText'
 import type { ExpressionStatement, JSXElement, JSXFragment } from '@babel/types'
-import type { CompilerOptions as BaseCompilerOptions } from '@vue/compiler-dom'
 
 // code/AST -> IR (transform) -> JS (generate)
 export function compile(
@@ -85,8 +84,7 @@ export function compile(
   return generate(ir, resolvedOptions)
 }
 
-export type CompilerOptions = HackOptions<BaseCompilerOptions> &
-  TransformOptions
+export type CompilerOptions = TransformOptions
 export type TransformPreset = [
   NodeTransform[],
   Record<string, DirectiveTransform>,

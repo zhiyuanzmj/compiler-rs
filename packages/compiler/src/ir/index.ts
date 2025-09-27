@@ -1,13 +1,7 @@
-import type { DirectiveTransform, NodeTransform } from '../transform'
-import type { IRProp, IRProps, IRSlots } from './component'
+import type { SimpleExpressionNode } from '../utils'
 
-import type { JSXFragment, Node } from '@babel/types'
-import type {
-  CompoundExpressionNode,
-  DirectiveNode,
-  SimpleExpressionNode,
-} from '@vue/compiler-dom'
-import type { Prettify } from '@vue/shared'
+import type { IRProp, IRProps, IRSlots } from './component'
+import type { JSXFragment, Node, SourceLocation } from '@babel/types'
 
 export * from './component'
 
@@ -133,6 +127,7 @@ export interface SetTextIRNode extends BaseIRNode {
 export interface SetNodesIRNode extends BaseIRNode {
   type: IRNodeTypes.SET_NODES
   element: number
+  once: boolean
   values: SimpleExpressionNode[]
   generated?: boolean // whether this is a generated empty text node by `processTextLikeContainer`
 }
@@ -174,6 +169,7 @@ export interface SetTemplateRefIRNode extends BaseIRNode {
 export interface CreateNodesIRNode extends BaseIRNode {
   type: IRNodeTypes.CREATE_NODES
   id: number
+  once: boolean
   values?: SimpleExpressionNode[]
 }
 
@@ -193,7 +189,7 @@ export interface PrependNodeIRNode extends BaseIRNode {
 export interface DirectiveIRNode extends BaseIRNode {
   type: IRNodeTypes.DIRECTIVE
   element: number
-  dir: VaporDirectiveNode
+  dir: DirectiveNode
   name: string
   builtin?: boolean
   asset?: boolean
@@ -286,27 +282,6 @@ export interface IREffect {
   operations: OperationNode[]
 }
 
-type Overwrite<T, U> = Pick<T, Exclude<keyof T, keyof U>> &
-  Pick<U, Extract<keyof U, keyof T>>
-
-export type HackOptions<T> = Prettify<
-  Overwrite<
-    T,
-    {
-      nodeTransforms?: NodeTransform[]
-      directiveTransforms?: Record<string, DirectiveTransform | undefined>
-    }
-  >
->
-
-export type VaporDirectiveNode = Overwrite<
-  DirectiveNode,
-  {
-    exp: Exclude<DirectiveNode['exp'], CompoundExpressionNode>
-    arg: Exclude<DirectiveNode['arg'], CompoundExpressionNode>
-  }
->
-
 export type InsertionStateTypes =
   | IfIRNode
   | ForIRNode
@@ -321,4 +296,20 @@ export function isBlockOperation(op: OperationNode): op is InsertionStateTypes {
     type === IRNodeTypes.IF ||
     type === IRNodeTypes.FOR
   )
+}
+
+export interface DirectiveNode {
+  /**
+   * the normalized name without prefix or shorthands, e.g. "bind", "on"
+   */
+  name: string
+  /**
+   * the raw attribute name, preserving shorthand, and including arg & modifiers
+   * this is only used during parse.
+   */
+  rawName?: string
+  exp: SimpleExpressionNode | undefined
+  arg: SimpleExpressionNode | undefined
+  modifiers: SimpleExpressionNode[]
+  loc: SourceLocation
 }

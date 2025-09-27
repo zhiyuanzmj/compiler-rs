@@ -42,9 +42,10 @@
   "dependencies": {
     "@babel/parser": "catalog:",
     "@babel/types": "catalog:",
-    "@vue/compiler-dom": "catalog:",
+    "@oxc-project/types": "^0.92.0",
     "@vue/shared": "catalog:",
     "ast-kit": "catalog:",
+    "oxc-parser": "^0.92.0",
     "source-map-js": "catalog:"
   }
 }

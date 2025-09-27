@@ -1,8 +1,12 @@
+import {
+  genCall,
+  NEWLINE,
+  type CodeFragment,
+  type SimpleExpressionNode,
+} from '../utils'
 import type { CodegenContext } from '../generate'
 import type { DirectiveIRNode } from '../ir'
 import { genExpression } from './expression'
-import { genCall, NEWLINE, type CodeFragment } from './utils'
-import type { SimpleExpressionNode } from '@vue/compiler-dom'
 
 const helperMap = {
   text: 'applyTextModel',
@@ -44,9 +48,5 @@ export function genModelHandler(
   exp: SimpleExpressionNode,
   context: CodegenContext,
 ): CodeFragment[] {
-  return [
-    `${context.options.isTS ? `(_value: any)` : `_value`} => (`,
-    ...genExpression(exp, context, '_value'),
-    ')',
-  ]
+  return ['_value => (', ...genExpression(exp, context, '_value'), ')']
 }
