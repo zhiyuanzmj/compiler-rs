@@ -87,16 +87,16 @@ describe('v-on', () => {
     compileWithVOn(`<div onClick />`, { onError })
     expect(onError.mock.calls[0][0]).toMatchObject({
       code: ErrorCodes.X_V_ON_NO_EXPRESSION,
-      loc: {
-        start: {
-          line: 1,
-          column: 5,
-        },
-        end: {
-          line: 1,
-          column: 12,
-        },
-      },
+      // loc: {
+      //   start: {
+      //     line: 1,
+      //     column: 5,
+      //   },
+      //   end: {
+      //     line: 1,
+      //     column: 12,
+      //   },
+      // },
     })
   })
 

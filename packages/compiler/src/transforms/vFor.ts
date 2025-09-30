@@ -9,15 +9,15 @@ import {
   createCompilerError,
   ErrorCodes,
   findProp,
+  getExpression,
   isConstantNode,
   isEmptyText,
   isJSXComponent,
   propToExpression,
   resolveExpression,
-  resolveExpressionWithFn,
   type SimpleExpressionNode,
 } from '../utils'
-import type { JSXAttribute, JSXElement } from '@babel/types'
+import type { JSXAttribute, JSXElement } from 'oxc-parser'
 
 export const transformVFor: NodeTransform = createStructuralDirectiveTransform(
   'for',
@@ -32,10 +32,7 @@ export function processFor(
   const { value, index, key, source } = getForParseResult(dir, context)
   if (!source) {
     context.options.onError(
-      createCompilerError(
-        ErrorCodes.X_V_FOR_MALFORMED_EXPRESSION,
-        dir.loc as any,
-      ),
+      createCompilerError(ErrorCodes.X_V_FOR_MALFORMED_EXPRESSION, dir.range),
     )
     return
   }
@@ -86,24 +83,26 @@ export function getForParseResult(
     key: SimpleExpressionNode | undefined,
     source: SimpleExpressionNode | undefined
   if (dir.value) {
+    let expression
     if (
       dir.value.type === 'JSXExpressionContainer' &&
-      dir.value.expression.type === 'BinaryExpression'
+      (expression = getExpression(dir.value)) &&
+      expression.type === 'BinaryExpression'
     ) {
-      if (dir.value.expression.left.type === 'SequenceExpression') {
-        const expressions = dir.value.expression.left.expressions
-        value =
-          expressions[0] && resolveExpressionWithFn(expressions[0], context)
+      const left = getExpression(expression.left)
+      if (left.type === 'SequenceExpression') {
+        const expressions = left.expressions
+        value = expressions[0] && resolveExpression(expressions[0], context)
         key = expressions[1] && resolveExpression(expressions[1], context)
         index = expressions[2] && resolveExpression(expressions[2], context)
       } else {
-        value = resolveExpressionWithFn(dir.value.expression.left, context)
+        value = resolveExpression(expression.left, context)
       }
-      source = resolveExpression(dir.value.expression.right, context)
+      source = resolveExpression(expression.right, context)
     }
   } else {
     context.options.onError(
-      createCompilerError(ErrorCodes.X_V_FOR_NO_EXPRESSION, dir.loc as any),
+      createCompilerError(ErrorCodes.X_V_FOR_NO_EXPRESSION, dir.range),
     )
   }
 

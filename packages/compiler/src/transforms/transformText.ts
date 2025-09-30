@@ -1,4 +1,3 @@
-import { escapeHtml } from '@vue/shared'
 import {
   DynamicFlag,
   IRNodeTypes,
@@ -7,6 +6,7 @@ import {
 } from '../ir'
 import {
   findProp,
+  getExpression,
   getLiteralExpressionValue,
   isEmptyText,
   isFragmentNode,
@@ -20,7 +20,7 @@ import {
   processConditionalExpression,
   processLogicalExpression,
 } from './expression'
-import type { JSXExpressionContainer, JSXText, Node } from '@babel/types'
+import type { JSXExpressionContainer, JSXText, Node } from 'oxc-parser'
 
 type TextLike = JSXText | JSXExpressionContainer
 const seen = new WeakMap<
@@ -50,10 +50,12 @@ export const transformText: NodeTransform = (node, context) => {
     let hasInterp = false
     let isAllTextLike = true
     for (const c of node.children) {
+      let expression
       if (
         c.type === 'JSXExpressionContainer' &&
-        c.expression.type !== 'ConditionalExpression' &&
-        c.expression.type !== 'LogicalExpression'
+        (expression = getExpression(c)) &&
+        expression.type !== 'ConditionalExpression' &&
+        expression.type !== 'LogicalExpression'
       ) {
         hasInterp = true
       } else if (c.type !== 'JSXText') {
@@ -79,17 +81,18 @@ export const transformText: NodeTransform = (node, context) => {
       }
     }
   } else if (node.type === 'JSXExpressionContainer') {
-    if (node.expression.type === 'ConditionalExpression') {
-      return processConditionalExpression(node.expression, context)
-    } else if (node.expression.type === 'LogicalExpression') {
-      return processLogicalExpression(node.expression, context)
+    const expression = getExpression(node)
+    if (expression.type === 'ConditionalExpression') {
+      return processConditionalExpression(expression, context)
+    } else if (expression.type === 'LogicalExpression') {
+      return processLogicalExpression(expression, context)
     } else {
       processInterpolation(context)
     }
   } else if (node.type === 'JSXText') {
     const value = resolveJSXText(node)
     if (value) {
-      context.template += escapeHtml(value)
+      context.template += value
     } else {
       context.dynamic.flags |= DynamicFlag.NON_TEMPLATE
     }
@@ -139,7 +142,7 @@ function processTextContainer(children: TextLike[], context: TransformContext) {
   const values = createTextLikeExpressions(children, context)
   const literals = values.map(getLiteralExpressionValue)
   if (literals.every((l) => l != null)) {
-    context.childrenTemplate = literals.map((l) => escapeHtml(String(l)))
+    context.childrenTemplate = literals
   } else {
     context.childrenTemplate = [' ']
     context.registerOperation({
@@ -171,10 +174,13 @@ function createTextLikeExpressions(
 }
 
 function isTextLike(node: Node): node is TextLike {
-  return (
-    (node.type === 'JSXExpressionContainer' &&
-      node.expression.type !== 'ConditionalExpression' &&
-      node.expression.type !== 'LogicalExpression') ||
-    node.type === 'JSXText'
-  )
+  if (node.type === 'JSXExpressionContainer') {
+    const expression = getExpression(node)
+    return (
+      expression.type !== 'ConditionalExpression' &&
+      expression.type !== 'LogicalExpression'
+    )
+  } else {
+    return node.type === 'JSXText'
+  }
 }

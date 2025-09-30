@@ -22,7 +22,7 @@ import {
   type SimpleExpressionNode,
 } from './utils'
 import type { CodegenOptions } from './generate'
-import type { JSXAttribute, JSXElement, JSXFragment } from '@babel/types'
+import type { JSXAttribute, JSXElement, JSXFragment } from 'oxc-parser'
 
 export type NodeTransform = (
   node: BlockIRNode['node'],
@@ -88,7 +88,6 @@ const defaultOptions: Required<TransformOptions> = {
   directiveTransforms: {},
   templates: [],
   isCustomElement: NOOP,
-  expressionPlugins: [],
   isTS: false,
   withFallback: false,
   onError: (error: CompilerError) => {

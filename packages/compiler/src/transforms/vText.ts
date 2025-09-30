@@ -1,4 +1,4 @@
-import { escapeHtml, isVoidTag } from '@vue/shared'
+import { isVoidTag } from '@vue/shared'
 import { IRNodeTypes } from '../ir'
 import {
   createCompilerError,
@@ -34,7 +34,7 @@ export const transformVText: DirectiveTransform = (dir, node, context) => {
 
   const literal = getLiteralExpressionValue(exp)
   if (literal != null) {
-    context.childrenTemplate = [escapeHtml(String(literal))]
+    context.childrenTemplate = [literal]
   } else {
     context.childrenTemplate = [' ']
     context.registerOperation({

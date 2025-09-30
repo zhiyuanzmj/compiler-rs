@@ -1,5 +1,4 @@
-import { camelize, extend, isArray } from '@vue/shared'
-import { walkIdentifiers } from 'ast-kit'
+import { camelize, isArray } from '@vue/shared'
 import {
   IRDynamicPropsKind,
   IRSlotType,
@@ -26,6 +25,7 @@ import {
   INDENT_START,
   NEWLINE,
   toValidAssetId,
+  walkIdentifiers,
   type CodeFragment,
 } from '../utils'
 import type { CodegenContext } from '../generate'
@@ -78,10 +78,7 @@ export function genCreateComponent(
     } else if (operation.asset) {
       return toValidAssetId(operation.tag, 'component')
     } else {
-      return genExpression(
-        extend(createSimpleExpression(operation.tag, false), { ast: null }),
-        context,
-      )
+      return genExpression(createSimpleExpression(operation.tag), context)
     }
   }
 }
@@ -349,8 +346,8 @@ function genSlotBlockWithProps(oper: SlotBlockIRNode, context: CodegenContext) {
       propsName = `_slotProps${depth}`
       walkIdentifiers(
         props.ast,
-        (id, _, __, ___, isLocal) => {
-          if (isLocal) idsOfProps.add(id.name)
+        (id, _, __, isReference, isLocal) => {
+          if (isReference && !isLocal) idsOfProps.add(id.name)
         },
         true,
       )

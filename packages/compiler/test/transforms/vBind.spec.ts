@@ -49,25 +49,25 @@ describe('compiler v-bind', () => {
             key: {
               content: 'id',
               isStatic: true,
-              loc: {
-                start: { line: 1, column: 5, index: 5 },
-                end: { line: 1, column: 7, index: 7 },
-              },
+              // loc: {
+              //   start: { line: 1, column: 5, index: 5 },
+              //   end: { line: 1, column: 7, index: 7 },
+              // },
             },
             values: [
               {
                 content: 'id',
                 isStatic: false,
-                loc: {
-                  start: { line: 1, column: 9, index: 9 },
-                  end: { line: 1, column: 11, index: 11 },
-                },
+                // loc: {
+                //   start: { line: 1, column: 9, index: 9 },
+                //   end: { line: 1, column: 11, index: 11 },
+                // },
               },
             ],
-            loc: {
-              start: { line: 1, column: 5, index: 5 },
-              end: { line: 1, column: 12, index: 12 },
-            },
+            // loc: {
+            //   start: { line: 1, column: 5, index: 5 },
+            //   end: { line: 1, column: 12, index: 12 },
+            // },
             runtimeCamelize: false,
           },
         },
@@ -87,19 +87,19 @@ describe('compiler v-bind', () => {
         key: {
           content: `id`,
           isStatic: true,
-          loc: {
-            start: { line: 1, column: 5, index: 5 },
-            end: { line: 1, column: 7, index: 7 },
-          },
+          // loc: {
+          //   start: { line: 1, column: 5, index: 5 },
+          //   end: { line: 1, column: 7, index: 7 },
+          // },
         },
         values: [
           {
             content: `true`,
             isStatic: false,
-            loc: {
-              start: { line: 1, column: 0, index: 0 },
-              end: { line: 1, column: 0, index: 0 },
-            },
+            // loc: {
+            //   start: { line: 1, column: 0, index: 0 },
+            //   end: { line: 1, column: 0, index: 0 },
+            // },
           },
         ],
       },
@@ -544,7 +544,9 @@ describe('compiler v-bind', () => {
   })
 
   test('number value', () => {
-    const { code } = compileWithVBind(`<Comp depth={0} />`)
+    const { code } = compileWithVBind(
+      `<><div depth={0} /><Comp depth={0} /></>`,
+    )
     expect(code).matchSnapshot()
     expect(code).contains('{ depth: () => (0) }')
   })

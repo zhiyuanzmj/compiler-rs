@@ -1,17 +1,18 @@
 import { isString } from '@vue/shared'
-import { walkIdentifiers } from 'ast-kit'
 import {
-  advancePositionWithClone,
+  // advancePositionWithClone,
   buildCodeFragment,
   isConstantExpression,
   isStaticProperty,
   NewlineType,
   TS_NODE_TYPES,
+  walkIdentifiers,
   type CodeFragment,
   type SimpleExpressionNode,
 } from '../utils'
 import type { CodegenContext } from '../generate'
-import type { Identifier, Node, SourceLocation } from '@babel/types'
+import type { SourceLocation } from '../ir'
+import type { IdentifierName, Node } from 'oxc-parser'
 
 export function genExpression(
   node: SimpleExpressionNode,
@@ -28,22 +29,16 @@ export function genExpression(
     return [[JSON.stringify(content), NewlineType.None, loc]]
   }
 
-  if (
-    !node.content.trim() ||
-    // there was a parsing error
-    ast === false ||
-    isConstantExpression(node)
-  ) {
+  if (!node.content.trim() || isConstantExpression(node)) {
     return [[content, NewlineType.None, loc], assignment && ` = ${assignment}`]
   }
 
-  // the expression is a simple identifier
-  if (ast === null) {
+  if (!ast) {
     return genIdentifier(content, context, loc, assignment)
   }
 
-  const ids: Identifier[] = []
-  const parentStackMap = new Map<Identifier, Node[]>()
+  const ids: IdentifierName[] = []
+  const parentStackMap = new Map<IdentifierName, Node[]>()
   const parentStack: Node[] = []
   walkIdentifiers(
     ast!,
@@ -58,7 +53,7 @@ export function genExpression(
   let hasMemberExpression = false
   if (ids.length) {
     const [frag, push] = buildCodeFragment()
-    const isTSNode = ast && TS_NODE_TYPES.includes(ast.type)
+    const isTSNode = ast && TS_NODE_TYPES.includes(ast.type as any)
     const offset = (ast?.start ? ast.start - 1 : 0) - (needWrap ? 7 : 0)
     ids
       .sort((a, b) => a.start! - b.start!)
@@ -80,21 +75,17 @@ export function genExpression(
         const parentStack = parentStackMap.get(id)!
         const parent = parentStack.at(-1)
 
-        hasMemberExpression ||=
-          !!parent &&
-          (parent.type === 'MemberExpression' ||
-            parent.type === 'OptionalMemberExpression')
+        hasMemberExpression ||= !!parent && parent.type === 'MemberExpression'
 
         push(
           ...genIdentifier(
             source,
             context,
-            {
-              start: advancePositionWithClone(node.loc!.start, source, start),
-              end: advancePositionWithClone(node.loc!.start, source, end),
-              filename: '',
-              identifierName: undefined,
-            },
+            undefined,
+            // {
+            //   start: advancePositionWithClone(node.loc?.start, source, start),
+            //   end: advancePositionWithClone(node.loc?.start, source, end),
+            // },
             hasMemberExpression ? undefined : assignment,
             parent,
           ),
@@ -128,7 +119,7 @@ function genIdentifier(
   if (idMap && idMap.length) {
     const replacement = idMap[0]
     if (isString(replacement)) {
-      if (parent && parent.type === 'ObjectProperty' && parent.shorthand) {
+      if (parent && parent.type === 'Property' && parent.shorthand) {
         return [[`${name}: ${replacement}`, NewlineType.None, loc]]
       } else {
         return [[replacement, NewlineType.None, loc]]

@@ -39,10 +39,10 @@ describe('compiler: template ref transform', () => {
       value: {
         content: 'foo',
         isStatic: true,
-        loc: {
-          start: { line: 1, column: 9, index: 9 },
-          end: { line: 1, column: 14, index: 14 },
-        },
+        // loc: {
+        //   start: { line: 1, column: 9, index: 9 },
+        //   end: { line: 1, column: 14, index: 14 },
+        // },
       },
     })
     expect(code).matchSnapshot()

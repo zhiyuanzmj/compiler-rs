@@ -1,4 +1,3 @@
-import { parse } from '@babel/parser'
 import { extend, isString } from '@vue/shared'
 import { generate, type VaporCodegenResult } from './generate'
 import { IRNodeTypes, type RootNode } from './ir'
@@ -23,7 +22,8 @@ import { transformVShow } from './transforms/vShow'
 import { transformVSlot } from './transforms/vSlot'
 import { transformVSlots } from './transforms/vSlots'
 import { transformVText } from './transforms/vText'
-import type { ExpressionStatement, JSXElement, JSXFragment } from '@babel/types'
+import { parseExpression } from './utils'
+import type { JSXElement, JSXFragment } from 'oxc-parser'
 
 // code/AST -> IR (transform) -> JS (generate)
 export function compile(
@@ -31,27 +31,13 @@ export function compile(
   options: CompilerOptions = {},
 ): VaporCodegenResult {
   const resolvedOptions = extend({}, options, {
-    expressionPlugins: options.expressionPlugins || ['jsx'],
+    filename: 'index.jsx',
   })
   if (!resolvedOptions.source && isString(source)) {
     resolvedOptions.source = source
   }
-  if (resolvedOptions.isTS) {
-    const { expressionPlugins } = resolvedOptions
-    if (!expressionPlugins.includes('typescript')) {
-      resolvedOptions.expressionPlugins = [
-        ...(expressionPlugins || []),
-        'typescript',
-      ]
-    }
-  }
   const root = isString(source)
-    ? (
-        parse(source, {
-          sourceType: 'module',
-          plugins: resolvedOptions.expressionPlugins,
-        }).program.body[0] as ExpressionStatement
-      ).expression
+    ? parseExpression(resolvedOptions.filename, source)
     : source
   const children =
     root.type === 'JSXFragment'

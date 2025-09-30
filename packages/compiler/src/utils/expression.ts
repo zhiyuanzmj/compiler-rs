@@ -1,39 +1,35 @@
-import { parseExpression } from '@babel/parser'
 import { isGloballyAllowed, makeMap } from '@vue/shared'
+import {
+  parseSync,
+  type ExpressionStatement,
+  type JSXAttribute,
+  type Node,
+} from 'oxc-parser'
+import type { SourceLocation } from '../ir'
 import type { TransformContext } from '../transform'
-import { unwrapTSNode } from './ast'
-import { getText, resolveJSXText } from './text'
-import type {
-  BigIntLiteral,
-  JSXAttribute,
-  Node,
-  NumericLiteral,
-  SourceLocation,
-  StringLiteral,
-} from '@babel/types'
+import { isStringLiteral } from './check'
+import { resolveJSXText } from './text'
+import { getExpression, getTextLikeValue, unwrapTSNode } from './utils'
 
 export interface SimpleExpressionNode {
   content: string
   isStatic: boolean
   loc: SourceLocation | null | undefined
-  ast?: Node | null | false
+  ast?: Node
 }
 
-export const locStub: SourceLocation = {
-  start: { line: 1, column: 0, index: 0 },
-  end: { line: 1, column: 0, index: 0 },
-  filename: '',
-  identifierName: undefined,
-}
+export const locStub: SourceLocation = [0, 0]
 export function createSimpleExpression(
   content: string,
   isStatic: boolean = false,
-  loc: SourceLocation | null = locStub,
+  ast?: Node,
+  loc?: SourceLocation,
 ): SimpleExpressionNode {
   return {
-    loc,
     content,
     isStatic,
+    ast,
+    loc: loc || (ast ? ast.range : locStub),
   }
 }
 
@@ -49,19 +45,11 @@ export function isConstantExpression(exp: SimpleExpressionNode) {
 
 export function getLiteralExpressionValue(
   exp: SimpleExpressionNode,
-): number | string | boolean | null {
+): string | null {
   if (exp.ast) {
-    if (
-      ['StringLiteral', 'NumericLiteral', 'BigIntLiteral'].includes(
-        exp.ast.type,
-      )
-    ) {
-      return (exp.ast as StringLiteral | NumericLiteral | BigIntLiteral).value
-    } else if (
-      exp.ast.type === 'TemplateLiteral' &&
-      exp.ast.expressions.length === 0
-    ) {
-      return exp.ast.quasis[0].value.cooked!
+    const res = getTextLikeValue(exp.ast)
+    if (res != null) {
+      return res
     }
   }
   return exp.isStatic ? exp.content : null
@@ -74,11 +62,9 @@ export function resolveExpression(
   context: TransformContext,
 ): SimpleExpressionNode {
   if (!node) return EMPTY_EXPRESSION
-  node = unwrapTSNode(
-    node.type === 'JSXExpressionContainer' ? node.expression : node,
-  ) as Node
+  node = unwrapTSNode(getExpression(node))
   const isStatic =
-    node.type === 'StringLiteral' ||
+    isStringLiteral(node) ||
     node.type === 'JSXText' ||
     node.type === 'JSXIdentifier'
   const source =
@@ -86,40 +72,14 @@ export function resolveExpression(
       ? ''
       : node.type === 'JSXIdentifier'
         ? node.name
-        : node.type === 'StringLiteral'
+        : isStringLiteral(node)
           ? node.value
           : node.type === 'JSXText'
             ? resolveJSXText(node)
             : node.type === 'Identifier'
               ? node.name
               : context.ir.source.slice(node.start!, node.end!)
-  const location = node.loc
-  return resolveSimpleExpression(source, isStatic, location, node)
-}
-
-export function resolveSimpleExpression(
-  source: string,
-  isStatic: boolean,
-  location?: SourceLocation | null,
-  ast?: false | Node | null,
-) {
-  const result = createSimpleExpression(source, isStatic, location)
-  result.ast = ast ?? null
-  return result
-}
-
-export function resolveExpressionWithFn(node: Node, context: TransformContext) {
-  const text = getText(node, context)
-  return node.type === 'Identifier'
-    ? resolveSimpleExpression(text, false, node.loc)
-    : resolveSimpleExpression(
-        text,
-        false,
-        node.loc,
-        parseExpression(`(${text})=>{}`, {
-          plugins: context.options.expressionPlugins,
-        }),
-      )
+  return createSimpleExpression(source, isStatic, node)
 }
 
 export function propToExpression(
@@ -130,4 +90,9 @@ export function propToExpression(
     prop.value?.type === 'JSXExpressionContainer'
     ? resolveExpression(prop.value.expression, context)
     : EMPTY_EXPRESSION
+}
+
+export function parseExpression(filename: string, source: string) {
+  return (parseSync(filename, source).program.body[0] as ExpressionStatement)
+    .expression
 }

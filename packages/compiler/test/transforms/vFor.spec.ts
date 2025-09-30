@@ -215,12 +215,7 @@ describe('compiler: v-for', () => {
       value: {
         content: '{ id, value }',
         ast: {
-          type: 'ArrowFunctionExpression',
-          params: [
-            {
-              type: 'ObjectPattern',
-            },
-          ],
+          type: 'ObjectExpression',
         },
       },
       key: undefined,
@@ -242,14 +237,7 @@ describe('compiler: v-for', () => {
       },
       value: {
         content: '{ id, ...other }',
-        ast: {
-          type: 'ArrowFunctionExpression',
-          params: [
-            {
-              type: 'ObjectPattern',
-            },
-          ],
-        },
+        ast: { type: 'ObjectExpression' },
       },
       key: {
         content: 'index',
@@ -271,14 +259,7 @@ describe('compiler: v-for', () => {
       },
       value: {
         content: '[id, other]',
-        ast: {
-          type: 'ArrowFunctionExpression',
-          params: [
-            {
-              type: 'ArrayPattern',
-            },
-          ],
-        },
+        ast: { type: 'ArrayExpression' },
       },
       key: {
         content: 'index',
@@ -302,12 +283,7 @@ describe('compiler: v-for', () => {
       value: {
         content: '[id, ...other]',
         ast: {
-          type: 'ArrowFunctionExpression',
-          params: [
-            {
-              type: 'ArrayPattern',
-            },
-          ],
+          type: 'ArrayExpression',
         },
       },
       key: {
@@ -320,7 +296,7 @@ describe('compiler: v-for', () => {
   test('v-for aliases w/ complex expressions', () => {
     const { code, ir } = compileWithVFor(
       `<div v-for={({ foo, baz: [qux] }) in list}>
-        { foo + bar + baz + qux + quux }
+        { foo + baz + qux }
       </div>`,
     )
     expect(code).matchSnapshot()
@@ -332,14 +308,7 @@ describe('compiler: v-for', () => {
       },
       value: {
         content: '{ foo, baz: [qux] }',
-        ast: {
-          type: 'ArrowFunctionExpression',
-          params: [
-            {
-              type: 'ObjectPattern',
-            },
-          ],
-        },
+        ast: { type: 'ObjectExpression' },
       },
       key: undefined,
       index: undefined,

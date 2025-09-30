@@ -1,7 +1,7 @@
 import { DynamicFlag, IRNodeTypes, type OperationNode } from '../ir'
 import { transformNode, type TransformContext } from '../transform'
 import { createBranch, isConstantNode, resolveExpression } from '../utils'
-import type { ConditionalExpression, LogicalExpression } from '@babel/types'
+import type { ConditionalExpression, LogicalExpression } from 'oxc-parser'
 
 export function processConditionalExpression(
   node: ConditionalExpression,

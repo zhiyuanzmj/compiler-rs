@@ -1,7 +1,7 @@
 import type { SimpleExpressionNode } from '../utils'
 
 import type { IRProp, IRProps, IRSlots } from './component'
-import type { JSXFragment, Node, SourceLocation } from '@babel/types'
+import type { JSXFragment, Node } from 'oxc-parser'
 
 export * from './component'
 
@@ -311,5 +311,7 @@ export interface DirectiveNode {
   exp: SimpleExpressionNode | undefined
   arg: SimpleExpressionNode | undefined
   modifiers: SimpleExpressionNode[]
-  loc: SourceLocation
+  loc: SourceLocation | undefined
 }
+
+export type SourceLocation = [number, number]

@@ -7,10 +7,11 @@ import {
   getText,
   isJSXComponent,
   isMemberExpression,
+  isStringLiteral,
   resolveDirective,
 } from '../utils'
 import type { DirectiveTransform } from '../transform'
-import type { JSXElement } from '@babel/types'
+import type { JSXElement } from 'oxc-parser'
 
 export const transformVModel: DirectiveTransform = (_dir, node, context) => {
   const dir = resolveDirective(_dir, context)
@@ -63,7 +64,7 @@ export const transformVModel: DirectiveTransform = (_dir, node, context) => {
         if (type.value.type === 'JSXExpressionContainer') {
           // type={foo}
           modelType = 'dynamic'
-        } else if (type.value.type === 'StringLiteral') {
+        } else if (isStringLiteral(type.value)) {
           switch (type.value.value) {
             case 'radio':
               modelType = 'radio'
@@ -118,7 +119,7 @@ export const transformVModel: DirectiveTransform = (_dir, node, context) => {
 
   function checkDuplicatedValue() {
     const value = findProp(node, 'value')
-    if (value && value.value?.type !== 'StringLiteral') {
+    if (value && !isStringLiteral(value.value)) {
       context.options.onError(
         createCompilerError(ErrorCodes.X_V_MODEL_UNNECESSARY_VALUE, value.loc),
       )

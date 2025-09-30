@@ -11,7 +11,6 @@ import {
 } from './utils/generate'
 import type { BlockIRNode, RootIRNode } from './ir'
 import type { SimpleExpressionNode } from './utils'
-import type { ParserPlugin } from '@babel/parser'
 import type { RawSourceMap } from 'source-map-js'
 
 export type CodegenOptions = {
@@ -26,12 +25,6 @@ export type CodegenOptions = {
    * @default 'index.jsx'
    */
   filename?: string
-  /**
-   * A list of parser plugins to enable for `@babel/parser`, which is used to
-   * parse expressions in bindings and interpolations.
-   * https://babeljs.io/docs/en/next/babel-parser#plugins
-   */
-  expressionPlugins?: ParserPlugin[]
   templates?: string[]
 }
 
@@ -87,7 +80,6 @@ export class CodegenContext {
     const defaultOptions: Required<CodegenOptions> = {
       sourceMap: false,
       filename: `index.jsx`,
-      expressionPlugins: ['jsx'],
       templates: [],
     }
     this.options = extend(defaultOptions, options)

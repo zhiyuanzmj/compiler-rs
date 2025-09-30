@@ -1,19 +1,13 @@
 import type { DirectiveNode } from '../ir'
 import type { TransformContext } from '../transform'
-import {
-  createSimpleExpression,
-  resolveExpression,
-  resolveExpressionWithFn,
-  resolveSimpleExpression,
-} from './expression'
+import { createSimpleExpression, resolveExpression } from './expression'
 import { getText } from './text'
-import type { JSXAttribute } from '@babel/types'
+import type { JSXAttribute } from 'oxc-parser'
 
 const namespaceRE = /^(?:\$([\w-]+)\$)?([\w-]+)?/
 export function resolveDirective(
   node: JSXAttribute,
   context: TransformContext,
-  withFn = false,
 ): DirectiveNode {
   const { value, name } = node
   let nameString =
@@ -46,22 +40,18 @@ export function resolveDirective(
 
   const arg = isDirective
     ? argString && name.type === 'JSXNamespacedName'
-      ? resolveSimpleExpression(argString, isStatic, name.name.loc)
+      ? createSimpleExpression(argString, isStatic, name.name)
       : undefined
-    : resolveSimpleExpression(nameString, true, name.loc)
+    : createSimpleExpression(nameString, true, name)
 
-  const exp = value
-    ? withFn && value.type === 'JSXExpressionContainer'
-      ? resolveExpressionWithFn(value.expression, context)
-      : resolveExpression(value, context)
-    : undefined
+  const exp = value ? resolveExpression(value, context) : undefined
 
   return {
     name: isDirective ? nameString.slice(2) : 'bind',
     rawName: getText(name, context),
     exp,
     arg,
-    loc: node.loc!,
+    loc: node.range,
     modifiers: modifiers.map((modifier) => createSimpleExpression(modifier)),
   }
 }

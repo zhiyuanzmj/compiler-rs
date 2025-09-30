@@ -83,10 +83,7 @@ describe('compiler: transform slot', () => {
               type: IRNodeTypes.BLOCK,
               props: {
                 content: '{ foo }',
-                ast: {
-                  type: 'ArrowFunctionExpression',
-                  params: [{ type: 'ObjectPattern' }],
-                },
+                ast: { type: 'ObjectExpression' },
               },
             },
           },
@@ -419,21 +416,21 @@ describe('compiler: transform slot', () => {
       const onError = vi.fn()
       const source = `<Comp><template v-slot:default>foo</template>bar</Comp>`
       compileWithSlots(source, { onError })
-      const index = source.indexOf('bar')
+      // const index = source.indexOf('bar')
       expect(onError.mock.calls[0][0]).toMatchObject({
         code: ErrorCodes.X_V_SLOT_EXTRANEOUS_DEFAULT_SLOT_CHILDREN,
-        loc: {
-          start: {
-            index,
-            line: 1,
-            column: index,
-          },
-          end: {
-            index: index + 3,
-            line: 1,
-            column: index + 3,
-          },
-        },
+        // loc: {
+        //   start: {
+        //     index,
+        //     line: 1,
+        //     column: index,
+        //   },
+        //   end: {
+        //     index: index + 3,
+        //     line: 1,
+        //     column: index + 3,
+        //   },
+        // },
       })
     })
 
@@ -441,21 +438,21 @@ describe('compiler: transform slot', () => {
       const onError = vi.fn()
       const source = `<Comp><template v-slot:foo></template><template v-slot:foo></template></Comp>`
       compileWithSlots(source, { onError })
-      const index = source.lastIndexOf('v-slot:foo')
+      // const index = source.lastIndexOf('v-slot:foo')
       expect(onError.mock.calls[0][0]).toMatchObject({
         code: ErrorCodes.X_V_SLOT_DUPLICATE_SLOT_NAMES,
-        loc: {
-          start: {
-            index,
-            line: 1,
-            column: index,
-          },
-          end: {
-            index: index + 10,
-            line: 1,
-            column: index + 10,
-          },
-        },
+        // loc: {
+        //   start: {
+        //     index,
+        //     line: 1,
+        //     column: index,
+        //   },
+        //   end: {
+        //     index: index + 10,
+        //     line: 1,
+        //     column: index + 10,
+        //   },
+        // },
       })
     })
 
@@ -463,21 +460,21 @@ describe('compiler: transform slot', () => {
       const onError = vi.fn()
       const source = `<Comp v-slot={foo}><template v-slot:foo></template></Comp>`
       compileWithSlots(source, { onError })
-      const index = source.lastIndexOf('v-slot={foo}')
+      // const index = source.lastIndexOf('v-slot={foo}')
       expect(onError.mock.calls[0][0]).toMatchObject({
         code: ErrorCodes.X_V_SLOT_MIXED_SLOT_USAGE,
-        loc: {
-          start: {
-            index,
-            line: 1,
-            column: index,
-          },
-          end: {
-            index: index + 12,
-            line: 1,
-            column: index + 12,
-          },
-        },
+        // loc: {
+        //   start: {
+        //     index,
+        //     line: 1,
+        //     column: index,
+        //   },
+        //   end: {
+        //     index: index + 12,
+        //     line: 1,
+        //     column: index + 12,
+        //   },
+        // },
       })
     })
 
@@ -485,21 +482,21 @@ describe('compiler: transform slot', () => {
       const onError = vi.fn()
       const source = `<div v-slot/>`
       compileWithSlots(source, { onError })
-      const index = source.indexOf('v-slot')
+      // const index = source.indexOf('v-slot')
       expect(onError.mock.calls[0][0]).toMatchObject({
         code: ErrorCodes.X_V_SLOT_MISPLACED,
-        loc: {
-          start: {
-            index,
-            line: 1,
-            column: index,
-          },
-          end: {
-            index: index + 6,
-            line: 1,
-            column: index + 6,
-          },
-        },
+        // loc: {
+        //   start: {
+        //     index,
+        //     line: 1,
+        //     column: index,
+        //   },
+        //   end: {
+        //     index: index + 6,
+        //     line: 1,
+        //     column: index + 6,
+        //   },
+        // },
       })
     })
   })

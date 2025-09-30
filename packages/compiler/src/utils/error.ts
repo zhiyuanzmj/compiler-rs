@@ -1,4 +1,4 @@
-import type { SourceLocation } from '@babel/types'
+import type { SourceLocation } from '../ir'
 
 export enum ErrorCodes {
   X_V_IF_NO_EXPRESSION = 28,

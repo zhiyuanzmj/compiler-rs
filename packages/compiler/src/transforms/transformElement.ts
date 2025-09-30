@@ -10,11 +10,11 @@ import {
 } from '../ir'
 import {
   createSimpleExpression,
+  getTextLikeValue,
   isJSXComponent,
   isTemplate,
   isValidHTMLNesting,
   resolveExpression,
-  resolveSimpleExpression,
   type SimpleExpressionNode,
 } from '../utils'
 import type {
@@ -22,7 +22,7 @@ import type {
   NodeTransform,
   TransformContext,
 } from '../transform'
-import type { JSXAttribute, JSXElement, JSXSpreadAttribute } from '@babel/types'
+import type { JSXAttribute, JSXElement, JSXSpreadAttribute } from 'oxc-parser'
 
 export const isReservedProp = /* #__PURE__ */ makeMap(
   // the leading comma is intentional so empty string "" is also included
@@ -227,7 +227,7 @@ export function buildProps(
       continue
     }
 
-    const result = transformProp(prop, node, context)
+    const result = transformProp(prop, node, isComponent, context)
     if (result) {
       dynamicExpr.push(result.key, result.value)
       if (isComponent && !result.key.isStatic) {
@@ -259,6 +259,7 @@ export function buildProps(
 function transformProp(
   prop: JSXAttribute | JSXSpreadAttribute,
   node: JSXElement,
+  isComponent: boolean,
   context: TransformContext<JSXElement>,
 ): DirectiveTransformResult | void {
   if (prop.type === 'JSXSpreadAttribute') return
@@ -270,18 +271,18 @@ function transformProp(
         : ''
   name = name.split('_')[0]
 
+  let value
   if (
     !isDirectiveRegex.test(name) &&
     !isEventRegex.test(name) &&
-    (!prop.value || prop.value.type === 'StringLiteral')
+    (!prop.value || (value = getTextLikeValue(prop.value, isComponent)) != null)
   ) {
     if (isReservedProp(name)) return
     return {
-      key: resolveSimpleExpression(name, true, prop.name.loc!),
-      value:
-        prop.value && prop.value.type === 'StringLiteral'
-          ? resolveSimpleExpression(prop.value.value, true, prop.value.loc!)
-          : createSimpleExpression('true', false),
+      key: createSimpleExpression(name, true, prop.name),
+      value: prop.value
+        ? createSimpleExpression(value!, true, prop.value)
+        : createSimpleExpression('true'),
     }
   }
 

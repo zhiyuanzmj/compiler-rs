@@ -10,7 +10,7 @@ import {
   type TransformContext,
 } from '../transform'
 import { isJSXComponent, isTemplate } from '../utils'
-import type { Node } from '@babel/types'
+import type { Node } from 'oxc-parser'
 
 export const transformChildren: NodeTransform = (node, context) => {
   const isFragment =

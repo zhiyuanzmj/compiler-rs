@@ -1,13 +1,4 @@
 import {
-  jsxClosingFragment,
-  jsxExpressionContainer,
-  jsxFragment,
-  jsxOpeningFragment,
-  type Expression,
-  type JSXElement,
-  type JSXFragment,
-} from '@babel/types'
-import {
   DynamicFlag,
   type BlockIRNode,
   type IRDynamicInfo,
@@ -15,6 +6,7 @@ import {
 } from '../ir/index'
 import { isTemplate } from '../utils'
 import type { TransformContext } from '../transform'
+import type { Expression, JSXElement, JSXFragment } from 'oxc-parser'
 
 export function newDynamic(): IRDynamicInfo {
   return {
@@ -47,12 +39,28 @@ export function createBranch(
   return [branch, exitBlock]
 }
 
-export function wrapFragment(node: JSXElement | JSXFragment | Expression) {
+export function wrapFragment(
+  node: JSXElement | JSXFragment | Expression,
+): JSXFragment | JSXElement {
   if (node.type === 'JSXFragment' || isTemplate(node)) {
-    return node
+    return node as JSXFragment
   }
 
-  return jsxFragment(jsxOpeningFragment(), jsxClosingFragment(), [
-    node.type === 'JSXElement' ? node : jsxExpressionContainer(node),
-  ])
+  return {
+    type: 'JSXFragment',
+    start: 0,
+    end: 0,
+    openingFragment: { type: 'JSXOpeningFragment', start: 0, end: 0 },
+    closingFragment: { type: 'JSXClosingFragment', start: 0, end: 0 },
+    children: [
+      node.type === 'JSXElement'
+        ? node
+        : {
+            type: 'JSXExpressionContainer',
+            start: 0,
+            end: 0,
+            expression: node,
+          },
+    ],
+  }
 }

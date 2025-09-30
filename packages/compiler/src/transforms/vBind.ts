@@ -1,16 +1,16 @@
 import { camelize, extend } from '@vue/shared'
-import { resolveExpression, resolveSimpleExpression } from '../utils'
+import { createSimpleExpression, resolveExpression } from '../utils'
 import type { DirectiveTransform } from '../transform'
 import { isReservedProp } from './transformElement'
 
 export const transformVBind: DirectiveTransform = (dir, node, context) => {
-  const { name, value, loc } = dir
-  if (!loc || name.type === 'JSXNamespacedName') return
+  const { name, value } = dir
+  if (name.type === 'JSXNamespacedName') return
 
   const [nameString, ...modifiers] = name.name.split('_')
 
   const exp = resolveExpression(value, context)
-  let arg = resolveSimpleExpression(nameString, true, dir.name.loc)
+  let arg = createSimpleExpression(nameString, true, dir.name)
 
   if (arg.isStatic && isReservedProp(arg.content)) return
 
@@ -26,7 +26,7 @@ export const transformVBind: DirectiveTransform = (dir, node, context) => {
   return {
     key: arg,
     value: exp,
-    loc,
+    // loc,
     runtimeCamelize: camel,
     modifier: modifiers.includes('prop')
       ? '.'

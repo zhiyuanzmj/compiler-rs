@@ -23,7 +23,7 @@ import {
 } from '../utils'
 import type { NodeTransform, TransformContext } from '../transform'
 import { getForParseResult } from './vFor'
-import type { JSXElement } from '@babel/types'
+import type { JSXElement } from 'oxc-parser'
 
 export const transformVSlot: NodeTransform = (node, context) => {
   if (node.type !== 'JSXElement') return
@@ -31,9 +31,7 @@ export const transformVSlot: NodeTransform = (node, context) => {
   const { children } = node
 
   const dir = findProp(node, 'v-slot')
-  const resolvedDirective = dir
-    ? resolveDirective(dir, context, true)
-    : undefined
+  const resolvedDirective = dir ? resolveDirective(dir, context) : undefined
   const { parent } = context
 
   const isComponent = isJSXComponent(node)
@@ -49,7 +47,7 @@ export const transformVSlot: NodeTransform = (node, context) => {
     return transformTemplateSlot(node, resolvedDirective, context)
   } else if (!isComponent && dir) {
     context.options.onError(
-      createCompilerError(ErrorCodes.X_V_SLOT_MISPLACED, dir.loc as any),
+      createCompilerError(ErrorCodes.X_V_SLOT_MISPLACED, dir.range),
     )
   }
 }
@@ -91,7 +89,7 @@ function transformComponentSlot(
         context.options.onError(
           createCompilerError(
             ErrorCodes.X_V_SLOT_EXTRANEOUS_DEFAULT_SLOT_CHILDREN,
-            nonSlotTemplateChildren[0].loc as any,
+            nonSlotTemplateChildren[0].range,
           ),
         )
       } else {

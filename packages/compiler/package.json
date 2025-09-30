@@ -40,12 +40,8 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@babel/parser": "catalog:",
-    "@babel/types": "catalog:",
-    "@oxc-project/types": "^0.92.0",
-    "@vue/shared": "catalog:",
-    "ast-kit": "catalog:",
+    "@vue/shared": "3.6.0-alpha.2",
     "oxc-parser": "^0.92.0",
-    "source-map-js": "catalog:"
+    "source-map-js": "^1.2.1"
   }
 }
