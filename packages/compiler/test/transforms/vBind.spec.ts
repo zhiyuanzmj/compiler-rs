@@ -523,7 +523,7 @@ describe('compiler v-bind', () => {
       `
         <div
           a={void 0}
-          b={1 > 2} 
+          b={1 > 2}
           c={1 + 2}
           d={1 ? 2 : 3}
           e={(2)}

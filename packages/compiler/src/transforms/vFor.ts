@@ -38,7 +38,7 @@ export function processFor(
   }
 
   const keyProp = findProp(node, 'key')
-  const keyProperty = keyProp && propToExpression(keyProp, context)
+  const keyProperty = keyProp! && propToExpression(keyProp, context)
   const isComponent =
     isJSXComponent(node) ||
     // template v-for with a single component child

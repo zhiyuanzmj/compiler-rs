@@ -1,10 +1,9 @@
+import { isTemplate } from '@vue-jsx-vapor/compiler-rs'
 import { isGloballyAllowed, isHTMLTag, isSVGTag } from '@vue/shared'
 import { IRNodeTypes, type RootNode } from '../ir'
 import { unwrapTSNode } from './utils'
 import type { SimpleExpressionNode } from './expression'
 import type {
-  BigIntLiteral,
-  BooleanLiteral,
   Expression,
   ForInStatement,
   ForOfStatement,
@@ -14,58 +13,14 @@ import type {
   JSXElement,
   JSXFragment,
   Node,
-  NullLiteral,
-  NumericLiteral,
   ObjectProperty,
-  RegExpLiteral,
-  StringLiteral,
-  TemplateLiteral,
 } from 'oxc-parser'
-
-export type Literal =
-  | StringLiteral
-  | NumericLiteral
-  | NullLiteral
-  | BooleanLiteral
-  | RegExpLiteral
-  | BigIntLiteral
-  | TemplateLiteral
-
-export function isStringLiteral(
-  node: Node | null | undefined,
-): node is StringLiteral {
-  return !!node && node.type === 'Literal' && typeof node.value === 'string'
-}
-
-export function isNumericLiteral(
-  node: Node | null | undefined,
-): node is NumericLiteral {
-  return !!node && node.type === 'Literal' && typeof node.value === 'number'
-}
-
-export function isBigIntLiteral(
-  node: Node | null | undefined,
-): node is BigIntLiteral {
-  return !!node && node.type === 'Literal' && typeof node.value === 'bigint'
-}
-
-export function isRegExpLiteral(
-  node: Node | null | undefined,
-): node is RegExpLiteral {
-  return !!node && node.type === 'Literal' && !!(node as RegExpLiteral).regex
-}
-
-export function isNullLiteral(
-  node: Node | null | undefined,
-): node is NullLiteral {
-  return !!node && node.type === 'Literal' && node.raw === 'null'
-}
-
-export function isBooleanLiteral(
-  node: Node | null | undefined,
-): node is BooleanLiteral {
-  return !!node && node.type === 'Literal' && typeof node.value === 'boolean'
-}
+export {
+  isBigIntLiteral,
+  isNumericLiteral,
+  isStringLiteral,
+  isTemplate,
+} from '@vue-jsx-vapor/compiler-rs'
 
 export function isMemberExpression(exp: SimpleExpressionNode) {
   if (!exp.ast) return
@@ -74,21 +29,6 @@ export function isMemberExpression(exp: SimpleExpressionNode) {
     ret.type === 'MemberExpression' ||
     (ret.type === 'Identifier' && ret.name !== 'undefined')
   )
-}
-
-export function isJSXElement(
-  node?: Node | null,
-): node is JSXElement | JSXFragment {
-  return !!node && (node.type === 'JSXElement' || node.type === 'JSXFragment')
-}
-
-export function isTemplate(node: Node) {
-  if (
-    node.type === 'JSXElement' &&
-    node.openingElement.name.type === 'JSXIdentifier'
-  ) {
-    return node.openingElement.name.name === 'template'
-  }
 }
 
 export const isFragmentNode = (

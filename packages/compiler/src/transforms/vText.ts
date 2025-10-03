@@ -14,7 +14,7 @@ export const transformVText: DirectiveTransform = (dir, node, context) => {
   let exp
   if (!dir.value) {
     context.options.onError(
-      createCompilerError(ErrorCodes.X_V_TEXT_NO_EXPRESSION, dir.loc),
+      createCompilerError(ErrorCodes.X_V_TEXT_NO_EXPRESSION, dir.range),
     )
     exp = EMPTY_EXPRESSION
   } else {
@@ -22,7 +22,7 @@ export const transformVText: DirectiveTransform = (dir, node, context) => {
   }
   if (node.children.length) {
     context.options.onError(
-      createCompilerError(ErrorCodes.X_V_TEXT_WITH_CHILDREN, dir.loc as any),
+      createCompilerError(ErrorCodes.X_V_TEXT_WITH_CHILDREN, dir.range),
     )
     context.childrenTemplate.length = 0
   }

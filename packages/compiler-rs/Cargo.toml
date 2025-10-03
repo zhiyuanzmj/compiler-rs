@@ -1,0 +1,24 @@
+
+[package]
+authors = ["zhiyuanzmj <260480378@qq.com>"]
+edition = "2024"
+name = "compiler-rs"
+version = "0.1.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = {version = "3.3.0", features = ["napi9"]}
+napi-derive = "3.2.5"
+oxc_parser = "0.93.0"
+oxc_ast = "0.93.0"
+serde_json = "1.0.145"
+
+[build-dependencies]
+napi-build = "2"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = "symbols"

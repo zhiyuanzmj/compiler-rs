@@ -320,7 +320,7 @@ function matchPatterns(
   >[] = []
 
   render.effect = render.effect.filter((effect) => {
-    if (keyProp !== undefined) {
+    if (keyProp != null) {
       const selector = matchSelectorPattern(
         effect,
         keyProp.content,

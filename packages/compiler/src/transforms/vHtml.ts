@@ -11,7 +11,7 @@ export const transformVHtml: DirectiveTransform = (dir, node, context) => {
   let exp
   if (!dir.value) {
     context.options.onError(
-      createCompilerError(ErrorCodes.X_V_HTML_NO_EXPRESSION, dir.loc),
+      createCompilerError(ErrorCodes.X_V_HTML_NO_EXPRESSION, dir.range),
     )
     exp = EMPTY_EXPRESSION
   } else {
@@ -19,7 +19,7 @@ export const transformVHtml: DirectiveTransform = (dir, node, context) => {
   }
   if (node.children.length) {
     context.options.onError(
-      createCompilerError(ErrorCodes.X_V_HTML_WITH_CHILDREN, dir.loc),
+      createCompilerError(ErrorCodes.X_V_HTML_WITH_CHILDREN, dir.range),
     )
     context.childrenTemplate.length = 0
   }

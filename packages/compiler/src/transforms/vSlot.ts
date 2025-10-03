@@ -102,7 +102,6 @@ function transformComponentSlot(
   }
 }
 
-const elseIfRE = /^v-else(-if)?$/
 // <template v-slot:foo>
 function transformTemplateSlot(
   node: JSXElement,
@@ -114,7 +113,7 @@ function transformTemplateSlot(
   const arg = dir.arg
   const vFor = findProp(node, 'v-for')
   const vIf = findProp(node, 'v-if')
-  const vElse = findProp(node, elseIfRE)
+  const vElse = findProp(node, ['v-else', 'v-else-if'])
   const { slots } = context
   const [block, onExit] = createSlotBlock(node, dir, context)
 

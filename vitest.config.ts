@@ -5,7 +5,7 @@ export default defineConfig({
     conditions: ['jsx-vapor-dev'],
   },
   test: {
-    include: ['./packages/**/*.spec.ts'],
+    include: ['**/*.spec.ts'],
   },
   define: {
     __DEV__: true,

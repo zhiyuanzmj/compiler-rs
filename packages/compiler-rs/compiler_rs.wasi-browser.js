@@ -5,15 +5,12 @@ import {
   WASI as __WASI,
 } from '@napi-rs/wasm-runtime'
 
-
-
 const __wasi = new __WASI({
   version: 'preview1',
 })
 
-const __wasmUrl = new URL('./package-template.wasm32-wasi.wasm', import.meta.url).href
+const __wasmUrl = new URL('./compiler-rs.wasm32-wasi.wasm', import.meta.url).href
 const __emnapiContext = __emnapiGetDefaultContext()
-
 
 const __sharedMemory = new WebAssembly.Memory({
   initial: 4000,
@@ -56,4 +53,12 @@ const {
   },
 })
 export default __napiModule.exports
-export const plus100 = __napiModule.exports.plus100
+export const findProp = __napiModule.exports.findProp
+export const getExpression = __napiModule.exports.getExpression
+export const getTextLikeValue = __napiModule.exports.getTextLikeValue
+export const isBigIntLiteral = __napiModule.exports.isBigIntLiteral
+export const isNumericLiteral = __napiModule.exports.isNumericLiteral
+export const isStringLiteral = __napiModule.exports.isStringLiteral
+export const isTemplate = __napiModule.exports.isTemplate
+export const TS_NODE_TYPES = __napiModule.exports.TS_NODE_TYPES
+export const unwrapTSNode = __napiModule.exports.unwrapTSNode

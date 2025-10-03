@@ -19,7 +19,7 @@ const delegatedEvents = /*#__PURE__*/ makeMap(
 )
 
 export const transformVOn: DirectiveTransform = (dir, node, context) => {
-  const { name, loc, value } = dir
+  const { name, range, value } = dir
   if (!name) return
   const isComponent = isJSXComponent(node)
 
@@ -30,7 +30,7 @@ export const transformVOn: DirectiveTransform = (dir, node, context) => {
 
   if (!value && !modifiers.length) {
     context.options.onError(
-      createCompilerError(ErrorCodes.X_V_ON_NO_EXPRESSION, loc),
+      createCompilerError(ErrorCodes.X_V_ON_NO_EXPRESSION, range),
     )
   }
 

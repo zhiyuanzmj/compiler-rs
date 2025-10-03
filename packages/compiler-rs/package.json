@@ -1,5 +1,5 @@
 {
-  "name": "@vue-jsx-vapor/compiler_rs",
+  "name": "@vue-jsx-vapor/compiler-rs",
   "version": "1.1.1",
   "description": "Template project for writing node package with napi-rs",
   "main": "index.js",
@@ -24,7 +24,7 @@
     "browser.js"
   ],
   "napi": {
-    "binaryName": "compiler_rs",
+    "binaryName": "compiler-rs",
     "targets": [
       "x86_64-apple-darwin",
       "aarch64-apple-darwin",
@@ -53,14 +53,14 @@
     "artifacts": "napi artifacts",
     "bench": "node --import @oxc-node/core/register benchmark/bench.ts",
     "build": "napi build --platform --release",
-    "build:debug": "napi build --platform",
+    "dev": "nodemon -w src -e rs -x 'napi build --platform'",
     "format": "run-p format:prettier format:rs format:toml",
     "format:prettier": "prettier . -w",
     "format:toml": "taplo format",
     "format:rs": "cargo fmt",
     "lint": "oxlint",
     "prepublishOnly": "napi prepublish -t npm",
-    "test": "ava",
+    "test": "vitest",
     "version": "napi version"
   },
   "devDependencies": {
@@ -76,7 +76,9 @@
     "emnapi": "^1.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.1.6",
+    "nodemon": "^3.1.10",
     "npm-run-all2": "^8.0.4",
+    "oxc-parser": "^0.92.0",
     "oxlint": "^1.14.0",
     "prettier": "^3.6.2",
     "tinybench": "^5.0.1",
