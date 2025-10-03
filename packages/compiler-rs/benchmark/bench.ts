@@ -1,5 +1,6 @@
 import { Bench } from 'tinybench'
 
+// @ts-ignore
 import { plus100 } from '../index.js'
 
 function add(a: number) {

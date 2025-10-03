@@ -40,9 +40,9 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@vue-jsx-vapor/compiler-rs": "workspace:*",
     "@vue/shared": "3.6.0-alpha.2",
     "oxc-parser": "^0.92.0",
-    "source-map-js": "^1.2.1",
-    "@vue-jsx-vapor/compiler-rs": "workspace:*"
+    "source-map-js": "^1.2.1"
   }
 }

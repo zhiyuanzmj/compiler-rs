@@ -1,15 +1,8 @@
 {
   "name": "@vue-jsx-vapor/compiler-rs",
   "version": "1.1.1",
+  "packageManager": "pnpm@10.17.1",
   "description": "Template project for writing node package with napi-rs",
-  "main": "index.js",
-  "types": "index.d.ts",
-  "browser": "browser.js",
-  "repository": {
-    "url": "git+ssh://git@github.com/napi-rs/package-template-pnpm.git",
-    "type": "git"
-  },
-  "license": "MIT",
   "keywords": [
     "napi-rs",
     "NAPI",
@@ -18,11 +11,19 @@
     "node-addon",
     "node-addon-api"
   ],
+  "license": "MIT",
+  "repository": {
+    "url": "git+ssh://git@github.com/napi-rs/package-template-pnpm.git",
+    "type": "git"
+  },
   "files": [
+    "browser.js",
     "index.d.ts",
-    "index.js",
-    "browser.js"
+    "index.js"
   ],
+  "main": "index.js",
+  "types": "index.d.ts",
+  "browser": "browser.js",
   "napi": {
     "binaryName": "compiler-rs",
     "targets": [
@@ -41,9 +42,6 @@
       "armv7-linux-androideabi",
       "wasm32-wasi-preview1-threads"
     ]
-  },
-  "engines": {
-    "node": ">= 10"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
@@ -84,6 +82,9 @@
     "tinybench": "^5.0.1",
     "typescript": "^5.9.2"
   },
+  "engines": {
+    "node": ">= 10"
+  },
   "lint-staged": {
     "*.@(js|ts|tsx)": [
       "oxlint --fix"
@@ -115,6 +116,5 @@
     "trailingComma": "all",
     "singleQuote": true,
     "arrowParens": "always"
-  },
-  "packageManager": "pnpm@10.17.1"
+  }
 }

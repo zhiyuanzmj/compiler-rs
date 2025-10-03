@@ -8,7 +8,11 @@ export default [
       'unicorn/no-new-array',
       'unicorn/prefer-dom-node-remove',
       'unused-imports/no-unused-imports',
+      '@eslint-community/eslint-comments/no-unlimited-disable',
     )
+    .append({
+      ignores: ['**/*wasi*'],
+    })
     .append([
       {
         name: 'docs',
