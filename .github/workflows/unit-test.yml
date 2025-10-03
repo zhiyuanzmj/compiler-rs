@@ -62,6 +62,3 @@ jobs:
 
       - name: Test
         run: nr test
-
-      - name: Docs Build
-        run: nr docs:build
