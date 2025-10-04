@@ -7,7 +7,7 @@ export const transformVShow: DirectiveTransform = (_dir, node, context) => {
   const { exp, loc } = dir
   if (!exp) {
     context.options.onError(
-      createCompilerError(ErrorCodes.X_V_SHOW_NO_EXPRESSION, loc as any),
+      createCompilerError(ErrorCodes.X_V_SHOW_NO_EXPRESSION, loc),
     )
     return
   }

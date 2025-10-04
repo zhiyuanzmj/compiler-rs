@@ -1,4 +1,5 @@
 use napi_derive::napi;
+pub mod v_once;
 
 use crate::ir::index::{Modifiers, SimpleExpressionNode};
 

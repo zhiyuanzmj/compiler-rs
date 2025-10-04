@@ -1,4 +1,4 @@
-import {
+export {
   IRDynamicPropsKind,
   IRSlotsExpression,
   IRSlotType,
@@ -15,21 +15,3 @@ import {
   type IRSlotsStatic,
   type SlotBlockIRNode,
 } from '@vue-jsx-vapor/compiler-rs'
-
-export {
-  IRDynamicPropsKind,
-  IRProp,
-  IRProps,
-  IRPropsDynamicAttribute,
-  IRPropsDynamicExpression,
-  IRPropsStatic,
-  IRSlotDynamic,
-  IRSlotDynamicBasic,
-  IRSlotDynamicConditional,
-  IRSlotDynamicLoop,
-  IRSlots,
-  IRSlotsExpression,
-  IRSlotsStatic,
-  IRSlotType,
-  SlotBlockIRNode,
-}

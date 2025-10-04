@@ -1,4 +1,4 @@
-import {
+export {
   CreateNodesIRNode,
   DynamicFlag,
   IRDynamicInfo,
@@ -34,42 +34,5 @@ import {
   type SimpleExpressionNode,
   type SourceLocation,
 } from '@vue-jsx-vapor/compiler-rs'
-
-export {
-  BaseIRNode,
-  BlockIRNode,
-  CreateComponentIRNode,
-  CreateNodesIRNode,
-  DeclareOldRefIRNode,
-  DirectiveIRNode,
-  DirectiveNode,
-  DynamicFlag,
-  ForIRNode,
-  GetTextChildIRNode,
-  IfIRNode,
-  InsertionStateTypes,
-  InsertNodeIRNode,
-  IRDynamicInfo,
-  IREffect,
-  IRFor,
-  IRNode,
-  IRNodeTypes,
-  isBlockOperation,
-  KeyOverride,
-  OperationNode,
-  PrependNodeIRNode,
-  RootIRNode,
-  RootNode,
-  SetDynamicEventsIRNode,
-  SetDynamicPropsIRNode,
-  SetEventIRNode,
-  SetHtmlIRNode,
-  SetNodesIRNode,
-  SetPropIRNode,
-  SetTemplateRefIRNode,
-  SetTextIRNode,
-  SimpleExpressionNode,
-  SourceLocation,
-}
 
 export * from './component'

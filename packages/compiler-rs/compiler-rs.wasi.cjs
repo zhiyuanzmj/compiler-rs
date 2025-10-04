@@ -120,5 +120,6 @@ module.exports.isBlockOperation = __napiModule.exports.isBlockOperation
 module.exports.isNumericLiteral = __napiModule.exports.isNumericLiteral
 module.exports.isStringLiteral = __napiModule.exports.isStringLiteral
 module.exports.isTemplate = __napiModule.exports.isTemplate
+module.exports.transformVOnce = __napiModule.exports.transformVOnce
 module.exports.TS_NODE_TYPES = __napiModule.exports.TS_NODE_TYPES
 module.exports.unwrapTSNode = __napiModule.exports.unwrapTSNode

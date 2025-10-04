@@ -68,5 +68,6 @@ export const isBlockOperation = __napiModule.exports.isBlockOperation
 export const isNumericLiteral = __napiModule.exports.isNumericLiteral
 export const isStringLiteral = __napiModule.exports.isStringLiteral
 export const isTemplate = __napiModule.exports.isTemplate
+export const transformVOnce = __napiModule.exports.transformVOnce
 export const TS_NODE_TYPES = __napiModule.exports.TS_NODE_TYPES
 export const unwrapTSNode = __napiModule.exports.unwrapTSNode

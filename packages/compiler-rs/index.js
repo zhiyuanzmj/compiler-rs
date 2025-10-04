@@ -569,5 +569,6 @@ module.exports.isBlockOperation = nativeBinding.isBlockOperation
 module.exports.isNumericLiteral = nativeBinding.isNumericLiteral
 module.exports.isStringLiteral = nativeBinding.isStringLiteral
 module.exports.isTemplate = nativeBinding.isTemplate
+module.exports.transformVOnce = nativeBinding.transformVOnce
 module.exports.TS_NODE_TYPES = nativeBinding.TS_NODE_TYPES
 module.exports.unwrapTSNode = nativeBinding.unwrapTSNode

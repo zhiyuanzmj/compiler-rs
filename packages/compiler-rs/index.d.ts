@@ -389,6 +389,8 @@ export interface SlotOutletIRNode {
 export type SourceLocation =
   [number, number]
 
+export declare function transformVOnce(node: object, context: object): void
+
 export const TS_NODE_TYPES: string[]
 
 export declare function unwrapTSNode(node: import('oxc-parser').Node): import('oxc-parser').Node
