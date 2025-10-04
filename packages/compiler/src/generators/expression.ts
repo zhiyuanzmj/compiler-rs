@@ -8,10 +8,9 @@ import {
   TS_NODE_TYPES,
   walkIdentifiers,
   type CodeFragment,
-  type SimpleExpressionNode,
 } from '../utils'
 import type { CodegenContext } from '../generate'
-import type { SourceLocation } from '../ir'
+import type { SimpleExpressionNode, SourceLocation } from '../ir'
 import type { IdentifierName, Node } from 'oxc-parser'
 
 export function genExpression(

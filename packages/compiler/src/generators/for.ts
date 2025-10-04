@@ -12,10 +12,14 @@ import {
   walkAST,
   walkIdentifiers,
   type CodeFragment,
-  type SimpleExpressionNode,
 } from '../utils'
 import type { CodegenContext } from '../generate'
-import type { BlockIRNode, ForIRNode, IREffect } from '../ir'
+import type {
+  BlockIRNode,
+  ForIRNode,
+  IREffect,
+  SimpleExpressionNode,
+} from '../ir'
 import { genBlockContent } from './block'
 import { genExpression } from './expression'
 import { genOperation } from './operation'

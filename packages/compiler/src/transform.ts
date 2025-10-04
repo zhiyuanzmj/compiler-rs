@@ -8,7 +8,7 @@ import {
   type OperationNode,
   type RootIRNode,
   type RootNode,
-  type SetEventIRNode,
+  type SimpleExpressionNode,
 } from './ir'
 import {
   findProp,
@@ -19,10 +19,12 @@ import {
   newBlock,
   newDynamic,
   type CompilerError,
-  type SimpleExpressionNode,
 } from './utils'
 import type { CodegenOptions } from './generate'
+import type { DirectiveTransformResult } from '@vue-jsx-vapor/compiler-rs'
 import type { JSXAttribute, JSXElement, JSXFragment } from 'oxc-parser'
+
+export { DirectiveTransformResult }
 
 export type NodeTransform = (
   node: BlockIRNode['node'],
@@ -34,17 +36,6 @@ export type DirectiveTransform = (
   node: JSXElement,
   context: TransformContext<JSXElement>,
 ) => DirectiveTransformResult | void
-
-export interface DirectiveTransformResult {
-  key: SimpleExpressionNode
-  value: SimpleExpressionNode
-  modifier?: '.' | '^'
-  runtimeCamelize?: boolean
-  handler?: boolean
-  handlerModifiers?: SetEventIRNode['modifiers']
-  model?: boolean
-  modelModifiers?: string[]
-}
 
 // A structural directive transform is technically also a NodeTransform;
 // Only v-if and v-for fall into this category.

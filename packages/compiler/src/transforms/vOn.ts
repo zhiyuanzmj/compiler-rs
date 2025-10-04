@@ -1,5 +1,10 @@
 import { extend, isString, makeMap } from '@vue/shared'
-import { IRNodeTypes, type KeyOverride, type SetEventIRNode } from '../ir'
+import {
+  IRNodeTypes,
+  type KeyOverride,
+  type SetEventIRNode,
+  type SimpleExpressionNode,
+} from '../ir'
 import {
   createCompilerError,
   createSimpleExpression,
@@ -7,7 +12,6 @@ import {
   ErrorCodes,
   isJSXComponent,
   resolveExpression,
-  type SimpleExpressionNode,
 } from '../utils'
 import type { DirectiveTransform } from '../transform'
 

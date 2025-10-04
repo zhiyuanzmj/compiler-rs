@@ -4,7 +4,6 @@ import {
   isConstantNode,
   NEWLINE,
   type CodeFragment,
-  type SimpleExpressionNode,
 } from '../utils'
 import type { CodegenContext } from '../generate'
 import type {
@@ -12,6 +11,7 @@ import type {
   GetTextChildIRNode,
   SetNodesIRNode,
   SetTextIRNode,
+  SimpleExpressionNode,
 } from '../ir'
 import { genExpression } from './expression'
 

@@ -1,4 +1,4 @@
-import { DynamicFlag, IRNodeTypes } from '../ir'
+import { DynamicFlag, IRNodeTypes, type SimpleExpressionNode } from '../ir'
 import {
   createStructuralDirectiveTransform,
   type NodeTransform,
@@ -15,7 +15,6 @@ import {
   isJSXComponent,
   propToExpression,
   resolveExpression,
-  type SimpleExpressionNode,
 } from '../utils'
 import type { JSXAttribute, JSXElement } from 'oxc-parser'
 

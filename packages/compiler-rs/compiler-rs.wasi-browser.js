@@ -1,9 +1,11 @@
 import {
+  createOnMessage as __wasmCreateOnMessageForFsProxy,
   getDefaultContext as __emnapiGetDefaultContext,
   instantiateNapiModuleSync as __emnapiInstantiateNapiModuleSync,
   WASI as __WASI,
-  createOnMessage as __wasmCreateOnMessageForFsProxy,
 } from '@napi-rs/wasm-runtime'
+
+
 
 const __wasi = new __WASI({
   version: 'preview1',
@@ -11,6 +13,7 @@ const __wasi = new __WASI({
 
 const __wasmUrl = new URL('./compiler-rs.wasm32-wasi.wasm', import.meta.url).href
 const __emnapiContext = __emnapiGetDefaultContext()
+
 
 const __sharedMemory = new WebAssembly.Memory({
   initial: 4000,
@@ -53,10 +56,15 @@ const {
   },
 })
 export default __napiModule.exports
+export const DynamicFlag = __napiModule.exports.DynamicFlag
 export const findProp = __napiModule.exports.findProp
 export const getExpression = __napiModule.exports.getExpression
 export const getTextLikeValue = __napiModule.exports.getTextLikeValue
+export const IRDynamicPropsKind = __napiModule.exports.IRDynamicPropsKind
+export const IRNodeTypes = __napiModule.exports.IRNodeTypes
+export const IRSlotType = __napiModule.exports.IRSlotType
 export const isBigIntLiteral = __napiModule.exports.isBigIntLiteral
+export const isBlockOperation = __napiModule.exports.isBlockOperation
 export const isNumericLiteral = __napiModule.exports.isNumericLiteral
 export const isStringLiteral = __napiModule.exports.isStringLiteral
 export const isTemplate = __napiModule.exports.isTemplate

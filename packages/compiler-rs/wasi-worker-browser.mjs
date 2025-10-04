@@ -3,11 +3,12 @@ import { instantiateNapiModuleSync, MessageHandler, WASI } from '@napi-rs/wasm-r
 const handler = new MessageHandler({
   onLoad({ wasmModule, wasmMemory }) {
     const wasi = new WASI({
-      print() {
+      print: function () {
         // eslint-disable-next-line no-console
         console.log.apply(console, arguments)
       },
-      printErr() {
+      printErr: function() {
+        // eslint-disable-next-line no-console
         console.error.apply(console, arguments)
       },
     })

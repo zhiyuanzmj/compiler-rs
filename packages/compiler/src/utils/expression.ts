@@ -5,18 +5,11 @@ import {
   type JSXAttribute,
   type Node,
 } from 'oxc-parser'
-import type { SourceLocation } from '../ir'
+import type { SimpleExpressionNode, SourceLocation } from '../ir'
 import type { TransformContext } from '../transform'
 import { isStringLiteral } from './check'
 import { resolveJSXText } from './text'
 import { getExpression, getTextLikeValue, unwrapTSNode } from './utils'
-
-export interface SimpleExpressionNode {
-  content: string
-  isStatic: boolean
-  loc: SourceLocation | null | undefined
-  ast?: Node
-}
 
 export const locStub: SourceLocation = [0, 0]
 export function createSimpleExpression(

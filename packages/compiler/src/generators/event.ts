@@ -3,6 +3,7 @@ import {
   type OperationNode,
   type SetDynamicEventsIRNode,
   type SetEventIRNode,
+  type SimpleExpressionNode,
 } from '../ir'
 import {
   DELIMITERS_OBJECT_NEWLINE,
@@ -12,7 +13,6 @@ import {
   isMemberExpression,
   NEWLINE,
   type CodeFragment,
-  type SimpleExpressionNode,
 } from '../utils'
 import type { CodegenContext } from '../generate'
 import { genExpression } from './expression'

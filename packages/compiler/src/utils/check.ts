@@ -1,8 +1,7 @@
 import { isTemplate } from '@vue-jsx-vapor/compiler-rs'
 import { isGloballyAllowed, isHTMLTag, isSVGTag } from '@vue/shared'
-import { IRNodeTypes, type RootNode } from '../ir'
+import { IRNodeTypes, type RootNode, type SimpleExpressionNode } from '../ir'
 import { unwrapTSNode } from './utils'
-import type { SimpleExpressionNode } from './expression'
 import type {
   Expression,
   ForInStatement,

@@ -7,6 +7,7 @@ import {
   type IRProps,
   type IRPropsDynamicAttribute,
   type IRPropsStatic,
+  type SimpleExpressionNode,
 } from '../ir'
 import {
   createSimpleExpression,
@@ -15,7 +16,6 @@ import {
   isTemplate,
   isValidHTMLNesting,
   resolveExpression,
-  type SimpleExpressionNode,
 } from '../utils'
 import type {
   DirectiveTransformResult,

@@ -20,29 +20,16 @@ def_literal_checker!(
   String,
   "node is import('oxc-parser').StringLiteral"
 );
-// def_literal_checker!(
-//   is_big_int_literal,
-//   BigInt,
-//   "node is import('oxc-parser').BigIntLiteral"
-// );
+def_literal_checker!(
+  is_big_int_literal,
+  BigInt,
+  "node is import('oxc-parser').BigIntLiteral"
+);
 def_literal_checker!(
   is_numeric_literal,
   f64,
   "node is import('oxc-parser').NumericLiteral"
 );
-
-#[napi(
-  ts_args_type = "node?: import('oxc-parser').Node | undefined | null",
-  ts_return_type = "node is import('oxc-parser').BigIntLiteral"
-)]
-pub fn is_big_int_literal(node: Option<Object>) -> bool {
-  let Some(node) = node else { return false };
-  if let Ok(Some(type_value)) = node.get::<String>("type") {
-    type_value.eq("Literal") && matches!(node.get::<BigInt>("value"), Ok(Some(_)))
-  } else {
-    false
-  }
-}
 
 #[napi(ts_args_type = "node?: import('oxc-parser').Node | undefined | null")]
 pub fn is_template(node: Option<Object>) -> bool {

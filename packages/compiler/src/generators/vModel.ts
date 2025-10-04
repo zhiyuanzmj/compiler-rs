@@ -1,11 +1,6 @@
-import {
-  genCall,
-  NEWLINE,
-  type CodeFragment,
-  type SimpleExpressionNode,
-} from '../utils'
+import { genCall, NEWLINE, type CodeFragment } from '../utils'
 import type { CodegenContext } from '../generate'
-import type { DirectiveIRNode } from '../ir'
+import type { DirectiveIRNode, SimpleExpressionNode } from '../ir'
 import { genExpression } from './expression'
 
 const helperMap = {

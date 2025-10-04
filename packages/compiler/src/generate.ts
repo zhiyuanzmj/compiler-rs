@@ -9,8 +9,7 @@ import {
   INDENT_START,
   NEWLINE,
 } from './utils/generate'
-import type { BlockIRNode, RootIRNode } from './ir'
-import type { SimpleExpressionNode } from './utils'
+import type { BlockIRNode, RootIRNode, SimpleExpressionNode } from './ir'
 import type { RawSourceMap } from 'source-map-js'
 
 export type CodegenOptions = {

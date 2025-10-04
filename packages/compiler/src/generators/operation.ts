@@ -84,8 +84,6 @@ export function genOperation(
       return genCreateComponent(oper, context)
     case IRNodeTypes.DECLARE_OLD_REF:
       return genDeclareOldRef(oper)
-    case IRNodeTypes.SLOT_OUTLET_NODE:
-      return []
     case IRNodeTypes.DIRECTIVE:
       return genBuiltinDirective(oper, context)
     case IRNodeTypes.GET_TEXT_CHILD:

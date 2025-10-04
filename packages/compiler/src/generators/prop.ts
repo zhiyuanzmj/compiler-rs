@@ -10,6 +10,7 @@ import {
   type IRProp,
   type SetDynamicPropsIRNode,
   type SetPropIRNode,
+  type SimpleExpressionNode,
 } from '../ir'
 import {
   DELIMITERS_ARRAY,
@@ -20,7 +21,6 @@ import {
   NEWLINE,
   NewlineType,
   type CodeFragment,
-  type SimpleExpressionNode,
 } from '../utils'
 import type { CodegenContext } from '../generate'
 import { genExpression } from './expression'

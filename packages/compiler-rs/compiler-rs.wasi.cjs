@@ -108,10 +108,15 @@ const { instance: __napiInstance, module: __wasiModule, napiModule: __napiModule
   },
 })
 module.exports = __napiModule.exports
+module.exports.DynamicFlag = __napiModule.exports.DynamicFlag
 module.exports.findProp = __napiModule.exports.findProp
 module.exports.getExpression = __napiModule.exports.getExpression
 module.exports.getTextLikeValue = __napiModule.exports.getTextLikeValue
+module.exports.IRDynamicPropsKind = __napiModule.exports.IRDynamicPropsKind
+module.exports.IRNodeTypes = __napiModule.exports.IRNodeTypes
+module.exports.IRSlotType = __napiModule.exports.IRSlotType
 module.exports.isBigIntLiteral = __napiModule.exports.isBigIntLiteral
+module.exports.isBlockOperation = __napiModule.exports.isBlockOperation
 module.exports.isNumericLiteral = __napiModule.exports.isNumericLiteral
 module.exports.isStringLiteral = __napiModule.exports.isStringLiteral
 module.exports.isTemplate = __napiModule.exports.isTemplate

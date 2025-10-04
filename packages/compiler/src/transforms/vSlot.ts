@@ -8,6 +8,7 @@ import {
   type IRSlotDynamicConditional,
   type IRSlots,
   type IRSlotsStatic,
+  type SimpleExpressionNode,
   type SlotBlockIRNode,
 } from '../ir'
 import {
@@ -19,7 +20,6 @@ import {
   isTemplate,
   newBlock,
   resolveDirective,
-  type SimpleExpressionNode,
 } from '../utils'
 import type { NodeTransform, TransformContext } from '../transform'
 import { getForParseResult } from './vFor'
