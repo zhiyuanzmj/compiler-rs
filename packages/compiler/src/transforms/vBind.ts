@@ -9,7 +9,9 @@ export const transformVBind: DirectiveTransform = (dir, node, context) => {
 
   const [nameString, ...modifiers] = name.name.split('_')
 
-  const exp = resolveExpression(value, context)
+  const exp = value
+    ? resolveExpression(value, context)
+    : createSimpleExpression('true')
   let arg = createSimpleExpression(nameString, true, dir.name)
 
   if (arg.isStatic && isReservedProp(arg.content)) return

@@ -1,3 +1,9 @@
+import {
+  createSimpleExpression,
+  EMPTY_EXPRESSION,
+  locStub,
+  resolveExpression,
+} from '@vue-jsx-vapor/compiler-rs'
 import { isGloballyAllowed, makeMap } from '@vue/shared'
 import {
   parseSync,
@@ -7,24 +13,9 @@ import {
 } from 'oxc-parser'
 import type { SimpleExpressionNode, SourceLocation } from '../ir'
 import type { TransformContext } from '../transform'
-import { isStringLiteral } from './check'
-import { resolveJSXText } from './text'
-import { getExpression, getTextLikeValue, unwrapTSNode } from './utils'
+import { getTextLikeValue } from './utils'
 
-export const locStub: SourceLocation = [0, 0]
-export function createSimpleExpression(
-  content: string,
-  isStatic: boolean = false,
-  ast?: Node,
-  loc?: SourceLocation,
-): SimpleExpressionNode {
-  return {
-    content,
-    isStatic,
-    ast,
-    loc: loc || (ast ? ast.range : locStub),
-  }
-}
+export { createSimpleExpression, EMPTY_EXPRESSION, locStub, resolveExpression }
 
 export const isLiteralWhitelisted: (key: string) => boolean =
   /*@__PURE__*/ makeMap('true,false,null,this')
@@ -46,33 +37,6 @@ export function getLiteralExpressionValue(
     }
   }
   return exp.isStatic ? exp.content : null
-}
-
-export const EMPTY_EXPRESSION = createSimpleExpression('', true)
-
-export function resolveExpression(
-  node: Node | undefined | null,
-  context: TransformContext,
-): SimpleExpressionNode {
-  if (!node) return EMPTY_EXPRESSION
-  node = unwrapTSNode(getExpression(node))
-  const isStatic =
-    isStringLiteral(node) ||
-    node.type === 'JSXText' ||
-    node.type === 'JSXIdentifier'
-  const source =
-    node.type === 'JSXEmptyExpression'
-      ? ''
-      : node.type === 'JSXIdentifier'
-        ? node.name
-        : isStringLiteral(node)
-          ? node.value
-          : node.type === 'JSXText'
-            ? resolveJSXText(node)
-            : node.type === 'Identifier'
-              ? node.name
-              : context.ir.source.slice(node.start!, node.end!)
-  return createSimpleExpression(source, isStatic, node)
 }
 
 export function propToExpression(

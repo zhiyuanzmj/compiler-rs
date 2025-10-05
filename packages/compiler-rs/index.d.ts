@@ -35,6 +35,8 @@ export interface CreateNodesIRNode {
   values?: Array<SimpleExpressionNode>
 }
 
+export declare function createSimpleExpression(content: string, isStatic?: boolean | undefined | null, ast?: object | undefined | null, loc?: SourceLocation | undefined | null): SimpleExpressionNode
+
 export interface DeclareOldRefIRNode {
   type: IRNodeTypes.DECLARE_OLD_REF
   id: number
@@ -52,7 +54,6 @@ export interface DirectiveIRNode {
 
 export interface DirectiveNode {
   name: string
-  rawName: string
   exp?: SimpleExpressionNode
   arg?: SimpleExpressionNode
   modifiers: Array<SimpleExpressionNode>
@@ -77,6 +78,8 @@ export declare const enum DynamicFlag {
   INSERT = 4
 }
 
+export const EMPTY_EXPRESSION: SimpleExpressionNode
+
 export declare function findProp(expression: import('oxc-parser').Expression, key: string | Array<string>): import('oxc-parser').JSXAttribute | null
 
 export interface ForIRNode {
@@ -96,6 +99,8 @@ export interface ForIRNode {
 }
 
 export declare function getExpression(node: import('oxc-parser').Node): import('oxc-parser').Node
+
+export declare function getText(node: object, context: object): string
 
 export interface GetTextChildIRNode {
   type: IRNodeTypes.GET_TEXT_CHILD
@@ -261,6 +266,8 @@ export declare function isBigIntLiteral(node?: import('oxc-parser').Node | undef
 
 export declare function isBlockOperation(op: OperationNode): op is InsertionStateTypes
 
+export declare function isEmptyText(node: object): boolean
+
 export declare function isNumericLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').NumericLiteral
 
 export declare function isStringLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').StringLiteral
@@ -269,6 +276,8 @@ export declare function isTemplate(node?: import('oxc-parser').Node | undefined 
 
 export type KeyOverride =
   [find: string, replacement: string]
+
+export const locStub: SourceLocation
 
 export interface Modifiers {
   options: Array<string>
@@ -284,6 +293,12 @@ export interface PrependNodeIRNode {
   elements: Array<number>
   parent: number
 }
+
+export declare function resolveDirective(node: object, context: object): DirectiveNode
+
+export declare function resolveExpression(node: import('oxc-parser').Node, context: object): SimpleExpressionNode
+
+export declare function resolveJSXText(node: import('oxc-parser').JSXText): string
 
 export interface RootIRNode {
   type: IRNodeTypes.ROOT

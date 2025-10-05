@@ -39,7 +39,7 @@ export const transformVOn: DirectiveTransform = (dir, node, context) => {
   }
 
   let arg = createSimpleExpression(nameString, true, dir.name)
-  const exp = resolveExpression(dir.value, context)
+  const exp = value ? resolveExpression(value, context) : undefined
 
   const { keyModifiers, nonKeyModifiers, eventOptionModifiers } =
     resolveModifiers(

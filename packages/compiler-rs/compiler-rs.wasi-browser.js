@@ -56,18 +56,27 @@ const {
   },
 })
 export default __napiModule.exports
+export const createSimpleExpression = __napiModule.exports.createSimpleExpression
 export const DynamicFlag = __napiModule.exports.DynamicFlag
+export const EMPTY_EXPRESSION = __napiModule.exports.EMPTY_EXPRESSION
 export const findProp = __napiModule.exports.findProp
 export const getExpression = __napiModule.exports.getExpression
+export const getText = __napiModule.exports.getText
 export const getTextLikeValue = __napiModule.exports.getTextLikeValue
 export const IRDynamicPropsKind = __napiModule.exports.IRDynamicPropsKind
 export const IRNodeTypes = __napiModule.exports.IRNodeTypes
 export const IRSlotType = __napiModule.exports.IRSlotType
 export const isBigIntLiteral = __napiModule.exports.isBigIntLiteral
 export const isBlockOperation = __napiModule.exports.isBlockOperation
+export const isEmptyText = __napiModule.exports.isEmptyText
 export const isNumericLiteral = __napiModule.exports.isNumericLiteral
 export const isStringLiteral = __napiModule.exports.isStringLiteral
 export const isTemplate = __napiModule.exports.isTemplate
+export const locStub = __napiModule.exports.locStub
+export const LOC_STUB = __napiModule.exports.LOC_STUB
+export const resolveDirective = __napiModule.exports.resolveDirective
+export const resolveExpression = __napiModule.exports.resolveExpression
+export const resolveJSXText = __napiModule.exports.resolveJSXText
 export const transformVOnce = __napiModule.exports.transformVOnce
 export const TS_NODE_TYPES = __napiModule.exports.TS_NODE_TYPES
 export const unwrapTSNode = __napiModule.exports.unwrapTSNode

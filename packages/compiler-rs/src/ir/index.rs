@@ -362,9 +362,6 @@ pub struct SimpleExpressionNode {
 pub struct DirectiveNode {
   // the normalized name without prefix or shorthands, e.g. "bind", "on"
   pub name: String,
-  // the raw attribute name, preserving shorthand, and including arg & modifiers
-  // this is only used during parse.
-  pub raw_name: String,
   pub exp: Option<SimpleExpressionNode>,
   pub arg: Option<SimpleExpressionNode>,
   pub modifiers: Vec<SimpleExpressionNode>,
