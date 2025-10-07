@@ -1,3 +1,5 @@
+use std::{collections::HashSet, sync::LazyLock};
+
 use napi::{JsValue, ValueType, bindgen_prelude::Object};
 use napi_derive::napi;
 
@@ -104,35 +106,37 @@ fn is_literal_whitelisted(key: &str) -> bool {
   LITERAL_WHITELIST.contains(&key)
 }
 
-static GLOBALLY_ALLOWED: [&str; 27] = [
-  "Infinity",
-  "undefined",
-  "NaN",
-  "isFinite",
-  "isNaN",
-  "parseFloat",
-  "parseInt",
-  "decodeURI",
-  "decodeURIComponent",
-  "encodeURI",
-  "encodeURIComponent",
-  "Math",
-  "Number",
-  "Date",
-  "Array",
-  "Object",
-  "Boolean",
-  "String",
-  "RegExp",
-  "Map",
-  "Set",
-  "JSON",
-  "Intl",
-  "BigInt",
-  "console",
-  "Error",
-  "Symbol",
-];
+static GLOBALLY_ALLOWED: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
+  HashSet::from([
+    "Infinity",
+    "undefined",
+    "NaN",
+    "isFinite",
+    "isNaN",
+    "parseFloat",
+    "parseInt",
+    "decodeURI",
+    "decodeURIComponent",
+    "encodeURI",
+    "encodeURIComponent",
+    "Math",
+    "Number",
+    "Date",
+    "Array",
+    "Object",
+    "Boolean",
+    "String",
+    "RegExp",
+    "Map",
+    "Set",
+    "JSON",
+    "Intl",
+    "BigInt",
+    "console",
+    "Error",
+    "Symbol",
+  ])
+});
 pub fn is_globally_allowed(key: &str) -> bool {
   GLOBALLY_ALLOWED.contains(&key)
 }

@@ -304,6 +304,8 @@ export declare function isConstantNode(node?: object | undefined | null): boolea
 
 export declare function isEmptyText(node: object): boolean
 
+export declare function isJSXComponent(node: import('oxc-parser').Node): boolean
+
 export declare function isNumericLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').NumericLiteral
 
 export declare function isStringLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').StringLiteral
@@ -445,6 +447,8 @@ export declare function transformVHtml(dir: object, node: object, context: objec
 export declare function transformVOnce(node: object, context: object): void
 
 export declare function transformVShow(dir: object, _: object, context: object): void
+
+export declare function transformVSlots(dir: object, node: object, context: object): void
 
 export const TS_NODE_TYPES: string[]
 

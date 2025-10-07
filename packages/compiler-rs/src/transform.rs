@@ -9,6 +9,7 @@ use napi_derive::napi;
 pub mod v_html;
 pub mod v_once;
 pub mod v_show;
+pub mod v_slots;
 
 use crate::{
   ir::{

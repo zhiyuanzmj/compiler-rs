@@ -1,9 +1,8 @@
 use std::{collections::HashMap, sync::LazyLock};
 
 use napi::{
-  Env, Error, JsString, Result,
-  bindgen_prelude::{Function, FunctionRef, JsObjectValue, Object, ToNapiValue},
-  sys::napi_create_error,
+  Env, Error, Result,
+  bindgen_prelude::{FunctionRef, JsObjectValue, Object},
 };
 use napi_derive::napi;
 
@@ -34,7 +33,7 @@ pub enum ErrorCodes {
   X_V_SHOW_NO_EXPRESSION = 61,
 }
 
-pub static Error_Messages: LazyLock<HashMap<ErrorCodes, &str>> = LazyLock::new(|| {
+pub static ERROR_MESSAGES: LazyLock<HashMap<ErrorCodes, &str>> = LazyLock::new(|| {
   HashMap::from([
     (
       ErrorCodes::X_V_IF_NO_EXPRESSION,
@@ -62,7 +61,7 @@ pub static Error_Messages: LazyLock<HashMap<ErrorCodes, &str>> = LazyLock::new(|
     ),
     (
       ErrorCodes::X_V_SLOT_DUPLICATE_SLOT_NAMES,
-      "Duplicate slot names found. ",
+      "Duplicate slot names found.",
     ),
     (
       ErrorCodes::X_V_SLOT_EXTRANEOUS_DEFAULT_SLOT_CHILDREN,
@@ -131,7 +130,7 @@ pub fn create_compiler_error<'a>(
   code: ErrorCodes,
   loc: Option<SourceLocation>,
 ) -> Result<Object<'a>> {
-  let msg = Error_Messages.get(&code).unwrap().to_string();
+  let msg = ERROR_MESSAGES.get(&code).unwrap().to_string();
   let mut error = env.create_error(Error::from_reason(&msg))?;
   error.set("code", code as i32)?;
   error.set("loc", loc)?;

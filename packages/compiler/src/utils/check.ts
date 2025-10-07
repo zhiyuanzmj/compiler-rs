@@ -17,6 +17,7 @@ import type {
 export {
   isBigIntLiteral,
   isConstantNode,
+  isJSXComponent,
   isNumericLiteral,
   isStringLiteral,
   isTemplate,
@@ -60,18 +61,6 @@ export const isFnExpression: (exp: SimpleExpressionNode) => boolean = (exp) => {
     )
   } catch {
     return false
-  }
-}
-
-export function isJSXComponent(node: Node) {
-  if (node.type !== 'JSXElement') return false
-
-  const { openingElement } = node
-  if (openingElement.name.type === 'JSXIdentifier') {
-    const name = openingElement.name.name
-    return !isHTMLTag(name) && !isSVGTag(name)
-  } else {
-    return openingElement.name.type === 'JSXMemberExpression'
   }
 }
 
