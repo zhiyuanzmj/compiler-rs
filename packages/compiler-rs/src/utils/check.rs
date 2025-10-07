@@ -380,3 +380,13 @@ static RESERVED_PROP: [&str; 4] = ["key", "ref", "ref_for", "ref_key"];
 pub fn is_reserved_prop(prop_name: &str) -> bool {
   RESERVED_PROP.contains(&prop_name)
 }
+
+static VOID_TAGS: LazyLock<HashSet<&str>> = LazyLock::new(|| {
+  HashSet::from([
+    "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source",
+    "track", "wbr",
+  ])
+});
+pub fn is_void_tag(tag_name: &str) -> bool {
+  VOID_TAGS.contains(&tag_name)
+}

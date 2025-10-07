@@ -89,5 +89,6 @@ export const transformVHtml = __napiModule.exports.transformVHtml
 export const transformVOnce = __napiModule.exports.transformVOnce
 export const transformVShow = __napiModule.exports.transformVShow
 export const transformVSlots = __napiModule.exports.transformVSlots
+export const transformVText = __napiModule.exports.transformVText
 export const TS_NODE_TYPES = __napiModule.exports.TS_NODE_TYPES
 export const unwrapTSNode = __napiModule.exports.unwrapTSNode

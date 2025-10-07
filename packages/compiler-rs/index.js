@@ -590,5 +590,6 @@ module.exports.transformVHtml = nativeBinding.transformVHtml
 module.exports.transformVOnce = nativeBinding.transformVOnce
 module.exports.transformVShow = nativeBinding.transformVShow
 module.exports.transformVSlots = nativeBinding.transformVSlots
+module.exports.transformVText = nativeBinding.transformVText
 module.exports.TS_NODE_TYPES = nativeBinding.TS_NODE_TYPES
 module.exports.unwrapTSNode = nativeBinding.unwrapTSNode

@@ -26,11 +26,10 @@ pub fn transform_v_html(env: Env, dir: Object, node: Object, context: Object) ->
     if children.len() != 0 {
       on_error(env, ErrorCodes::X_V_HTML_WITH_CHILDREN, context);
     }
-    if let Ok(mut children_template) = context.get_named_property::<Vec<String>>("childrenTemplate")
-    {
-      unsafe {
-        children_template.set_len(0);
-      }
+    unsafe {
+      context
+        .get_named_property::<Vec<String>>("childrenTemplate")?
+        .set_len(0);
     }
   }
 

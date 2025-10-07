@@ -9,15 +9,16 @@ use crate::{
   utils::{
     directive::resolve_directive,
     error::{ErrorCodes, on_error},
+    expression::EMPTY_EXPRESSION,
   },
 };
 
 #[napi]
 pub fn transform_v_show(env: Env, _dir: Object, _: Object, context: Object) -> Result<()> {
-  let dir = resolve_directive(_dir, context)?;
+  let mut dir = resolve_directive(_dir, context)?;
   if dir.exp.is_none() {
     on_error(env, ErrorCodes::X_V_SHOW_NO_EXPRESSION, context);
-    return Ok(());
+    dir.exp = Some(EMPTY_EXPRESSION)
   }
 
   context

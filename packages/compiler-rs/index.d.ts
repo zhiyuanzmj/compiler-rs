@@ -454,6 +454,8 @@ export declare function transformVShow(dir: object, _: object, context: object):
 
 export declare function transformVSlots(dir: object, node: object, context: object): void
 
+export declare function transformVText(dir: import('oxc-parser').JSXAttribute, node: import('oxc-parser').JSXElement, context: TransformContext<import('oxc-parser').JSXElement>): void
+
 export const TS_NODE_TYPES: string[]
 
 export declare function unwrapTSNode(node: import('oxc-parser').Node): import('oxc-parser').Node

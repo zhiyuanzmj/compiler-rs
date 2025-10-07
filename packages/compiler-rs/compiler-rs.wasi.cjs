@@ -141,5 +141,6 @@ module.exports.transformVHtml = __napiModule.exports.transformVHtml
 module.exports.transformVOnce = __napiModule.exports.transformVOnce
 module.exports.transformVShow = __napiModule.exports.transformVShow
 module.exports.transformVSlots = __napiModule.exports.transformVSlots
+module.exports.transformVText = __napiModule.exports.transformVText
 module.exports.TS_NODE_TYPES = __napiModule.exports.TS_NODE_TYPES
 module.exports.unwrapTSNode = __napiModule.exports.unwrapTSNode
