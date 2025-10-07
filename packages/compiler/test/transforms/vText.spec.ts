@@ -31,12 +31,7 @@ describe('v-text', () => {
 
     expect(ir.block.effect).toMatchObject([
       {
-        expressions: [
-          {
-            content: 'str.value',
-            isStatic: false,
-          },
-        ],
+        expressions: [],
         operations: [
           {
             type: IRNodeTypes.SET_TEXT,
@@ -72,12 +67,7 @@ describe('v-text', () => {
 
     expect(ir.block.effect).toMatchObject([
       {
-        expressions: [
-          {
-            content: 'test',
-            isStatic: false,
-          },
-        ],
+        expressions: [],
         operations: [
           {
             type: IRNodeTypes.SET_TEXT,

@@ -108,11 +108,14 @@ const { instance: __napiInstance, module: __wasiModule, napiModule: __napiModule
   },
 })
 module.exports = __napiModule.exports
+module.exports.createCompilerError = __napiModule.exports.createCompilerError
 module.exports.createSimpleExpression = __napiModule.exports.createSimpleExpression
 module.exports.DynamicFlag = __napiModule.exports.DynamicFlag
 module.exports.EMPTY_EXPRESSION = __napiModule.exports.EMPTY_EXPRESSION
+module.exports.ErrorCodes = __napiModule.exports.ErrorCodes
 module.exports.findProp = __napiModule.exports.findProp
 module.exports.getExpression = __napiModule.exports.getExpression
+module.exports.getLiteralExpressionValue = __napiModule.exports.getLiteralExpressionValue
 module.exports.getText = __napiModule.exports.getText
 module.exports.getTextLikeValue = __napiModule.exports.getTextLikeValue
 module.exports.IRDynamicPropsKind = __napiModule.exports.IRDynamicPropsKind
@@ -120,6 +123,8 @@ module.exports.IRNodeTypes = __napiModule.exports.IRNodeTypes
 module.exports.IRSlotType = __napiModule.exports.IRSlotType
 module.exports.isBigIntLiteral = __napiModule.exports.isBigIntLiteral
 module.exports.isBlockOperation = __napiModule.exports.isBlockOperation
+module.exports.isConstantExpression = __napiModule.exports.isConstantExpression
+module.exports.isConstantNode = __napiModule.exports.isConstantNode
 module.exports.isEmptyText = __napiModule.exports.isEmptyText
 module.exports.isNumericLiteral = __napiModule.exports.isNumericLiteral
 module.exports.isStringLiteral = __napiModule.exports.isStringLiteral
@@ -129,6 +134,7 @@ module.exports.LOC_STUB = __napiModule.exports.LOC_STUB
 module.exports.resolveDirective = __napiModule.exports.resolveDirective
 module.exports.resolveExpression = __napiModule.exports.resolveExpression
 module.exports.resolveJSXText = __napiModule.exports.resolveJSXText
+module.exports.transformVHtml = __napiModule.exports.transformVHtml
 module.exports.transformVOnce = __napiModule.exports.transformVOnce
 module.exports.TS_NODE_TYPES = __napiModule.exports.TS_NODE_TYPES
 module.exports.unwrapTSNode = __napiModule.exports.unwrapTSNode

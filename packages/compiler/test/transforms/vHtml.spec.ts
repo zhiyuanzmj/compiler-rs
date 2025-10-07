@@ -26,12 +26,7 @@ describe('v-html', () => {
     expect(ir.block.operation).toMatchObject([])
     expect(ir.block.effect).toMatchObject([
       {
-        expressions: [
-          {
-            content: 'code.value',
-            isStatic: false,
-          },
-        ],
+        expressions: [],
         operations: [
           {
             type: IRNodeTypes.SET_HTML,
@@ -50,12 +45,13 @@ describe('v-html', () => {
 
   test('should raise error and ignore children when v-html is present', () => {
     const onError = vi.fn()
-    const { ir, helpers, templates } = compileWithVHtml(
+    const { ir, helpers, code, templates } = compileWithVHtml(
       `<div v-html={test.value}>hello</div>`,
       {
         onError,
       },
     )
+    expect(code).toMatchSnapshot()
 
     expect(helpers).contains('setHtml')
 
@@ -65,12 +61,7 @@ describe('v-html', () => {
     expect(ir.block.operation).toMatchObject([])
     expect(ir.block.effect).toMatchObject([
       {
-        expressions: [
-          {
-            content: 'test.value',
-            isStatic: false,
-          },
-        ],
+        expressions: [],
         operations: [
           {
             type: IRNodeTypes.SET_HTML,

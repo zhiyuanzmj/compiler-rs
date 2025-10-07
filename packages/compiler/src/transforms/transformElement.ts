@@ -100,7 +100,7 @@ function transformComponentElement(
   }
 
   if (asset) {
-    context.component.add(tag)
+    context.ir.component.add(tag)
   }
 
   context.dynamic.flags |= DynamicFlag.NON_TEMPLATE | DynamicFlag.INSERT
@@ -301,7 +301,7 @@ function transformProp(
     if (fromSetup) {
       name = fromSetup
     } else {
-      context.directive.add(name)
+      context.ir.directive.add(name)
     }
 
     // TODO

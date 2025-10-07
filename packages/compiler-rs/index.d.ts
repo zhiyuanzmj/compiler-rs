@@ -14,6 +14,13 @@ export interface BlockIRNode {
   returns: Array<number>
 }
 
+export interface CompilerError extends SyntaxError {
+  code: number
+  loc?: SourceLocation
+}
+
+export declare function createCompilerError(code: ErrorCodes, loc?: SourceLocation | undefined | null): CompilerError
+
 export interface CreateComponentIRNode {
   type: IRNodeTypes.CREATE_COMPONENT_NODE
   id: number
@@ -32,7 +39,7 @@ export interface CreateNodesIRNode {
   type: IRNodeTypes.CREATE_NODES
   id: number
   once: boolean
-  values?: Array<SimpleExpressionNode>
+  values: Array<SimpleExpressionNode>
 }
 
 export declare function createSimpleExpression(content: string, isStatic?: boolean | undefined | null, ast?: object | undefined | null, loc?: SourceLocation | undefined | null): SimpleExpressionNode
@@ -80,6 +87,29 @@ export declare const enum DynamicFlag {
 
 export const EMPTY_EXPRESSION: SimpleExpressionNode
 
+export declare const enum ErrorCodes {
+  X_V_IF_NO_EXPRESSION = 28,
+  X_V_ELSE_NO_ADJACENT_IF = 30,
+  X_V_FOR_NO_EXPRESSION = 31,
+  X_V_FOR_MALFORMED_EXPRESSION = 32,
+  X_V_ON_NO_EXPRESSION = 35,
+  X_V_SLOT_MIXED_SLOT_USAGE = 37,
+  X_V_SLOT_DUPLICATE_SLOT_NAMES = 38,
+  X_V_SLOT_EXTRANEOUS_DEFAULT_SLOT_CHILDREN = 39,
+  X_V_SLOT_MISPLACED = 40,
+  X_V_MODEL_NO_EXPRESSION = 41,
+  X_V_MODEL_MALFORMED_EXPRESSION = 42,
+  X_V_HTML_NO_EXPRESSION = 53,
+  X_V_HTML_WITH_CHILDREN = 54,
+  X_V_TEXT_NO_EXPRESSION = 55,
+  X_V_TEXT_WITH_CHILDREN = 56,
+  X_V_MODEL_ON_INVALID_ELEMENT = 57,
+  X_V_MODEL_ARG_ON_ELEMENT = 58,
+  X_V_MODEL_ON_FILE_INPUT_ELEMENT = 59,
+  X_V_MODEL_UNNECESSARY_VALUE = 60,
+  X_V_SHOW_NO_EXPRESSION = 61
+}
+
 export declare function findProp(expression: import('oxc-parser').Expression, key: string | Array<string>): import('oxc-parser').JSXAttribute | null
 
 export interface ForIRNode {
@@ -99,6 +129,8 @@ export interface ForIRNode {
 }
 
 export declare function getExpression(node: import('oxc-parser').Node): import('oxc-parser').Node
+
+export declare function getLiteralExpressionValue(exp: SimpleExpressionNode): string | null
 
 export declare function getText(node: object, context: object): string
 
@@ -266,6 +298,10 @@ export declare function isBigIntLiteral(node?: import('oxc-parser').Node | undef
 
 export declare function isBlockOperation(op: OperationNode): op is InsertionStateTypes
 
+export declare function isConstantExpression(exp: SimpleExpressionNode): boolean
+
+export declare function isConstantNode(node?: object | undefined | null): boolean
+
 export declare function isEmptyText(node: object): boolean
 
 export declare function isNumericLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').NumericLiteral
@@ -321,7 +357,7 @@ export interface RootNode {
 export interface SetDynamicEventsIRNode {
   type: IRNodeTypes.SET_DYNAMIC_EVENTS
   element: number
-  event: SimpleExpressionNode
+  value: SimpleExpressionNode
 }
 
 export interface SetDynamicPropsIRNode {
@@ -403,6 +439,8 @@ export interface SlotOutletIRNode {
 
 export type SourceLocation =
   [number, number]
+
+export declare function transformVHtml(dir: object, node: object, context: object): void
 
 export declare function transformVOnce(node: object, context: object): void
 

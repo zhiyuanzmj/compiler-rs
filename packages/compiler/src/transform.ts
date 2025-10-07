@@ -103,9 +103,6 @@ export class TransformContext<
   inVOnce: boolean = false
   inVFor: number = 0
 
-  component: Set<string>
-  directive: Set<string>
-
   slots: IRSlots[] = []
 
   private globalId = 0
@@ -118,8 +115,6 @@ export class TransformContext<
     this.options = extend({}, defaultOptions, options)
     this.block = this.ir.block
     this.dynamic = this.ir.block.dynamic
-    this.component = this.ir.component
-    this.directive = this.ir.directive
     this.root = this as TransformContext<RootNode>
   }
 
@@ -164,32 +159,35 @@ export class TransformContext<
   }
 
   registerEffect(
-    expressions: SimpleExpressionNode[],
-    operation: OperationNode | OperationNode[],
+    expressions: SimpleExpressionNode[] | boolean,
+    operation: OperationNode,
     getEffectIndex = (): number => this.block.effect.length,
     getOperationIndex = (): number => this.block.operation.length,
   ) {
-    const operations = [operation].flat()
-    expressions = expressions.filter((exp) => !isConstantExpression(exp))
-    if (
-      this.inVOnce ||
-      expressions.length === 0 ||
-      expressions.every((e) => e.ast && isConstantNode(e.ast))
-    ) {
-      return this.registerOperation(operations, getOperationIndex)
+    if (expressions === true) {
+      return this.registerOperation(operation, getOperationIndex)
+    } else if (expressions !== false) {
+      expressions = expressions.filter((exp) => !isConstantExpression(exp))
+      if (
+        this.inVOnce ||
+        expressions.length === 0 ||
+        expressions.every((e) => e.ast && isConstantNode(e.ast))
+      ) {
+        return this.registerOperation(operation, getOperationIndex)
+      }
     }
 
     this.block.effect.splice(getEffectIndex(), 0, {
-      expressions,
-      operations,
+      expressions: [],
+      operations: [operation],
     })
   }
 
   registerOperation(
-    operation: OperationNode | OperationNode[],
+    operation: OperationNode,
     getOperationIndex = (): number => this.block.operation.length,
   ) {
-    this.block.operation.splice(getOperationIndex(), 0, ...[operation].flat())
+    this.block.operation.splice(getOperationIndex(), 0, operation)
   }
 
   create<E extends T>(node: E, index: number): TransformContext<E> {

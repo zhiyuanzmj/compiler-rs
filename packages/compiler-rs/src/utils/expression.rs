@@ -6,7 +6,7 @@ use crate::{
   utils::{
     check::is_string_literal,
     text::{get_text, resolve_jsx_text},
-    utils::{get_expression, unwrap_ts_node},
+    utils::{get_expression, get_text_like_value, unwrap_ts_node},
   },
 };
 
@@ -96,5 +96,70 @@ pub fn resolve_expression(
     is_static,
     ast: Some(node),
     loc: None,
+  }
+}
+
+static LITERAL_WHITELIST: [&str; 4] = ["true", "false", "null", "this"];
+fn is_literal_whitelisted(key: &str) -> bool {
+  LITERAL_WHITELIST.contains(&key)
+}
+
+static GLOBALLY_ALLOWED: [&str; 27] = [
+  "Infinity",
+  "undefined",
+  "NaN",
+  "isFinite",
+  "isNaN",
+  "parseFloat",
+  "parseInt",
+  "decodeURI",
+  "decodeURIComponent",
+  "encodeURI",
+  "encodeURIComponent",
+  "Math",
+  "Number",
+  "Date",
+  "Array",
+  "Object",
+  "Boolean",
+  "String",
+  "RegExp",
+  "Map",
+  "Set",
+  "JSON",
+  "Intl",
+  "BigInt",
+  "console",
+  "Error",
+  "Symbol",
+];
+pub fn is_globally_allowed(key: &str) -> bool {
+  GLOBALLY_ALLOWED.contains(&key)
+}
+
+#[napi]
+pub fn is_constant_expression(exp: SimpleExpressionNode) -> bool {
+  _is_constant_expression(&exp)
+}
+pub fn _is_constant_expression(exp: &SimpleExpressionNode) -> bool {
+  is_literal_whitelisted(&exp.content)
+    || is_globally_allowed(&exp.content)
+    || _get_literal_expression_value(exp).is_some()
+}
+
+#[napi]
+pub fn get_literal_expression_value(exp: SimpleExpressionNode) -> Option<String> {
+  _get_literal_expression_value(&exp)
+}
+pub fn _get_literal_expression_value(exp: &SimpleExpressionNode) -> Option<String> {
+  if let Some(ast) = exp.ast {
+    if let Some(res) = get_text_like_value(ast, None) {
+      return Some(res);
+    }
+  }
+  if exp.is_static {
+    Some(exp.content.to_string())
+  } else {
+    None
   }
 }

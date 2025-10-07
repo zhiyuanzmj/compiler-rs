@@ -97,7 +97,7 @@ export function genSetDynamicEvents(
     ...genCall(
       helper('setDynamicEvents'),
       `n${oper.element}`,
-      genExpression(oper.event, context),
+      genExpression(oper.value, context),
     ),
   ]
 }

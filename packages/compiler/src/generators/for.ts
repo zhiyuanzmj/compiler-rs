@@ -1,5 +1,12 @@
 import { extend, isGloballyAllowed } from '@vue/shared'
 import {
+  IRNodeTypes,
+  type BlockIRNode,
+  type ForIRNode,
+  type IREffect,
+  type SimpleExpressionNode,
+} from '../ir'
+import {
   createSimpleExpression,
   genCall,
   genMulti,
@@ -14,12 +21,6 @@ import {
   type CodeFragment,
 } from '../utils'
 import type { CodegenContext } from '../generate'
-import type {
-  BlockIRNode,
-  ForIRNode,
-  IREffect,
-  SimpleExpressionNode,
-} from '../ir'
 import { genBlockContent } from './block'
 import { genExpression } from './expression'
 import { genOperation } from './operation'
@@ -364,9 +365,9 @@ function matchKeyOnlyBindingPattern(
       effect: IREffect
     }
   | undefined {
-  // TODO: expressions can be multiple?
-  if (effect.expressions.length === 1) {
-    const ast = effect.expressions[0].ast
+  // TODO: operations can be multiple?
+  if (effect.operations.length) {
+    const ast = getExpression(effect)?.ast
     if (
       typeof ast === 'object' &&
       ast !== null &&
@@ -388,10 +389,11 @@ function matchSelectorPattern(
       selector: SimpleExpressionNode
     }
   | undefined {
-  // TODO: expressions can be multiple?
-  if (effect.expressions.length === 1) {
-    const ast = effect.expressions[0].ast
-    if (!ast) return
+  // TODO: operations can be multiple?
+  if (effect.operations.length === 1) {
+    const expression = getExpression(effect)
+    if (!expression?.ast) return
+    const { ast, content } = expression
     const offset = ast.start
     if (typeof ast === 'object') {
       const matcheds: [key: Expression, selector: Expression][] = []
@@ -422,7 +424,6 @@ function matchSelectorPattern(
 
       if (matcheds.length === 1) {
         const [key, selector] = matcheds[0]
-        const content = effect.expressions[0].content
 
         let hasExtraId = false
         const parentStackMap = new Map<IdentifierName, Node[]>()
@@ -460,7 +461,6 @@ function matchSelectorPattern(
       }
     }
 
-    const content = effect.expressions[0].content
     if (
       typeof ast === 'object' &&
       ast &&
@@ -543,4 +543,24 @@ function isKeyOnlyBinding(expr: Node, key: string, source: string) {
     },
   })
   return only
+}
+
+function getExpression(effect: IREffect) {
+  const operation = effect.operations[0]
+  if (
+    operation?.type === IRNodeTypes.SET_TEXT ||
+    operation?.type === IRNodeTypes.SET_NODES ||
+    operation?.type === IRNodeTypes.CREATE_NODES
+  ) {
+    return operation.values[0]
+  } else if (
+    operation?.type === IRNodeTypes.SET_HTML ||
+    operation.type === IRNodeTypes.SET_EVENT ||
+    operation.type === IRNodeTypes.SET_DYNAMIC_EVENTS ||
+    operation.type === IRNodeTypes.SET_TEMPLATE_REF
+  ) {
+    return operation.value
+  } else if (operation.type === IRNodeTypes.SET_PROP) {
+    return operation.prop.values[0]
+  }
 }

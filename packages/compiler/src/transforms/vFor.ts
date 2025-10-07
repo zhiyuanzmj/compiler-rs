@@ -7,13 +7,13 @@ import {
 import {
   createBranch,
   createCompilerError,
+  EMPTY_EXPRESSION,
   ErrorCodes,
   findProp,
   getExpression,
   isConstantNode,
   isEmptyText,
   isJSXComponent,
-  propToExpression,
   resolveExpression,
 } from '../utils'
 import type { JSXAttribute, JSXElement } from 'oxc-parser'
@@ -37,7 +37,10 @@ export function processFor(
   }
 
   const keyProp = findProp(node, 'key')
-  const keyProperty = keyProp! && propToExpression(keyProp, context)
+  const keyProperty =
+    keyProp?.type === 'JSXAttribute' && keyProp.value
+      ? resolveExpression(keyProp.value, context)
+      : undefined
   const isComponent =
     isJSXComponent(node) ||
     // template v-for with a single component child

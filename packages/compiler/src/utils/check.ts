@@ -1,5 +1,5 @@
 import { isTemplate } from '@vue-jsx-vapor/compiler-rs'
-import { isGloballyAllowed, isHTMLTag, isSVGTag } from '@vue/shared'
+import { isHTMLTag, isSVGTag } from '@vue/shared'
 import { IRNodeTypes, type RootNode, type SimpleExpressionNode } from '../ir'
 import { unwrapTSNode } from './utils'
 import type {
@@ -16,6 +16,7 @@ import type {
 } from 'oxc-parser'
 export {
   isBigIntLiteral,
+  isConstantNode,
   isNumericLiteral,
   isStringLiteral,
   isTemplate,
@@ -60,39 +61,6 @@ export const isFnExpression: (exp: SimpleExpressionNode) => boolean = (exp) => {
   } catch {
     return false
   }
-}
-
-export function isConstantNode(node: Node): boolean {
-  if (isStaticNode(node)) return true
-
-  node = unwrapTSNode(node)
-  switch (node.type) {
-    case 'Identifier':
-      return node.name === 'undefined' || isGloballyAllowed(node.name)
-    case 'ObjectExpression':
-      return node.properties.every((prop) => {
-        // { bar() {} } object methods are not considered static nodes
-        if (prop.type === 'Property' && prop.method) return false
-        // { ...{ foo: 1 } }
-        if (prop.type === 'SpreadElement') return isConstantNode(prop.argument)
-        // { foo: 1 }
-        return (
-          (!prop.computed || isConstantNode(prop.key)) &&
-          isConstantNode(prop.value)
-        )
-      })
-    case 'ArrayExpression':
-      return node.elements.every((element) => {
-        // [1, , 3]
-        if (element === null) return true
-        // [1, ...[2, 3]]
-        if (element.type === 'SpreadElement')
-          return isConstantNode(element.argument)
-        // [1, 2]
-        return isConstantNode(element)
-      })
-  }
-  return false
 }
 
 export function isJSXComponent(node: Node) {
@@ -375,39 +343,6 @@ export function isInDestructureAssignment(
         break
       }
     }
-  }
-  return false
-}
-
-export function isStaticNode(node: Node): boolean {
-  node = unwrapTSNode(node)
-
-  switch (node.type) {
-    case 'UnaryExpression': // void 0, !true
-      return isStaticNode(node.argument)
-
-    case 'LogicalExpression': // 1 > 2
-    case 'BinaryExpression': // 1 + 2
-      return isStaticNode(node.left) && isStaticNode(node.right)
-
-    case 'ConditionalExpression': {
-      // 1 ? 2 : 3
-      return (
-        isStaticNode(node.test) &&
-        isStaticNode(node.consequent) &&
-        isStaticNode(node.alternate)
-      )
-    }
-
-    case 'SequenceExpression': // (1, 2)
-    case 'TemplateLiteral': // `foo${1}`
-      return node.expressions.every((expr) => isStaticNode(expr))
-
-    case 'ParenthesizedExpression': // (1)
-      return isStaticNode(node.expression)
-
-    case 'Literal':
-      return true
   }
   return false
 }

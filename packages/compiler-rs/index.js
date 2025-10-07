@@ -557,11 +557,14 @@ if (!nativeBinding) {
 }
 
 module.exports = nativeBinding
+module.exports.createCompilerError = nativeBinding.createCompilerError
 module.exports.createSimpleExpression = nativeBinding.createSimpleExpression
 module.exports.DynamicFlag = nativeBinding.DynamicFlag
 module.exports.EMPTY_EXPRESSION = nativeBinding.EMPTY_EXPRESSION
+module.exports.ErrorCodes = nativeBinding.ErrorCodes
 module.exports.findProp = nativeBinding.findProp
 module.exports.getExpression = nativeBinding.getExpression
+module.exports.getLiteralExpressionValue = nativeBinding.getLiteralExpressionValue
 module.exports.getText = nativeBinding.getText
 module.exports.getTextLikeValue = nativeBinding.getTextLikeValue
 module.exports.IRDynamicPropsKind = nativeBinding.IRDynamicPropsKind
@@ -569,6 +572,8 @@ module.exports.IRNodeTypes = nativeBinding.IRNodeTypes
 module.exports.IRSlotType = nativeBinding.IRSlotType
 module.exports.isBigIntLiteral = nativeBinding.isBigIntLiteral
 module.exports.isBlockOperation = nativeBinding.isBlockOperation
+module.exports.isConstantExpression = nativeBinding.isConstantExpression
+module.exports.isConstantNode = nativeBinding.isConstantNode
 module.exports.isEmptyText = nativeBinding.isEmptyText
 module.exports.isNumericLiteral = nativeBinding.isNumericLiteral
 module.exports.isStringLiteral = nativeBinding.isStringLiteral
@@ -578,6 +583,7 @@ module.exports.LOC_STUB = nativeBinding.LOC_STUB
 module.exports.resolveDirective = nativeBinding.resolveDirective
 module.exports.resolveExpression = nativeBinding.resolveExpression
 module.exports.resolveJSXText = nativeBinding.resolveJSXText
+module.exports.transformVHtml = nativeBinding.transformVHtml
 module.exports.transformVOnce = nativeBinding.transformVOnce
 module.exports.TS_NODE_TYPES = nativeBinding.TS_NODE_TYPES
 module.exports.unwrapTSNode = nativeBinding.unwrapTSNode

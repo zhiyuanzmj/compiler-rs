@@ -13,7 +13,7 @@ use crate::{
 
 #[napi]
 pub enum IRNodeTypes {
-  ROOT = 0,
+  ROOT,
   BLOCK,
 
   SET_PROP,
@@ -147,7 +147,7 @@ pub struct SetDynamicEventsIRNode {
   #[napi(ts_type = "IRNodeTypes.SET_DYNAMIC_EVENTS")]
   pub _type: IRNodeTypes,
   pub element: i32,
-  pub event: SimpleExpressionNode,
+  pub value: SimpleExpressionNode,
 }
 
 #[napi(object, js_name = "SetTextIRNode")]
@@ -223,7 +223,7 @@ pub struct CreateNodesIRNode {
   pub _type: IRNodeTypes,
   pub id: i32,
   pub once: bool,
-  pub values: Option<Vec<SimpleExpressionNode>>,
+  pub values: Vec<SimpleExpressionNode>,
 }
 
 #[napi(object, js_name = "InsertNodeIRNode")]

@@ -57,7 +57,7 @@ describe('compiler: children transform', () => {
   test('children & sibling references', () => {
     const { code, helpers } = compileWithElementTransform(
       `<div id={id}>
-        <p>{ first }</p> 
+        <p>{ first }</p>
         123 { second } 456 {foo}
         <p>{ forth }</p>
       </div>`,
@@ -97,12 +97,7 @@ describe('compiler: children transform', () => {
     `)
     expect(ir.block.effect).toMatchObject([
       {
-        expressions: [
-          {
-            content: 'obj',
-            isStatic: false,
-          },
-        ],
+        expressions: [],
         operations: [
           {
             type: IRNodeTypes.SET_DYNAMIC_PROPS,

@@ -32,15 +32,9 @@ describe('compiler v-bind', () => {
     })
     expect(ir.templates).toEqual(['<div></div>'])
     expect(ir.block.effect).lengthOf(1)
-    expect(ir.block.effect[0].expressions).lengthOf(1)
     expect(ir.block.effect[0].operations).lengthOf(1)
     expect(ir.block.effect[0]).toMatchObject({
-      expressions: [
-        {
-          content: 'id',
-          isStatic: false,
-        },
-      ],
+      expressions: [],
       operations: [
         {
           type: IRNodeTypes.SET_PROP,

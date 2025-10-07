@@ -122,13 +122,12 @@ pub fn resolve_directive(node: Object, context: Object) -> Result<DirectiveNode>
     ))
   };
 
-  let exp = if let Some(exp) = get_value::<Object>(node) {
+  let exp = if let Some(exp) = get_value(node) {
     Some(resolve_expression(exp, context))
   } else {
     None
   };
 
-  println!("{modifiers:?}");
   let modifiers = modifiers
     .iter()
     .map(|modifier| {
