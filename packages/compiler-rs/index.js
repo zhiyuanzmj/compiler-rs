@@ -557,6 +557,7 @@ if (!nativeBinding) {
 }
 
 module.exports = nativeBinding
+module.exports.camelize = nativeBinding.camelize
 module.exports.createCompilerError = nativeBinding.createCompilerError
 module.exports.createSimpleExpression = nativeBinding.createSimpleExpression
 module.exports.DynamicFlag = nativeBinding.DynamicFlag
@@ -584,6 +585,7 @@ module.exports.LOC_STUB = nativeBinding.LOC_STUB
 module.exports.resolveDirective = nativeBinding.resolveDirective
 module.exports.resolveExpression = nativeBinding.resolveExpression
 module.exports.resolveJSXText = nativeBinding.resolveJSXText
+module.exports.transformVBind = nativeBinding.transformVBind
 module.exports.transformVHtml = nativeBinding.transformVHtml
 module.exports.transformVOnce = nativeBinding.transformVOnce
 module.exports.transformVShow = nativeBinding.transformVShow

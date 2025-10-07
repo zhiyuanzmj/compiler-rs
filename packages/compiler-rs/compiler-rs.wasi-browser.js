@@ -56,6 +56,7 @@ const {
   },
 })
 export default __napiModule.exports
+export const camelize = __napiModule.exports.camelize
 export const createCompilerError = __napiModule.exports.createCompilerError
 export const createSimpleExpression = __napiModule.exports.createSimpleExpression
 export const DynamicFlag = __napiModule.exports.DynamicFlag
@@ -83,6 +84,7 @@ export const LOC_STUB = __napiModule.exports.LOC_STUB
 export const resolveDirective = __napiModule.exports.resolveDirective
 export const resolveExpression = __napiModule.exports.resolveExpression
 export const resolveJSXText = __napiModule.exports.resolveJSXText
+export const transformVBind = __napiModule.exports.transformVBind
 export const transformVHtml = __napiModule.exports.transformVHtml
 export const transformVOnce = __napiModule.exports.transformVOnce
 export const transformVShow = __napiModule.exports.transformVShow

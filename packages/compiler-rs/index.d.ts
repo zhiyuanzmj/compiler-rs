@@ -14,6 +14,8 @@ export interface BlockIRNode {
   returns: Array<number>
 }
 
+export declare function camelize(str: string): string
+
 export interface CompilerError extends SyntaxError {
   code: number
   loc?: SourceLocation
@@ -441,6 +443,8 @@ export interface SlotOutletIRNode {
 
 export type SourceLocation =
   [number, number]
+
+export declare function transformVBind(dir: import('oxc-parser').JSXAttribute, _: import('oxc-parser').JSXElement, context: TransformContext<import('oxc-parser').JSXElement>): DirectiveTransformResult | null
 
 export declare function transformVHtml(dir: object, node: object, context: object): void
 

@@ -268,7 +268,6 @@ describe('compiler v-bind', () => {
           },
         ],
         runtimeCamelize: false,
-        modifier: undefined,
       },
     })
 

@@ -2,7 +2,7 @@ use napi_derive::napi;
 use std::sync::LazyLock;
 
 use napi::bindgen_prelude::Object;
-use regex::Regex;
+use regex::{Captures, Regex};
 
 static EMPTY_TEXT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"^[\t\v\f \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]*[\n\r]\s*$")
@@ -83,4 +83,12 @@ pub fn get_text(node: Object, context: Object) -> String {
           source[start..end].to_owned()
         })
     })
+}
+
+static CAMELIZE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"-(\w)").unwrap());
+#[napi]
+pub fn camelize(str: String) -> String {
+  CAMELIZE_RE
+    .replace_all(&str, |caps: &Captures| caps[1].to_uppercase())
+    .to_string()
 }

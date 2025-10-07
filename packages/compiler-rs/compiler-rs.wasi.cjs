@@ -108,6 +108,7 @@ const { instance: __napiInstance, module: __wasiModule, napiModule: __napiModule
   },
 })
 module.exports = __napiModule.exports
+module.exports.camelize = __napiModule.exports.camelize
 module.exports.createCompilerError = __napiModule.exports.createCompilerError
 module.exports.createSimpleExpression = __napiModule.exports.createSimpleExpression
 module.exports.DynamicFlag = __napiModule.exports.DynamicFlag
@@ -135,6 +136,7 @@ module.exports.LOC_STUB = __napiModule.exports.LOC_STUB
 module.exports.resolveDirective = __napiModule.exports.resolveDirective
 module.exports.resolveExpression = __napiModule.exports.resolveExpression
 module.exports.resolveJSXText = __napiModule.exports.resolveJSXText
+module.exports.transformVBind = __napiModule.exports.transformVBind
 module.exports.transformVHtml = __napiModule.exports.transformVHtml
 module.exports.transformVOnce = __napiModule.exports.transformVOnce
 module.exports.transformVShow = __napiModule.exports.transformVShow

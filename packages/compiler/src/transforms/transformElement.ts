@@ -261,7 +261,7 @@ function transformProp(
   node: JSXElement,
   isComponent: boolean,
   context: TransformContext<JSXElement>,
-): DirectiveTransformResult | void {
+) {
   if (prop.type === 'JSXSpreadAttribute') return
   let name =
     prop.name.type === 'JSXIdentifier'

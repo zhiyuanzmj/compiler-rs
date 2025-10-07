@@ -375,3 +375,8 @@ pub fn is_jsx_component(node: Object) -> bool {
     name_type == "JSXMemberExpression"
   }
 }
+
+static RESERVED_PROP: [&str; 4] = ["key", "ref", "ref_for", "ref_key"];
+pub fn is_reserved_prop(prop_name: &str) -> bool {
+  RESERVED_PROP.contains(&prop_name)
+}

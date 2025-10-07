@@ -35,7 +35,7 @@ export type DirectiveTransform = (
   dir: JSXAttribute,
   node: JSXElement,
   context: TransformContext<JSXElement>,
-) => DirectiveTransformResult | void
+) => DirectiveTransformResult | void | null
 
 // A structural directive transform is technically also a NodeTransform;
 // Only v-if and v-for fall into this category.
