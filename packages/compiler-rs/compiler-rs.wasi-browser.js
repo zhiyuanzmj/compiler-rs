@@ -84,5 +84,6 @@ export const resolveExpression = __napiModule.exports.resolveExpression
 export const resolveJSXText = __napiModule.exports.resolveJSXText
 export const transformVHtml = __napiModule.exports.transformVHtml
 export const transformVOnce = __napiModule.exports.transformVOnce
+export const transformVShow = __napiModule.exports.transformVShow
 export const TS_NODE_TYPES = __napiModule.exports.TS_NODE_TYPES
 export const unwrapTSNode = __napiModule.exports.unwrapTSNode

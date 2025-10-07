@@ -8,6 +8,7 @@ use napi::bindgen_prelude::{JsObjectValue, Object};
 use napi_derive::napi;
 pub mod v_html;
 pub mod v_once;
+pub mod v_show;
 
 use crate::{
   ir::{

@@ -444,6 +444,8 @@ export declare function transformVHtml(dir: object, node: object, context: objec
 
 export declare function transformVOnce(node: object, context: object): void
 
+export declare function transformVShow(dir: object, _: object, context: object): void
+
 export const TS_NODE_TYPES: string[]
 
 export declare function unwrapTSNode(node: import('oxc-parser').Node): import('oxc-parser').Node

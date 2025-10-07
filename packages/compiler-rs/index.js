@@ -585,5 +585,6 @@ module.exports.resolveExpression = nativeBinding.resolveExpression
 module.exports.resolveJSXText = nativeBinding.resolveJSXText
 module.exports.transformVHtml = nativeBinding.transformVHtml
 module.exports.transformVOnce = nativeBinding.transformVOnce
+module.exports.transformVShow = nativeBinding.transformVShow
 module.exports.TS_NODE_TYPES = nativeBinding.TS_NODE_TYPES
 module.exports.unwrapTSNode = nativeBinding.unwrapTSNode

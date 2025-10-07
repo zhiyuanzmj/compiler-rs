@@ -136,5 +136,6 @@ module.exports.resolveExpression = __napiModule.exports.resolveExpression
 module.exports.resolveJSXText = __napiModule.exports.resolveJSXText
 module.exports.transformVHtml = __napiModule.exports.transformVHtml
 module.exports.transformVOnce = __napiModule.exports.transformVOnce
+module.exports.transformVShow = __napiModule.exports.transformVShow
 module.exports.TS_NODE_TYPES = __napiModule.exports.TS_NODE_TYPES
 module.exports.unwrapTSNode = __napiModule.exports.unwrapTSNode

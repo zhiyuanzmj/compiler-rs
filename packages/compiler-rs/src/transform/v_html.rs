@@ -1,6 +1,6 @@
 use napi::{
   Env, Result,
-  bindgen_prelude::{FnArgs, FunctionRef, JsObjectValue, Object},
+  bindgen_prelude::{FnArgs, Function, JsObjectValue, Object},
 };
 use napi_derive::napi;
 
@@ -35,8 +35,7 @@ pub fn transform_v_html(env: Env, dir: Object, node: Object, context: Object) ->
   }
 
   context
-    .get_named_property::<FunctionRef<FnArgs<(bool, SetHtmlIRNode)>, ()>>("registerEffect")?
-    .borrow_back(&env)?
+    .get_named_property::<Function<FnArgs<(bool, SetHtmlIRNode)>, ()>>("registerEffect")?
     .apply(
       context,
       FnArgs::from((
@@ -44,8 +43,7 @@ pub fn transform_v_html(env: Env, dir: Object, node: Object, context: Object) ->
         SetHtmlIRNode {
           _type: IRNodeTypes::SET_HTML,
           element: context
-            .get_named_property::<FunctionRef<(), i32>>("reference")?
-            .borrow_back(&env)?
+            .get_named_property::<Function<(), i32>>("reference")?
             .apply(context, ())?,
           value: exp,
         },
