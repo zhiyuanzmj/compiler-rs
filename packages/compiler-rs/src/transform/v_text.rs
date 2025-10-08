@@ -20,7 +20,7 @@ pub fn transform_v_text(
   env: Env,
   #[napi(ts_arg_type = "import('oxc-parser').JSXAttribute")] dir: Object,
   #[napi(ts_arg_type = "import('oxc-parser').JSXElement")] node: Object,
-  #[napi(ts_arg_type = "TransformContext<import('oxc-parser').JSXElement>")] mut context: Object,
+  mut context: Object,
 ) -> Result<()> {
   let exp = if let Ok(value) = dir.get_named_property::<Object>("value") {
     resolve_expression(value, context)

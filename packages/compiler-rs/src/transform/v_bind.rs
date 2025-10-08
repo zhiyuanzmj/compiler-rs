@@ -17,7 +17,7 @@ use crate::{
 pub fn transform_v_bind(
   #[napi(ts_arg_type = "import('oxc-parser').JSXAttribute")] dir: Object,
   #[napi(ts_arg_type = "import('oxc-parser').JSXElement")] _: Object,
-  #[napi(ts_arg_type = "TransformContext<import('oxc-parser').JSXElement>")] context: Object,
+  context: Object,
 ) -> Result<Option<DirectiveTransformResult>> {
   let name = dir.get_named_property::<Object>("name")?;
   let value = dir.get_named_property::<Object>("value");

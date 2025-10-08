@@ -306,6 +306,8 @@ export declare function isConstantNode(node?: object | undefined | null): boolea
 
 export declare function isEmptyText(node: object): boolean
 
+export declare function isFragmentNode(node: import('oxc-parser').Node | RootNode): node is import('oxc-parser').JSXElement | import('oxc-parser').JSXFragment | RootNode
+
 export declare function isJSXComponent(node: import('oxc-parser').Node): boolean
 
 export declare function isNumericLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').NumericLiteral
@@ -444,7 +446,9 @@ export interface SlotOutletIRNode {
 export type SourceLocation =
   [number, number]
 
-export declare function transformVBind(dir: import('oxc-parser').JSXAttribute, _: import('oxc-parser').JSXElement, context: TransformContext<import('oxc-parser').JSXElement>): DirectiveTransformResult | null
+export declare function transformTemplateRef(node: object, context: object): (arg: object) => void | null
+
+export declare function transformVBind(dir: import('oxc-parser').JSXAttribute, _: import('oxc-parser').JSXElement, context: object): DirectiveTransformResult | null
 
 export declare function transformVHtml(dir: object, node: object, context: object): void
 
@@ -454,7 +458,7 @@ export declare function transformVShow(dir: object, _: object, context: object):
 
 export declare function transformVSlots(dir: object, node: object, context: object): void
 
-export declare function transformVText(dir: import('oxc-parser').JSXAttribute, node: import('oxc-parser').JSXElement, context: TransformContext<import('oxc-parser').JSXElement>): void
+export declare function transformVText(dir: import('oxc-parser').JSXAttribute, node: import('oxc-parser').JSXElement, context: object): void
 
 export const TS_NODE_TYPES: string[]
 

@@ -1,7 +1,10 @@
 use napi_derive::napi;
 use std::sync::LazyLock;
 
-use napi::bindgen_prelude::Object;
+use napi::{
+  JsValue,
+  bindgen_prelude::{JsObjectValue, Object},
+};
 use regex::{Captures, Regex};
 
 static EMPTY_TEXT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -69,6 +72,9 @@ pub fn is_empty_text(node: Object) -> bool {
 
 #[napi]
 pub fn get_text(node: Object, context: Object) -> String {
+  _get_text(node, &context)
+}
+pub fn _get_text(node: Object, context: &Object) -> String {
   context
     .get::<Object>("ir")
     .ok()

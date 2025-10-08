@@ -2,6 +2,8 @@ import { IRNodeTypes } from '../ir'
 import { findProp, isConstantExpression, resolveExpression } from '../utils'
 import type { NodeTransform } from '../transform'
 
+// export { transformTemplateRef } from '@vue-jsx-vapor/compiler-rs'
+
 export const transformTemplateRef: NodeTransform = (node, context) => {
   if (node.type !== 'JSXElement') return
 

@@ -1,5 +1,5 @@
 use napi::{
-  Either, Env, Result,
+  Env, Result,
   bindgen_prelude::{JsObjectValue, Object},
 };
 use napi_derive::napi;
@@ -10,7 +10,6 @@ use crate::{
     check::is_jsx_component,
     error::{ErrorCodes, on_error},
     expression::resolve_expression,
-    utils::find_prop,
   },
 };
 

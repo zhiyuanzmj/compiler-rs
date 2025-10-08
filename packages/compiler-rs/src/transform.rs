@@ -6,6 +6,7 @@ use std::{
 
 use napi::bindgen_prelude::{JsObjectValue, Object};
 use napi_derive::napi;
+pub mod transform_template_ref;
 pub mod v_bind;
 pub mod v_html;
 pub mod v_once;

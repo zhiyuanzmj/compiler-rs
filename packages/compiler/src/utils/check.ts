@@ -1,6 +1,4 @@
-import { isTemplate } from '@vue-jsx-vapor/compiler-rs'
-import { isHTMLTag, isSVGTag } from '@vue/shared'
-import { IRNodeTypes, type RootNode, type SimpleExpressionNode } from '../ir'
+import type { SimpleExpressionNode } from '../ir'
 import { unwrapTSNode } from './utils'
 import type {
   Expression,
@@ -9,14 +7,13 @@ import type {
   ForStatement,
   Function,
   IdentifierName,
-  JSXElement,
-  JSXFragment,
   Node,
   ObjectProperty,
 } from 'oxc-parser'
 export {
   isBigIntLiteral,
   isConstantNode,
+  isFragmentNode,
   isJSXComponent,
   isNumericLiteral,
   isStringLiteral,
@@ -31,13 +28,6 @@ export function isMemberExpression(exp: SimpleExpressionNode) {
     (ret.type === 'Identifier' && ret.name !== 'undefined')
   )
 }
-
-export const isFragmentNode = (
-  node: Node | RootNode,
-): node is JSXElement | JSXFragment | RootNode =>
-  node.type === IRNodeTypes.ROOT ||
-  node.type === 'JSXFragment' ||
-  (node.type === 'JSXElement' && !!isTemplate(node))
 
 const nonIdentifierRE = /^$|^\d|[^$\w\u00A0-\uFFFF]/
 export const isSimpleIdentifier = (name: string): boolean =>

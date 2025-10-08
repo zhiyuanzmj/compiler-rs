@@ -7,7 +7,7 @@ use crate::{
   ir::index::{SimpleExpressionNode, SourceLocation},
   utils::{
     check::is_string_literal,
-    text::{get_text, resolve_jsx_text},
+    text::{_get_text, resolve_jsx_text},
     utils::{get_expression, get_text_like_value, unwrap_ts_node},
   },
 };
@@ -60,6 +60,9 @@ pub fn resolve_expression(
   #[napi(ts_arg_type = "import('oxc-parser').Node")] node: Object<'static>,
   context: Object,
 ) -> SimpleExpressionNode {
+  _resolve_expression(node, &context)
+}
+pub fn _resolve_expression(node: Object<'static>, context: &Object) -> SimpleExpressionNode {
   let node = unwrap_ts_node(get_expression(node));
   let node_type = &node
     .get::<String>("type")
@@ -91,7 +94,7 @@ pub fn resolve_expression(
       .flatten()
       .unwrap_or(String::new())
   } else {
-    get_text(node, context)
+    _get_text(node, context)
   };
   SimpleExpressionNode {
     content,
