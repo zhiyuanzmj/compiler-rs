@@ -24,50 +24,55 @@ pub fn transform_template_ref<'a>(
     return Ok(None);
   }
 
-  if let Some(dir) = find_prop(node, Either::A(String::from("ref"))) {
-    let Ok(value) = dir.get_named_property::<Object>("value") else {
-      return Ok(None);
-    };
-    context
-      .get_named_property::<Object>("ir")?
-      .set("hasTemplateRef", true)?;
+  let Some(dir) = find_prop(node, Either::A(String::from("ref"))) else {
+    return Ok(None);
+  };
+  let Ok(value) = dir.get_named_property::<Object>("value") else {
+    return Ok(None);
+  };
+  context
+    .get_named_property::<Object>("ir")?
+    .set("hasTemplateRef", true)?;
 
+  Ok(Some(env.create_function_from_closure("cb", move |e| {
+    let context = &e.first_arg::<Object>()?;
+    let node = context.get_named_property::<Object>("node")?;
+    let value = find_prop(node, Either::A(String::from("ref")))
+      .unwrap()
+      .get_named_property::<Object>("value")?;
     let value = _resolve_expression(value, &context);
 
-    return Ok(Some(env.create_function_from_closure("cb", move |e| {
-      let context = &e.first_arg::<Object>()?;
-      let id = context
-        .get_named_property::<Function<(), i32>>("reference")?
-        .apply(context, ())?;
-      let effect = !_is_constant_expression(&value);
-      if effect {
-        context
-          .get_named_property::<Object>("block")?
-          .get_named_property::<Vec<DeclareOldRefIRNode>>("operation")?
-          .push(DeclareOldRefIRNode {
-            _type: IRNodeTypes::DECLARE_OLD_REF,
-            id,
-          });
-      }
-
+    let id = context
+      .get_named_property::<Function<(), i32>>("reference")?
+      .apply(context, ())?;
+    let effect = !_is_constant_expression(&value);
+    if effect {
       context
-        .get_named_property::<Function<FnArgs<(bool, SetTemplateRefIRNode)>, ()>>("registerEffect")?
+        .get_named_property::<Function<DeclareOldRefIRNode, ()>>("registerOperation")?
         .apply(
           context,
-          FnArgs::from((
-            is_operation(vec![&value], context),
-            SetTemplateRefIRNode {
-              _type: IRNodeTypes::SET_TEMPLATE_REF,
-              element: id,
-              value: EMPTY_EXPRESSION,
-              ref_for: context.get::<i32>("inVFor")?.is_some_and(|i| i != 0),
-              effect,
-            },
-          )),
+          DeclareOldRefIRNode {
+            _type: IRNodeTypes::DECLARE_OLD_REF,
+            id,
+          },
         )?;
-      Ok(())
-    })?));
-  };
+    }
 
-  Ok(None)
+    context
+      .get_named_property::<Function<FnArgs<(bool, SetTemplateRefIRNode)>, ()>>("registerEffect")?
+      .apply(
+        context,
+        FnArgs::from((
+          is_operation(vec![&value], context),
+          SetTemplateRefIRNode {
+            _type: IRNodeTypes::SET_TEMPLATE_REF,
+            element: id,
+            value,
+            ref_for: context.get::<i32>("inVFor")?.is_some_and(|i| i != 0),
+            effect,
+          },
+        )),
+      )?;
+    Ok(())
+  })?))
 }

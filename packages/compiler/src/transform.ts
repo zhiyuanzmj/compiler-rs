@@ -29,7 +29,11 @@ export { DirectiveTransformResult }
 export type NodeTransform = (
   node: BlockIRNode['node'],
   context: TransformContext<BlockIRNode['node']>,
-) => void | (() => void) | (() => void)[]
+) =>
+  | void
+  | null
+  | ((context: TransformContext) => void | null)
+  | ((context: TransformContext) => void | null)[]
 
 export type DirectiveTransform = (
   dir: JSXAttribute,
@@ -250,12 +254,12 @@ export function transformNode(context: TransformContext<BlockIRNode['node']>) {
     }
   }
 
-  // exit transforms
-  context.node = node
   let i = exitFns.length
   while (i--) {
-    exitFns[i]()
+    exitFns[i](context)
   }
+  // exit transforms
+  context.node = node
 
   if (context.node.type === IRNodeTypes.ROOT) {
     context.registerTemplate()
