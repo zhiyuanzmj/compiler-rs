@@ -17,9 +17,9 @@ use crate::{
 #[napi]
 pub fn transform_template_ref<'a>(
   env: &'a Env,
-  node: Object<'a>,
-  context: Object<'a>,
-) -> Result<Option<Function<'a, Object<'a>, ()>>> {
+  node: Object<'static>,
+  context: Object,
+) -> Result<Option<Function<'a, (), ()>>> {
   if is_fragment_node(node) {
     return Ok(None);
   }

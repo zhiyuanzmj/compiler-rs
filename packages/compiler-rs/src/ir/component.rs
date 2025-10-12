@@ -99,7 +99,10 @@ pub struct IRSlotDynamicBasic {
   #[napi(ts_type = "IRSlotType.DYNAMIC")]
   pub slot_type: IRSlotType,
   pub name: SimpleExpressionNode,
-  pub _fn: SlotBlockIRNode,
+  #[napi(ts_type = "SlotBlockIRNode")]
+  pub _fn: Object<'static>,
+  // should removed
+  pub _loop: Option<IRFor>,
 }
 
 #[napi(object, js_name = "IRSlotDynamicLoop")]
@@ -107,7 +110,8 @@ pub struct IRSlotDynamicLoop {
   #[napi(ts_type = "IRSlotType.LOOP")]
   pub slot_type: IRSlotType,
   pub name: SimpleExpressionNode,
-  pub _fn: SlotBlockIRNode,
+  #[napi(ts_type = "SlotBlockIRNode")]
+  pub _fn: Object<'static>,
   pub _loop: IRFor,
 }
 

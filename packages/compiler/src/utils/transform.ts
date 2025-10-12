@@ -1,31 +1,10 @@
-import {
-  DynamicFlag,
-  type BlockIRNode,
-  type IRDynamicInfo,
-  type IRNodeTypes,
-} from '../ir/index'
+import { newBlock, newDynamic } from '@vue-jsx-vapor/compiler-rs'
 import { isTemplate } from '../utils'
+import type { BlockIRNode } from '../ir/index'
 import type { TransformContext } from '../transform'
 import type { Expression, JSXElement, JSXFragment } from 'oxc-parser'
 
-export function newDynamic(): IRDynamicInfo {
-  return {
-    flags: DynamicFlag.REFERENCED,
-    children: [],
-  }
-}
-
-export function newBlock(node: BlockIRNode['node']): BlockIRNode {
-  return {
-    type: 1 satisfies IRNodeTypes.BLOCK,
-    node,
-    dynamic: newDynamic(),
-    effect: [],
-    operation: [],
-    returns: [],
-    tempId: 0,
-  }
-}
+export { newBlock, newDynamic }
 
 export function createBranch(
   node: Parameters<typeof wrapFragment>[0],
@@ -34,7 +13,7 @@ export function createBranch(
 ): [BlockIRNode, () => void] {
   context.node = node = wrapFragment(node)
   const branch: BlockIRNode = newBlock(node)
-  const exitBlock = context.enterBlock(branch, isVFor)
+  const [, exitBlock] = context.enterBlock(branch, isVFor)
   context.reference()
   return [branch, exitBlock]
 }

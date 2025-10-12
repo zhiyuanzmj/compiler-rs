@@ -93,12 +93,11 @@ pub fn get_text_like_value(
 
 #[napi(ts_return_type = "import('oxc-parser').JSXAttribute | null")]
 pub fn find_prop(
-  #[napi(ts_arg_type = "import('oxc-parser').Expression")] expression: Object,
+  #[napi(ts_arg_type = "import('oxc-parser').Expression")] node: Object,
   key: Either<String, Vec<String>>,
 ) -> Option<Object> {
-  if matches!(expression.get::<String>("type"), Ok(Some(type_value)) if type_value.eq("JSXElement"))
-  {
-    let attributes = expression
+  if matches!(node.get::<String>("type"), Ok(Some(type_value)) if type_value.eq("JSXElement")) {
+    let attributes = node
       .get::<Object>("openingElement")
       .ok()?
       .map(|e| e.get::<Vec<Object>>("attributes").ok()?)??;

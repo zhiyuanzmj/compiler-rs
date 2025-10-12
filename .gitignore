@@ -193,6 +193,3 @@ Temporary Items
 ### macOS Patch ###
 # iCloud generated files
 *.icloud
-
-compiler-rs.wasi.cjs
-compiler-rs.wasi-browser.js

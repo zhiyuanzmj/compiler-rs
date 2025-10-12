@@ -296,7 +296,7 @@ function genLoopSlot(
   return [
     ...genCall(
       context.helper('createForSlots'),
-      genExpression(source, context),
+      genExpression(source!, context),
       [
         ...genMulti(
           ['(', ')', ', '],

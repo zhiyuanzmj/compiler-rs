@@ -381,13 +381,8 @@ pub fn is_jsx_component(node: Object) -> bool {
   ts_return_type = "node is import('oxc-parser').JSXElement | import('oxc-parser').JSXFragment | RootNode"
 )]
 pub fn is_fragment_node(node: Object) -> bool {
-  if let Ok(node_type) = node.get_named_property::<Unknown>("type") {
-    if let Ok(ValueType::Number) = node_type.get_type() {
-      return true;
-    }
-  };
   if let Ok(node_type) = node.get_named_property::<String>("type") {
-    return node_type == "JSXFragment" || is_template(Some(node));
+    return node_type == "JSXFragment" || node_type == "ROOT" || is_template(Some(node));
   }
   return false;
 }

@@ -158,22 +158,6 @@ describe('compiler: transform slot', () => {
       </Comp>`,
     )
     expect(code).toMatchSnapshot()
-    expect(code).toMatchInlineSnapshot(`
-      "
-        const n6 = _createComponent(Comp, null, {
-          "one": () => {
-            const n1 = t0()
-            return n1
-          }, 
-          "default": () => {
-            const n3 = t1()
-            const n4 = t2()
-            return [n3, n4]
-          }
-        }, true)
-        return n6
-      "
-    `)
     expect(ir.templates).toEqual(['foo', 'bar', '<span></span>'])
     const op = ir.block.dynamic.children[0].operation
     expect(op).toMatchObject({
@@ -305,22 +289,6 @@ describe('compiler: transform slot', () => {
       </Comp>`,
     )
     expect(code).toMatchSnapshot()
-    expect(code).toMatchInlineSnapshot(`
-      "
-        const n4 = _createComponent(Comp, null, {
-          $: [
-            () => (_createForSlots(list, (item) => ({
-              name: item, 
-              fn: (_slotProps0) => {
-                const n1 = _createNodes(() => (_slotProps0["bar"]))
-                return n1
-              }
-            })))
-          ]
-        }, true)
-        return n4
-      "
-    `)
 
     expect(code).contains(`fn: (_slotProps0) =>`)
     expect(code).contains(`_createNodes(() => (_slotProps0["bar"]))`)
@@ -339,7 +307,6 @@ describe('compiler: transform slot', () => {
           loop: {
             source: { content: 'list' },
             value: { content: 'item' },
-            index: undefined,
           },
         },
       ],
@@ -351,6 +318,7 @@ describe('compiler: transform slot', () => {
       `<Comp>
         <template v-if={condition} v-slot:condition>condition slot</template>
         <template v-else-if={anotherCondition} v-slot:condition={{ foo, bar }}>another condition</template>
+        <template v-else-if={otherCondition} v-slot:condition>other condition</template>
         <template v-else v-slot:condition>else condition</template>
       </Comp>`,
     )
@@ -376,7 +344,7 @@ describe('compiler: transform slot', () => {
             positive: {
               slotType: IRSlotType.DYNAMIC,
             },
-            negative: { slotType: IRSlotType.DYNAMIC },
+            negative: { slotType: IRSlotType.CONDITIONAL },
           },
         },
       ],

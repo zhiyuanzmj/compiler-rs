@@ -36,7 +36,7 @@ exports[`compiler: transform slot > dynamic slots name w/ v-for 1`] = `
 
 exports[`compiler: transform slot > dynamic slots name w/ v-if / v-else[-if] 1`] = `
 "
-  const n10 = _createComponent(Comp, null, {
+  const n13 = _createComponent(Comp, null, {
     $: [
       () => (condition
         ? {
@@ -54,16 +54,24 @@ exports[`compiler: transform slot > dynamic slots name w/ v-if / v-else[-if] 1`]
               return n4
             }
           }
-          : {
-            name: "condition", 
-            fn: () => {
-              const n7 = t2()
-              return n7
+          : otherCondition
+            ? {
+              name: "condition", 
+              fn: () => {
+                const n7 = t2()
+                return n7
+              }
             }
-          })
+            : {
+              name: "condition", 
+              fn: () => {
+                const n10 = t3()
+                return n10
+              }
+            })
     ]
   }, true)
-  return n10
+  return n13
 "
 `;
 

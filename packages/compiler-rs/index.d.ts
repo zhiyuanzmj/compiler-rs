@@ -84,7 +84,11 @@ export declare const enum DynamicFlag {
   NONE = 0,
   REFERENCED = 1,
   NON_TEMPLATE = 2,
-  INSERT = 4
+  A = 3,
+  INSERT = 4,
+  B = 5,
+  C = 6,
+  D = 7
 }
 
 export const EMPTY_EXPRESSION: SimpleExpressionNode
@@ -112,7 +116,7 @@ export declare const enum ErrorCodes {
   X_V_SHOW_NO_EXPRESSION = 61
 }
 
-export declare function findProp(expression: import('oxc-parser').Expression, key: string | Array<string>): import('oxc-parser').JSXAttribute | null
+export declare function findProp(node: import('oxc-parser').Expression, key: string | Array<string>): import('oxc-parser').JSXAttribute | null
 
 export interface ForIRNode {
   source: SimpleExpressionNode
@@ -185,7 +189,7 @@ export interface IREffect {
 }
 
 export interface IRFor {
-  source: SimpleExpressionNode
+  source?: SimpleExpressionNode
   value?: SimpleExpressionNode
   key?: SimpleExpressionNode
   index?: SimpleExpressionNode
@@ -195,26 +199,26 @@ export type IRNode =
   OperationNode | RootIRNode
 
 export declare const enum IRNodeTypes {
-  ROOT = 0,
-  BLOCK = 1,
-  SET_PROP = 2,
-  SET_DYNAMIC_PROPS = 3,
-  SET_TEXT = 4,
-  SET_EVENT = 5,
-  SET_DYNAMIC_EVENTS = 6,
-  SET_HTML = 7,
-  SET_TEMPLATE_REF = 8,
-  INSERT_NODE = 9,
-  PREPEND_NODE = 10,
-  CREATE_COMPONENT_NODE = 11,
-  SLOT_OUTLET_NODE = 12,
-  DIRECTIVE = 13,
-  DECLARE_OLD_REF = 14,
-  IF = 15,
-  FOR = 16,
-  GET_TEXT_CHILD = 17,
-  CREATE_NODES = 18,
-  SET_NODES = 19
+  ROOT = 'ROOT',
+  BLOCK = 'BLOCK',
+  SET_PROP = 'SET_PROP',
+  SET_DYNAMIC_PROPS = 'SET_DYNAMIC_PROPS',
+  SET_TEXT = 'SET_TEXT',
+  SET_EVENT = 'SET_EVENT',
+  SET_DYNAMIC_EVENTS = 'SET_DYNAMIC_EVENTS',
+  SET_HTML = 'SET_HTML',
+  SET_TEMPLATE_REF = 'SET_TEMPLATE_REF',
+  INSERT_NODE = 'INSERT_NODE',
+  PREPEND_NODE = 'PREPEND_NODE',
+  CREATE_COMPONENT_NODE = 'CREATE_COMPONENT_NODE',
+  SLOT_OUTLET_NODE = 'SLOT_OUTLET_NODE',
+  DIRECTIVE = 'DIRECTIVE',
+  DECLARE_OLD_REF = 'DECLARE_OLD_REF',
+  IF = 'IF',
+  FOR = 'FOR',
+  GET_TEXT_CHILD = 'GET_TEXT_CHILD',
+  CREATE_NODES = 'CREATE_NODES',
+  SET_NODES = 'SET_NODES'
 }
 
 export interface IRProp {
@@ -259,6 +263,7 @@ export interface IRSlotDynamicBasic {
   slotType: IRSlotType.DYNAMIC
   name: SimpleExpressionNode
   fn: SlotBlockIRNode
+  loop?: IRFor
 }
 
 export interface IRSlotDynamicConditional {
@@ -326,6 +331,10 @@ export interface Modifiers {
   keys: Array<string>
   nonKeys: Array<string>
 }
+
+export declare function newBlock(node: object): BlockIRNode
+
+export declare function newDynamic(): IRDynamicInfo
 
 export type OperationNode =
   IfIRNode | ForIRNode | SetTextIRNode | SetPropIRNode | SetDynamicPropsIRNode | SetDynamicEventsIRNode | SetNodesIRNode | SetEventIRNode | SetHtmlIRNode | SetTemplateRefIRNode | CreateNodesIRNode | InsertNodeIRNode | PrependNodeIRNode | DirectiveIRNode | CreateComponentIRNode | DeclareOldRefIRNode | SlotOutletIRNode | GetTextChildIRNode
@@ -446,7 +455,7 @@ export interface SlotOutletIRNode {
 export type SourceLocation =
   [number, number]
 
-export declare function transformTemplateRef(node: object, context: object): (arg: object) => void | null
+export declare function transformTemplateRef(node: object, context: object): () => void | null
 
 export declare function transformVBind(dir: import('oxc-parser').JSXAttribute, _: import('oxc-parser').JSXElement, context: object): DirectiveTransformResult | null
 
@@ -455,6 +464,8 @@ export declare function transformVHtml(dir: object, node: object, context: objec
 export declare function transformVOnce(node: object, context: object): void
 
 export declare function transformVShow(dir: object, _: object, context: object): void
+
+export declare function transformVSlot(node: object, context: object): () => void | null
 
 export declare function transformVSlots(dir: object, node: object, context: object): void
 

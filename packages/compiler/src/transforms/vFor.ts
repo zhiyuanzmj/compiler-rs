@@ -85,12 +85,11 @@ export function getForParseResult(
     key: SimpleExpressionNode | undefined,
     source: SimpleExpressionNode | undefined
   if (dir.value) {
-    let expression
-    if (
-      dir.value.type === 'JSXExpressionContainer' &&
-      (expression = getExpression(dir.value)) &&
-      expression.type === 'BinaryExpression'
-    ) {
+    const expression =
+      dir.value.type === 'JSXExpressionContainer'
+        ? getExpression(dir.value)
+        : undefined
+    if (expression?.type === 'BinaryExpression') {
       const left = getExpression(expression.left)
       if (left.type === 'SequenceExpression') {
         const expressions = left.expressions
@@ -98,7 +97,7 @@ export function getForParseResult(
         key = expressions[1] && resolveExpression(expressions[1], context)
         index = expressions[2] && resolveExpression(expressions[2], context)
       } else {
-        value = resolveExpression(expression.left, context)
+        value = resolveExpression(left, context)
       }
       source = resolveExpression(expression.right, context)
     }

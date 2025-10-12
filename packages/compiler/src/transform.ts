@@ -109,6 +109,9 @@ export class TransformContext<
 
   slots: IRSlots[] = []
 
+  exitKey = 0
+  exitBlocks = {}
+
   private globalId = 0
 
   constructor(
@@ -122,24 +125,34 @@ export class TransformContext<
     this.root = this as TransformContext<RootNode>
   }
 
-  enterBlock(ir: BlockIRNode, isVFor: boolean = false): () => void {
+  enterBlock(
+    ir: BlockIRNode,
+    isVFor: boolean = false,
+    // should removed
+    exclude_slots = false,
+  ): [BlockIRNode, () => void] {
     const { block, template, dynamic, childrenTemplate, slots } = this
     this.block = ir
     this.dynamic = ir.dynamic
     this.template = ''
     this.childrenTemplate = []
-    this.slots = []
+    if (!exclude_slots) this.slots = []
+
     isVFor && this.inVFor++
-    return () => {
+    const exitBlock = () => {
       // exit
       this.registerTemplate()
       this.block = block
       this.template = template
       this.dynamic = dynamic
       this.childrenTemplate = childrenTemplate
-      this.slots = slots
+      if (!exclude_slots) this.slots = slots
       isVFor && this.inVFor--
     }
+    // @ts-expect-error should removed
+    this.exitBlocks[this.exitKey] = exitBlock
+    this.exitKey++
+    return [ir, exitBlock]
   }
 
   increaseId = () => this.globalId++
@@ -254,12 +267,12 @@ export function transformNode(context: TransformContext<BlockIRNode['node']>) {
     }
   }
 
+  // exit transforms
+  context.node = node
   let i = exitFns.length
   while (i--) {
     exitFns[i](context)
   }
-  // exit transforms
-  context.node = node
 
   if (context.node.type === IRNodeTypes.ROOT) {
     context.registerTemplate()

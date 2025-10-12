@@ -11,7 +11,7 @@ use crate::{
   utils::my_box::MyBox,
 };
 
-#[napi]
+#[napi(string_enum)]
 pub enum IRNodeTypes {
   ROOT,
   BLOCK,
@@ -98,7 +98,7 @@ pub struct IfIRNode {
 
 #[napi(object, js_name = "IRFor")]
 pub struct IRFor {
-  pub source: SimpleExpressionNode,
+  pub source: Option<SimpleExpressionNode>,
   pub value: Option<SimpleExpressionNode>,
   pub key: Option<SimpleExpressionNode>,
   pub index: Option<SimpleExpressionNode>,
@@ -324,8 +324,12 @@ pub enum DynamicFlag {
   REFERENCED = 1,
   // This node is not generated from template, but is generated dynamically.
   NON_TEMPLATE = 2,
+  A = 3,
   // This node needs to be inserted back into the template.
   INSERT = 4,
+  B = 5,
+  C = 6,
+  D = 7,
 }
 
 #[napi(object, js_name = "IRDynamicInfo")]
