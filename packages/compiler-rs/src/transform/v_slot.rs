@@ -20,6 +20,7 @@ use crate::{
     },
     index::{DirectiveNode, DynamicFlag, IRDynamicInfo, IRFor, IRNodeTypes, SimpleExpressionNode},
   },
+  transform::v_for::get_for_parse_result,
   utils::{
     check::{is_jsx_component, is_template},
     directive::resolve_directive,
@@ -211,7 +212,7 @@ pub fn transform_template_slot<'a>(
       }
     }
   } else if let Some(v_for) = v_for {
-    let for_parse_result = get_for_parse_result(*env, v_for, context)?;
+    let for_parse_result = get_for_parse_result(env, v_for, context)?;
     if for_parse_result.source.is_some() {
       _slots.push(Either3::B(Either3::B(IRSlotDynamicLoop {
         slot_type: IRSlotType::LOOP,
@@ -246,60 +247,6 @@ fn set_slot(
   } else {
     v_if_slot.negative = Some(MyBox(Box::new(slot)));
   };
-}
-
-pub fn get_for_parse_result(env: Env, dir: Object, context: Object) -> Result<IRFor> {
-  let mut value: Option<SimpleExpressionNode> = None;
-  let mut index: Option<SimpleExpressionNode> = None;
-  let mut key: Option<SimpleExpressionNode> = None;
-  let mut source: Option<SimpleExpressionNode> = None;
-  if let Ok(dir_value) = dir.get_named_property::<Object>("value") {
-    let expression = if dir_value
-      .get_named_property::<String>("type")?
-      .eq("JSXExpressionContainer")
-    {
-      Some(get_expression(dir_value))
-    } else {
-      None
-    };
-    if let Some(expression) = expression
-      && expression
-        .get_named_property::<String>("type")
-        .unwrap()
-        .eq("BinaryExpression")
-    {
-      let left = get_expression(expression.get_named_property::<Object>("left")?);
-      if left
-        .get_named_property::<String>("type")?
-        .eq("SequenceExpression")
-      {
-        let mut expressions = left.get_named_property::<Vec<Object>>("expressions")?;
-        value = expressions
-          .get_mut(0)
-          .map(|e| resolve_expression(*e, context));
-        key = expressions
-          .get_mut(1)
-          .map(|e| resolve_expression(*e, context));
-        index = expressions
-          .get_mut(2)
-          .map(|e| resolve_expression(*e, context))
-      } else {
-        value = Some(resolve_expression(left, context));
-      };
-      source = Some(resolve_expression(
-        expression.get_named_property::<Object>("right")?,
-        context,
-      ));
-    }
-  } else {
-    on_error(env, ErrorCodes::X_V_FOR_NO_EXPRESSION, context);
-  }
-  return Ok(IRFor {
-    value,
-    index,
-    key,
-    source,
-  });
 }
 
 pub fn ensure_static_slots<'a>(

@@ -1,6 +1,6 @@
 use napi::{
   Either,
-  bindgen_prelude::{Array, Object},
+  bindgen_prelude::{Array, JsObjectValue, Object},
 };
 use napi_derive::napi;
 
@@ -96,14 +96,18 @@ pub fn find_prop(
   #[napi(ts_arg_type = "import('oxc-parser').Expression")] node: Object,
   key: Either<String, Vec<String>>,
 ) -> Option<Object> {
-  if matches!(node.get::<String>("type"), Ok(Some(type_value)) if type_value.eq("JSXElement")) {
+  if node
+    .get_named_property::<String>("type")
+    .is_ok_and(|t| t.eq("JSXElement"))
+  {
     let attributes = node
       .get::<Object>("openingElement")
-      .ok()?
-      .map(|e| e.get::<Vec<Object>>("attributes").ok()?)??;
+      .ok()??
+      .get::<Vec<Object>>("attributes")
+      .ok()??;
 
     for attr in attributes {
-      if matches!(attr.get::<String>("type").ok()??, name if name == "JSXAttribute") {
+      if attr.get::<String>("type").ok()??.eq("JSXAttribute") {
         let name = attr.get::<Object>("name").ok()??;
         let name_type = name.get::<String>("type").ok()??;
         let name = if name_type.eq("JSXIdentifier") {

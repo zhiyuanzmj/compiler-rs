@@ -49,7 +49,6 @@ pub fn transform_v_bind(
   } else {
     None
   };
-  dbg!(&exp.content);
 
   Ok(Some(DirectiveTransformResult {
     key: arg,

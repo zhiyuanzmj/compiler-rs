@@ -558,8 +558,10 @@ if (!nativeBinding) {
 
 module.exports = nativeBinding
 module.exports.camelize = nativeBinding.camelize
+module.exports.createBranch = nativeBinding.createBranch
 module.exports.createCompilerError = nativeBinding.createCompilerError
 module.exports.createSimpleExpression = nativeBinding.createSimpleExpression
+module.exports.createStructuralDirectiveTransform = nativeBinding.createStructuralDirectiveTransform
 module.exports.DynamicFlag = nativeBinding.DynamicFlag
 module.exports.EMPTY_EXPRESSION = nativeBinding.EMPTY_EXPRESSION
 module.exports.ErrorCodes = nativeBinding.ErrorCodes
@@ -590,6 +592,7 @@ module.exports.resolveExpression = nativeBinding.resolveExpression
 module.exports.resolveJSXText = nativeBinding.resolveJSXText
 module.exports.transformTemplateRef = nativeBinding.transformTemplateRef
 module.exports.transformVBind = nativeBinding.transformVBind
+module.exports.transformVFor = nativeBinding.transformVFor
 module.exports.transformVHtml = nativeBinding.transformVHtml
 module.exports.transformVOnce = nativeBinding.transformVOnce
 module.exports.transformVShow = nativeBinding.transformVShow
@@ -598,3 +601,4 @@ module.exports.transformVSlots = nativeBinding.transformVSlots
 module.exports.transformVText = nativeBinding.transformVText
 module.exports.TS_NODE_TYPES = nativeBinding.TS_NODE_TYPES
 module.exports.unwrapTSNode = nativeBinding.unwrapTSNode
+module.exports.wrapFragment = nativeBinding.wrapFragment

@@ -115,7 +115,8 @@ pub struct ForIRNode {
   pub _type: IRNodeTypes,
   pub id: i32,
   pub key_prop: Option<SimpleExpressionNode>,
-  pub render: BlockIRNode,
+  #[napi(ts_type = "BlockIRNode")]
+  pub render: Object<'static>,
   pub once: bool,
   pub component: bool,
   pub only_child: bool,

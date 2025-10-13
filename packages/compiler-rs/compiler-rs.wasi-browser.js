@@ -57,8 +57,10 @@ const {
 })
 export default __napiModule.exports
 export const camelize = __napiModule.exports.camelize
+export const createBranch = __napiModule.exports.createBranch
 export const createCompilerError = __napiModule.exports.createCompilerError
 export const createSimpleExpression = __napiModule.exports.createSimpleExpression
+export const createStructuralDirectiveTransform = __napiModule.exports.createStructuralDirectiveTransform
 export const DynamicFlag = __napiModule.exports.DynamicFlag
 export const EMPTY_EXPRESSION = __napiModule.exports.EMPTY_EXPRESSION
 export const ErrorCodes = __napiModule.exports.ErrorCodes
@@ -89,6 +91,7 @@ export const resolveExpression = __napiModule.exports.resolveExpression
 export const resolveJSXText = __napiModule.exports.resolveJSXText
 export const transformTemplateRef = __napiModule.exports.transformTemplateRef
 export const transformVBind = __napiModule.exports.transformVBind
+export const transformVFor = __napiModule.exports.transformVFor
 export const transformVHtml = __napiModule.exports.transformVHtml
 export const transformVOnce = __napiModule.exports.transformVOnce
 export const transformVShow = __napiModule.exports.transformVShow
@@ -97,3 +100,4 @@ export const transformVSlots = __napiModule.exports.transformVSlots
 export const transformVText = __napiModule.exports.transformVText
 export const TS_NODE_TYPES = __napiModule.exports.TS_NODE_TYPES
 export const unwrapTSNode = __napiModule.exports.unwrapTSNode
+export const wrapFragment = __napiModule.exports.wrapFragment

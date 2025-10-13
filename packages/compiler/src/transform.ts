@@ -111,6 +111,8 @@ export class TransformContext<
 
   exitKey = 0
   exitBlocks = {}
+  blocks = {}
+  seen = new Set()
 
   private globalId = 0
 
@@ -151,6 +153,8 @@ export class TransformContext<
     }
     // @ts-expect-error should removed
     this.exitBlocks[this.exitKey] = exitBlock
+    // @ts-expect-error should removed
+    this.blocks[this.exitKey] = ir
     this.exitKey++
     return [ir, exitBlock]
   }

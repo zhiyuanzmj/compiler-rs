@@ -21,6 +21,8 @@ export interface CompilerError extends SyntaxError {
   loc?: SourceLocation
 }
 
+export declare function createBranch(node: object, context: object, isVFor?: boolean | undefined | null): [BlockIRNode, () => void]
+
 export declare function createCompilerError(code: ErrorCodes, loc?: SourceLocation | undefined | null): CompilerError
 
 export interface CreateComponentIRNode {
@@ -45,6 +47,8 @@ export interface CreateNodesIRNode {
 }
 
 export declare function createSimpleExpression(content: string, isStatic?: boolean | undefined | null, ast?: object | undefined | null, loc?: SourceLocation | undefined | null): SimpleExpressionNode
+
+export declare function createStructuralDirectiveTransform(name: string | Array<string>, fn: (node: import('oxc-parser').JSXElement, dir: import('oxc-parser').JSXAttribute, context: object) => void | (() => void)): () => void
 
 export interface DeclareOldRefIRNode {
   type: IRNodeTypes.DECLARE_OLD_REF
@@ -459,6 +463,8 @@ export declare function transformTemplateRef(node: object, context: object): () 
 
 export declare function transformVBind(dir: import('oxc-parser').JSXAttribute, _: import('oxc-parser').JSXElement, context: object): DirectiveTransformResult | null
 
+export declare function transformVFor(node: object, context: object): () => void | null
+
 export declare function transformVHtml(dir: object, node: object, context: object): void
 
 export declare function transformVOnce(node: object, context: object): void
@@ -474,3 +480,5 @@ export declare function transformVText(dir: import('oxc-parser').JSXAttribute, n
 export const TS_NODE_TYPES: string[]
 
 export declare function unwrapTSNode(node: import('oxc-parser').Node): import('oxc-parser').Node
+
+export declare function wrapFragment(node: object): import('oxc-parser').JSXFragment

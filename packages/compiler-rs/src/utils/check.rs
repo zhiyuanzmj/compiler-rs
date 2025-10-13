@@ -56,13 +56,15 @@ pub fn is_template(node: Option<Object>) -> bool {
     false
   }
 }
-
 #[napi]
 pub fn is_constant_node(node: Option<Object>) -> bool {
+  _is_constant_node(&node)
+}
+pub fn _is_constant_node(node: &Option<Object>) -> bool {
   let Some(node) = node else {
     return false;
   };
-  let node = unwrap_ts_node(node);
+  let node = unwrap_ts_node(*node);
   let Some(node_type) = node.get_named_property::<String>("type").ok() else {
     return false;
   };

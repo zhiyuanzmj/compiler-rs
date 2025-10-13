@@ -46,8 +46,6 @@ describe('compiler: v-for', () => {
       value: {
         content: 'item',
       },
-      key: undefined,
-      index: undefined,
       render: {
         type: IRNodeTypes.BLOCK,
         dynamic: {
@@ -218,8 +216,6 @@ describe('compiler: v-for', () => {
           type: 'ObjectExpression',
         },
       },
-      key: undefined,
-      index: undefined,
     })
   })
 
@@ -242,7 +238,6 @@ describe('compiler: v-for', () => {
       key: {
         content: 'index',
       },
-      index: undefined,
     })
   })
 
@@ -264,7 +259,6 @@ describe('compiler: v-for', () => {
       key: {
         content: 'index',
       },
-      index: undefined,
     })
   })
 
@@ -289,7 +283,6 @@ describe('compiler: v-for', () => {
       key: {
         content: 'index',
       },
-      index: undefined,
     })
   })
 
@@ -310,8 +303,6 @@ describe('compiler: v-for', () => {
         content: '{ foo, baz: [qux] }',
         ast: { type: 'ObjectExpression' },
       },
-      key: undefined,
-      index: undefined,
     })
   })
   test('fast-remove flag', () => {

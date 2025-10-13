@@ -109,8 +109,10 @@ const { instance: __napiInstance, module: __wasiModule, napiModule: __napiModule
 })
 module.exports = __napiModule.exports
 module.exports.camelize = __napiModule.exports.camelize
+module.exports.createBranch = __napiModule.exports.createBranch
 module.exports.createCompilerError = __napiModule.exports.createCompilerError
 module.exports.createSimpleExpression = __napiModule.exports.createSimpleExpression
+module.exports.createStructuralDirectiveTransform = __napiModule.exports.createStructuralDirectiveTransform
 module.exports.DynamicFlag = __napiModule.exports.DynamicFlag
 module.exports.EMPTY_EXPRESSION = __napiModule.exports.EMPTY_EXPRESSION
 module.exports.ErrorCodes = __napiModule.exports.ErrorCodes
@@ -141,6 +143,7 @@ module.exports.resolveExpression = __napiModule.exports.resolveExpression
 module.exports.resolveJSXText = __napiModule.exports.resolveJSXText
 module.exports.transformTemplateRef = __napiModule.exports.transformTemplateRef
 module.exports.transformVBind = __napiModule.exports.transformVBind
+module.exports.transformVFor = __napiModule.exports.transformVFor
 module.exports.transformVHtml = __napiModule.exports.transformVHtml
 module.exports.transformVOnce = __napiModule.exports.transformVOnce
 module.exports.transformVShow = __napiModule.exports.transformVShow
@@ -149,3 +152,4 @@ module.exports.transformVSlots = __napiModule.exports.transformVSlots
 module.exports.transformVText = __napiModule.exports.transformVText
 module.exports.TS_NODE_TYPES = __napiModule.exports.TS_NODE_TYPES
 module.exports.unwrapTSNode = __napiModule.exports.unwrapTSNode
+module.exports.wrapFragment = __napiModule.exports.wrapFragment

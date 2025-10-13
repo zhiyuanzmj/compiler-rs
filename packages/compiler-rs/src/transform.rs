@@ -4,10 +4,14 @@ use std::{
   rc::{Rc, Weak},
 };
 
-use napi::bindgen_prelude::{JsObjectValue, Object};
+use napi::{
+  Either, Env, Result,
+  bindgen_prelude::{FnArgs, Function, JsObjectValue, Object},
+};
 use napi_derive::napi;
 pub mod transform_template_ref;
 pub mod v_bind;
+pub mod v_for;
 pub mod v_html;
 pub mod v_once;
 pub mod v_show;
@@ -20,7 +24,12 @@ use crate::{
     component::IRSlots,
     index::{BlockIRNode, IRDynamicInfo, Modifiers, RootIRNode, SimpleExpressionNode},
   },
-  utils::{check::is_constant_node, expression::_is_constant_expression},
+  utils::{
+    check::{is_constant_node, is_template},
+    expression::_is_constant_expression,
+    text::get_text,
+    utils::find_prop,
+  },
 };
 
 #[napi(object)]
@@ -54,7 +63,7 @@ pub fn is_operation(expressions: Vec<&SimpleExpressionNode>, context: &Object) -
   expressions.into_iter().all(|exp| is_constant_node(exp.ast))
 }
 
-//#[napi]
+// #[napi]
 pub struct TransformContext<T> {
   parent: RefCell<Weak<TransformContext<T>>>,
   root: RefCell<Weak<TransformContext<T>>>,
@@ -101,4 +110,50 @@ impl<T> TransformContext<T> {
   pub fn dynamic<'c>(&'c self) -> RefMut<'c, IRDynamicInfo> {
     RefMut::map(self.block(), |block| &mut block.dynamic)
   }
+}
+
+#[napi]
+pub fn create_structural_directive_transform<'a>(
+  env: &'a Env,
+  name: Either<String, Vec<String>>,
+  #[napi(
+    ts_arg_type = "(node: import('oxc-parser').JSXElement, dir: import('oxc-parser').JSXAttribute, context: object) => void | (() => void)"
+  )]
+  _fn: Function<(Object, Object), ()>,
+) -> Result<Function<'a, (), ()>> {
+  let matches = |n: String| match name {
+    Either::A(name) => name == n,
+    Either::B(names) => names.contains(&n),
+  };
+
+  Ok(env.create_function_from_closure("cb", move |e| {
+    let node = e.get::<Object>(0)?;
+    let context = e.get::<Object>(1)?;
+
+    if node.get_named_property::<String>("type")?.eq("JSXElement") {
+      // structural directive transforms are not concerned with slots
+      // as they are handled separately in vSlot.ts
+      if is_template(Some(node)) && find_prop(node, Either::A(String::from("v-slot"))).is_some() {
+        return Ok(());
+      }
+      let attributes = node
+        .get_named_property::<Object>("openingElement")?
+        .get_named_property::<Vec<Object>>("attributes")?;
+      // let mut exit_fns = Vec::new();
+      for prop in attributes {
+        if prop
+          .get_named_property::<String>("type")?
+          .eq("JSXAttribute")
+        {
+          continue;
+        }
+        let prop_name = get_text(prop.get_named_property::<Object>("name")?, context);
+        // if prop_name.starts_with("v-") && matches(prop_name[2..].to_string()) {
+        // attributes.splice
+        // }
+      }
+    }
+
+    Ok(())
+  })?)
 }
