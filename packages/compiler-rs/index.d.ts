@@ -48,8 +48,6 @@ export interface CreateNodesIRNode {
 
 export declare function createSimpleExpression(content: string, isStatic?: boolean | undefined | null, ast?: object | undefined | null, loc?: SourceLocation | undefined | null): SimpleExpressionNode
 
-export declare function createStructuralDirectiveTransform(name: string | Array<string>, fn: (node: import('oxc-parser').JSXElement, dir: import('oxc-parser').JSXAttribute, context: object) => void | (() => void)): () => void
-
 export interface DeclareOldRefIRNode {
   type: IRNodeTypes.DECLARE_OLD_REF
   id: number
@@ -472,6 +470,8 @@ export declare function transformVBind(dir: import('oxc-parser').JSXAttribute, _
 export declare function transformVFor(node: object, context: object): () => void | null
 
 export declare function transformVHtml(dir: object, node: object, context: object): void
+
+export declare function transformVIf(node: object, context: object): () => void | null
 
 export declare function transformVOnce(node: object, context: object): void
 

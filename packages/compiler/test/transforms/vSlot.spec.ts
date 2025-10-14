@@ -152,7 +152,7 @@ describe('compiler: transform slot', () => {
   })
 
   test('named slots w/ implicit default slot', () => {
-    const { ir, code } = compileWithSlots(
+    const { ir } = compileWithSlots(
       `<Comp>
         <template v-slot:one>foo</template>bar<span/>
       </Comp>`,

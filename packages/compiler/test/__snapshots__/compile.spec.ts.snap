@@ -60,7 +60,7 @@ exports[`compile > setInsertionState > next, child and nthChild should be above 
   const n1 = _createIf(() => (true), () => {
     const n3 = t0()
     return n3
-  })
+  }, null, true)
   _renderEffect(() => _setProp(n4, "disabled", foo))
   return n6
 "

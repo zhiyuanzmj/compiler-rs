@@ -44,14 +44,6 @@ export type DirectiveTransform = (
   context: TransformContext<JSXElement>,
 ) => DirectiveTransformResult | void | null
 
-// A structural directive transform is technically also a NodeTransform;
-// Only v-if and v-for fall into this category.
-export type StructuralDirectiveTransform = (
-  node: JSXElement,
-  dir: JSXAttribute,
-  context: TransformContext,
-) => void | (() => void)
-
 export type TransformOptions = CodegenOptions & {
   source?: string
   /**
@@ -249,37 +241,4 @@ export function transform(
   transformNode(context)
 
   return ir
-}
-
-export function createStructuralDirectiveTransform(
-  name: string | string[],
-  fn: StructuralDirectiveTransform,
-): NodeTransform {
-  const matches = (n: string) =>
-    isString(name) ? n === name : name.includes(n)
-
-  return (node, context) => {
-    if (node.type === 'JSXElement') {
-      const {
-        openingElement: { attributes },
-      } = node
-      // structural directive transforms are not concerned with slots
-      // as they are handled separately in vSlot.ts
-      if (isTemplate(node) && findProp(node, 'v-slot')) {
-        return
-      }
-      let exitFn
-      for (const prop of attributes) {
-        if (prop.type !== 'JSXAttribute') continue
-        const propName = getText(prop.name, context)
-        if (propName.startsWith('v-') && matches(propName.slice(2))) {
-          attributes.splice(attributes.indexOf(prop), 1)
-          const onExit = fn(node, prop, context as TransformContext)
-          if (onExit) exitFn = onExit
-          break
-        }
-      }
-      return exitFn
-    }
-  }
 }

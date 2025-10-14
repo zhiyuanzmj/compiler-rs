@@ -14,6 +14,7 @@ pub mod transform_text;
 pub mod v_bind;
 pub mod v_for;
 pub mod v_html;
+pub mod v_if;
 pub mod v_once;
 pub mod v_show;
 pub mod v_slot;
@@ -146,50 +147,4 @@ pub fn transform_node(mut context: Object) -> Result<()> {
       .apply(context, ())?;
   }
   Ok(())
-}
-
-#[napi]
-pub fn create_structural_directive_transform<'a>(
-  env: &'a Env,
-  name: Either<String, Vec<String>>,
-  #[napi(
-    ts_arg_type = "(node: import('oxc-parser').JSXElement, dir: import('oxc-parser').JSXAttribute, context: object) => void | (() => void)"
-  )]
-  _fn: Function<(Object, Object), ()>,
-) -> Result<Function<'a, (), ()>> {
-  let matches = |n: String| match name {
-    Either::A(name) => name == n,
-    Either::B(names) => names.contains(&n),
-  };
-
-  Ok(env.create_function_from_closure("cb", move |e| {
-    let node = e.get::<Object>(0)?;
-    let context = e.get::<Object>(1)?;
-
-    if node.get_named_property::<String>("type")?.eq("JSXElement") {
-      // structural directive transforms are not concerned with slots
-      // as they are handled separately in vSlot.ts
-      if is_template(Some(node)) && find_prop(node, Either::A(String::from("v-slot"))).is_some() {
-        return Ok(());
-      }
-      let attributes = node
-        .get_named_property::<Object>("openingElement")?
-        .get_named_property::<Vec<Object>>("attributes")?;
-      // let mut exit_fns = Vec::new();
-      for prop in attributes {
-        if prop
-          .get_named_property::<String>("type")?
-          .eq("JSXAttribute")
-        {
-          continue;
-        }
-        let prop_name = get_text(prop.get_named_property::<Object>("name")?, context);
-        // if prop_name.starts_with("v-") && matches(prop_name[2..].to_string()) {
-        // attributes.splice
-        // }
-      }
-    }
-
-    Ok(())
-  })?)
 }

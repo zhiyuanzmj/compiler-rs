@@ -31,7 +31,7 @@ exports[`compiler: template ref transform > ref + v-if 1`] = `
     let r2
     _renderEffect(() => r2 = _setTemplateRef(n2, foo, r2))
     return n2
-  })
+  }, null, true)
   return n0
 "
 `;

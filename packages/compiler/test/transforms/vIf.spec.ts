@@ -220,9 +220,9 @@ describe('compiler: v-if', () => {
     const { code, ir } = compileWithVIf(
       `
       <>
-        <div v-if="ok"/>
+        <div v-if={ok}/>
         {/* foo */}
-        <p v-else-if="orNot"/>
+        <p v-else-if={orNot}/>
         {/* bar */}
         <template v-else>fine</template>
         <div v-text="text" />
