@@ -88,7 +88,8 @@ pub struct IfIRNode {
   pub _type: IRNodeTypes,
   pub id: i32,
   pub condition: SimpleExpressionNode,
-  pub positive: BlockIRNode,
+  #[napi(ts_type = "BlockIRNode")]
+  pub positive: Object<'static>,
   #[napi(ts_type = "BlockIRNode | IfIRNode")]
   pub negative: Option<MyBox<Either<BlockIRNode, IfIRNode>>>,
   pub once: Option<bool>,

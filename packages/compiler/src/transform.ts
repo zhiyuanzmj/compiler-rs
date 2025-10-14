@@ -1,3 +1,7 @@
+import {
+  transformNode,
+  type DirectiveTransformResult,
+} from '@vue-jsx-vapor/compiler-rs'
 import { extend, isArray, isString, NOOP } from '@vue/shared'
 import {
   DynamicFlag,
@@ -21,10 +25,9 @@ import {
   type CompilerError,
 } from './utils'
 import type { CodegenOptions } from './generate'
-import type { DirectiveTransformResult } from '@vue-jsx-vapor/compiler-rs'
 import type { JSXAttribute, JSXElement, JSXFragment } from 'oxc-parser'
 
-export { DirectiveTransformResult }
+export { DirectiveTransformResult, transformNode }
 
 export type NodeTransform = (
   node: BlockIRNode['node'],
@@ -112,6 +115,7 @@ export class TransformContext<
   exitKey = 0
   exitBlocks = {}
   blocks = {}
+  nodes = {}
   seen = new Set()
 
   private globalId = 0
@@ -247,42 +251,6 @@ export function transform(
   return ir
 }
 
-export function transformNode(context: TransformContext<BlockIRNode['node']>) {
-  let { node } = context
-
-  // apply transform plugins
-  const { nodeTransforms } = context.options
-  const exitFns = []
-  for (const nodeTransform of nodeTransforms) {
-    const onExit = nodeTransform(node, context)
-    if (onExit) {
-      if (isArray(onExit)) {
-        exitFns.push(...onExit)
-      } else {
-        exitFns.push(onExit)
-      }
-    }
-    if (!context.node) {
-      // node was removed
-      return
-    } else {
-      // node may have been replaced
-      node = context.node
-    }
-  }
-
-  // exit transforms
-  context.node = node
-  let i = exitFns.length
-  while (i--) {
-    exitFns[i](context)
-  }
-
-  if (context.node.type === IRNodeTypes.ROOT) {
-    context.registerTemplate()
-  }
-}
-
 export function createStructuralDirectiveTransform(
   name: string | string[],
   fn: StructuralDirectiveTransform,
@@ -300,18 +268,18 @@ export function createStructuralDirectiveTransform(
       if (isTemplate(node) && findProp(node, 'v-slot')) {
         return
       }
-      const exitFns = []
+      let exitFn
       for (const prop of attributes) {
         if (prop.type !== 'JSXAttribute') continue
         const propName = getText(prop.name, context)
         if (propName.startsWith('v-') && matches(propName.slice(2))) {
           attributes.splice(attributes.indexOf(prop), 1)
           const onExit = fn(node, prop, context as TransformContext)
-          if (onExit) exitFns.push(onExit)
+          if (onExit) exitFn = onExit
           break
         }
       }
-      return exitFns
+      return exitFn
     }
   }
 }

@@ -10,6 +10,7 @@ use napi::{
 };
 use napi_derive::napi;
 pub mod transform_template_ref;
+pub mod transform_text;
 pub mod v_bind;
 pub mod v_for;
 pub mod v_html;
@@ -22,7 +23,7 @@ pub mod v_text;
 use crate::{
   ir::{
     component::IRSlots,
-    index::{BlockIRNode, IRDynamicInfo, Modifiers, RootIRNode, SimpleExpressionNode},
+    index::{BlockIRNode, IRDynamicInfo, IRNodeTypes, Modifiers, RootIRNode, SimpleExpressionNode},
   },
   utils::{
     check::{is_constant_node, is_template},
@@ -110,6 +111,41 @@ impl<T> TransformContext<T> {
   pub fn dynamic<'c>(&'c self) -> RefMut<'c, IRDynamicInfo> {
     RefMut::map(self.block(), |block| &mut block.dynamic)
   }
+}
+
+#[napi]
+pub fn transform_node(mut context: Object) -> Result<()> {
+  let mut node = context.get_named_property::<Object>("node")?;
+
+  // apply transform plugins
+  let node_transforms = context
+    .get_named_property::<Object>("options")?
+    .get_named_property::<Vec<Function<FnArgs<(Object, Object)>, Option<Function<Object, ()>>>>>(
+      "nodeTransforms",
+    )?;
+  let mut exit_fns = vec![];
+  for node_transform in node_transforms {
+    let on_exit = node_transform.call(FnArgs::from((node, context)))?;
+    if let Some(on_exit) = on_exit {
+      exit_fns.push(on_exit);
+    }
+    // node may have been replaced
+    node = context.get_named_property::<Object>("node")?;
+  }
+
+  context.set("node", node)?;
+  let mut i = exit_fns.len();
+  while i > 0 {
+    i = i - 1;
+    exit_fns[i].apply(context, context)?;
+  }
+
+  if node.get_named_property::<String>("type")?.eq("ROOT") {
+    context
+      .get_named_property::<Function<(), i32>>("registerTemplate")?
+      .apply(context, ())?;
+  }
+  Ok(())
 }
 
 #[napi]

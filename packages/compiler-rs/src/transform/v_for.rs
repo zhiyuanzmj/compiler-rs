@@ -54,6 +54,9 @@ pub fn transform_v_for<'a>(
       | DynamicFlag::INSERT as i32,
   )?;
   let (.., exit_key) = create_branch(*env, node, context, Some(true))?;
+  context
+    .get_named_property::<Object>("nodes")?
+    .set(&exit_key, node)?;
   Ok(Some(env.create_function_from_closure("cb", move |e| {
     let context = e.first_arg::<Object>()?;
 
@@ -62,15 +65,9 @@ pub fn transform_v_for<'a>(
       .get_named_property::<Function<(), ()>>(&exit_key)?
       .apply(&context, ())?;
     let parent = context.get_named_property::<Object>("parent");
-    let node = context.get_named_property::<Object>("node")?;
-    let node = if (node.get_named_property::<String>("type")?.eq("JSXFragment")
-      && node.get_named_property::<i32>("end")? > 0)
-      || is_template(Some(node))
-    {
-      node
-    } else {
-      node.get_named_property::<Vec<Object>>("children")?[0]
-    };
+    let node = context
+      .get_named_property::<Object>("nodes")?
+      .get_named_property::<Object>(&exit_key)?;
     let Some(dir) = find_prop(node, Either::A("v-for".to_string())) else {
       return Ok(());
     };

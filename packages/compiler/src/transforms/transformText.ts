@@ -1,4 +1,8 @@
 import {
+  processConditionalExpression,
+  processLogicalExpression,
+} from '@vue-jsx-vapor/compiler-rs'
+import {
   DynamicFlag,
   IRNodeTypes,
   type BlockIRNode,
@@ -16,10 +20,6 @@ import {
   resolveJSXText,
 } from '../utils'
 import type { NodeTransform, TransformContext } from '../transform'
-import {
-  processConditionalExpression,
-  processLogicalExpression,
-} from './expression'
 import type { JSXExpressionContainer, JSXText, Node } from 'oxc-parser'
 
 type TextLike = JSXText | JSXExpressionContainer

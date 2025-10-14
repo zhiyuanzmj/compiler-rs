@@ -349,6 +349,10 @@ export interface PrependNodeIRNode {
   parent: number
 }
 
+export declare function processConditionalExpression(node: import('oxc-parser').ConditionalExpression, context: object): () => void
+
+export declare function processLogicalExpression(node: object, context: object): () => void
+
 export declare function resolveDirective(node: object, context: object): DirectiveNode
 
 export declare function resolveExpression(node: import('oxc-parser').Node, context: object): SimpleExpressionNode
@@ -458,6 +462,8 @@ export interface SlotOutletIRNode {
 
 export type SourceLocation =
   [number, number]
+
+export declare function transformNode(context: object): void
 
 export declare function transformTemplateRef(node: object, context: object): () => void | null
 
