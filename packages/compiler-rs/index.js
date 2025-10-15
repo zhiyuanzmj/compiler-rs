@@ -593,6 +593,7 @@ module.exports.resolveExpression = nativeBinding.resolveExpression
 module.exports.resolveJSXText = nativeBinding.resolveJSXText
 module.exports.transformNode = nativeBinding.transformNode
 module.exports.transformTemplateRef = nativeBinding.transformTemplateRef
+module.exports.transformText = nativeBinding.transformText
 module.exports.transformVBind = nativeBinding.transformVBind
 module.exports.transformVFor = nativeBinding.transformVFor
 module.exports.transformVHtml = nativeBinding.transformVHtml

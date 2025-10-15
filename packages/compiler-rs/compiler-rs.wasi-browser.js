@@ -92,6 +92,7 @@ export const resolveExpression = __napiModule.exports.resolveExpression
 export const resolveJSXText = __napiModule.exports.resolveJSXText
 export const transformNode = __napiModule.exports.transformNode
 export const transformTemplateRef = __napiModule.exports.transformTemplateRef
+export const transformText = __napiModule.exports.transformText
 export const transformVBind = __napiModule.exports.transformVBind
 export const transformVFor = __napiModule.exports.transformVFor
 export const transformVHtml = __napiModule.exports.transformVHtml

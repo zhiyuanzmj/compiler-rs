@@ -144,6 +144,7 @@ module.exports.resolveExpression = __napiModule.exports.resolveExpression
 module.exports.resolveJSXText = __napiModule.exports.resolveJSXText
 module.exports.transformNode = __napiModule.exports.transformNode
 module.exports.transformTemplateRef = __napiModule.exports.transformTemplateRef
+module.exports.transformText = __napiModule.exports.transformText
 module.exports.transformVBind = __napiModule.exports.transformVBind
 module.exports.transformVFor = __napiModule.exports.transformVFor
 module.exports.transformVHtml = __napiModule.exports.transformVHtml

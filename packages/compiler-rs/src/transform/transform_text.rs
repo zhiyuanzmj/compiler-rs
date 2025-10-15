@@ -1,14 +1,257 @@
+use std::collections::HashSet;
+
 use napi::{
-  Env,
+  Either, Env,
   bindgen_prelude::{Function, JsObjectValue, Object, Result},
 };
 use napi_derive::napi;
 
 use crate::{
-  ir::index::{DynamicFlag, IRNodeTypes, IfIRNode},
+  ir::index::{
+    CreateNodesIRNode, DynamicFlag, GetTextChildIRNode, IRNodeTypes, IfIRNode, SetNodesIRNode,
+    SimpleExpressionNode,
+  },
   transform::transform_node,
-  utils::{check::_is_constant_node, expression::resolve_expression, transform::create_branch},
+  utils::{
+    check::{_is_constant_node, is_fragment_node, is_jsx_component, is_template},
+    expression::{_get_literal_expression_value, resolve_expression},
+    text::{is_empty_text, resolve_jsx_text},
+    transform::create_branch,
+    utils::{_get_expression, find_prop, get_expression},
+  },
 };
+
+#[napi]
+pub fn transform_text<'a>(
+  env: &'a Env,
+  node: Object<'static>,
+  mut context: Object,
+) -> Result<Option<Function<'a, (), ()>>> {
+  let mut dynamic = context.get_named_property::<Object>("dynamic")?;
+  if let Ok(start) = node.get_named_property::<i32>("start") {
+    let seen = context.get_named_property::<HashSet<i32>>("seen")?;
+    if seen.contains(&start) {
+      dynamic.set(
+        "flags",
+        dynamic.get_named_property::<i32>("flags")? | DynamicFlag::NON_TEMPLATE as i32,
+      )?;
+      return Ok(None);
+    }
+  }
+
+  let children = node.get_named_property::<Vec<Object<'static>>>("children");
+  let is_fragment = is_fragment_node(node);
+  let node_type = node.get_named_property::<String>("type")?;
+  if ((node_type.eq("JSXElement") && !is_template(Some(node)) && !is_jsx_component(node))
+    || is_fragment)
+    && let Ok(children) = children
+    && children.len() > 0
+  {
+    let mut has_interp = false;
+    let mut is_all_text_like = true;
+    for child in &children {
+      let child_type = child.get_named_property::<String>("type")?;
+      if child_type.eq("JSXExpressionContainer") {
+        let exp_type = _get_expression(child).get_named_property::<String>("type")?;
+        if exp_type != "ConditionalExpression" && exp_type != "LogicalExpression" {
+          has_interp = true
+        }
+      } else if child_type != "JSXText" {
+        is_all_text_like = false
+      }
+    }
+
+    // all text like with interpolation
+    if !is_fragment && is_all_text_like && has_interp {
+      process_text_container(children, context)?
+    } else if has_interp {
+      // check if there's any text before interpolation, it needs to be merged
+      let mut i = 0;
+      for child in &children {
+        let prev = if i > 0 { children.get(i - 1) } else { None };
+        if child
+          .get_named_property::<String>("type")?
+          .eq("JSXExpressionContainer")
+          && let Some(prev) = prev
+          && prev.get_named_property::<String>("type")?.eq("JSXText")
+        {
+          // mark leading text node for skipping
+          mark_non_template(*prev, context)?;
+        }
+        i = i + 1;
+      }
+    }
+  } else if node_type.eq("JSXExpressionContainer") {
+    let expression = get_expression(node);
+    let expression_type = expression.get_named_property::<String>("type")?;
+    if expression_type.eq("ConditionalExpression") {
+      return Ok(Some(process_conditional_expression(
+        env, expression, context,
+      )?));
+    } else if expression_type.eq("LogicalExpression") {
+      return Ok(Some(process_logical_expression(env, expression, context)?));
+    } else {
+      precess_interpolation(context)?;
+    }
+  } else if node_type == "JSXText" {
+    let value = resolve_jsx_text(node);
+    if !value.is_empty() {
+      context.set(
+        "template",
+        context.get_named_property::<String>("template")? + &value,
+      )?;
+    } else {
+      dynamic.set(
+        "flags",
+        dynamic.get_named_property::<i32>("flags")? | DynamicFlag::NON_TEMPLATE as i32,
+      )?;
+    }
+  }
+  Ok(None)
+}
+
+fn precess_interpolation(mut context: Object) -> Result<()> {
+  let parent = context
+    .get_named_property::<Object>("parent")?
+    .get_named_property::<Object>("node")?;
+  let children = parent.get_named_property::<Vec<Object>>("children")?;
+  let index = context.get_named_property::<i32>("index")? as usize;
+  let nexts = children[index..].to_vec();
+  let idx = nexts.iter().position(|n| !is_text_like(n).unwrap_or(false));
+  let mut nodes = if let Some(idx) = idx {
+    nexts[..idx].to_vec()
+  } else {
+    nexts
+  };
+
+  // merge leading text
+  let prev = if index > 0 {
+    children.get(index - 1)
+  } else {
+    None
+  };
+  if let Some(prev) = prev
+    && prev.get_named_property::<String>("type")?.eq("JSXText")
+  {
+    nodes.insert(0, *prev);
+  }
+
+  let values = precess_text_like_expressions(nodes, context)?;
+  if values.is_empty() {
+    let mut dynamic = context.get_named_property::<Object>("dynamic")?;
+    dynamic.set(
+      "flags",
+      dynamic.get_named_property::<i32>("flags")? | DynamicFlag::NON_TEMPLATE as i32,
+    )?;
+    return Ok(());
+  }
+
+  let id = context
+    .get_named_property::<Function<(), i32>>("reference")?
+    .apply(context, ())?;
+  let once = context.get_named_property::<bool>("inVOnce")?;
+  if is_fragment_node(parent) || find_prop(parent, Either::A(String::from("v-slot"))).is_some() {
+    context
+      .get_named_property::<Function<CreateNodesIRNode, ()>>("registerOperation")?
+      .apply(
+        context,
+        CreateNodesIRNode {
+          _type: IRNodeTypes::CREATE_NODES,
+          id,
+          once,
+          values,
+        },
+      )?;
+  } else {
+    context.set(
+      "template",
+      context.get_named_property::<String>("template")? + " ",
+    )?;
+    context
+      .get_named_property::<Function<SetNodesIRNode, ()>>("registerOperation")?
+      .apply(
+        context,
+        SetNodesIRNode {
+          _type: IRNodeTypes::SET_NODES,
+          element: id,
+          once,
+          values,
+          generated: None,
+        },
+      )?;
+  }
+  Ok(())
+}
+
+fn mark_non_template(node: Object, context: Object) -> Result<()> {
+  let seen = context.get_named_property::<Object>("seen")?;
+  seen
+    .get_named_property::<Function<i32>>("add")?
+    .apply(seen, node.get_named_property::<i32>("start")?)?;
+  Ok(())
+}
+
+fn process_text_container(children: Vec<Object<'static>>, mut context: Object) -> Result<()> {
+  let values = precess_text_like_expressions(children, context)?;
+  let literals = values
+    .iter()
+    .map(_get_literal_expression_value)
+    .collect::<Vec<Option<String>>>();
+  if literals.iter().all(|l| l.is_some()) {
+    context.set("childrenTemplate", literals)?;
+  } else {
+    context.set("childrenTemplate", vec![" ".to_string()])?;
+    let reference = context.get_named_property::<Function<(), i32>>("reference")?;
+    context
+      .get_named_property::<Function<GetTextChildIRNode, ()>>("registerOperation")?
+      .apply(
+        context,
+        GetTextChildIRNode {
+          _type: IRNodeTypes::GET_TEXT_CHILD,
+          parent: reference.apply(context, ())?,
+        },
+      )?;
+    context
+      .get_named_property::<Function<SetNodesIRNode, ()>>("registerOperation")?
+      .apply(
+        context,
+        SetNodesIRNode {
+          _type: IRNodeTypes::SET_NODES,
+          element: reference.apply(context, ())?,
+          once: context.get_named_property::<bool>("inVOnce")?,
+          values,
+          // indicates this node is generated, so prefix should be "x" instead of "n"
+          generated: Some(true),
+        },
+      )?;
+  }
+  Ok(())
+}
+
+fn precess_text_like_expressions(
+  nodes: Vec<Object<'static>>,
+  context: Object,
+) -> Result<Vec<SimpleExpressionNode>> {
+  let mut values = vec![];
+  for node in nodes {
+    mark_non_template(node, context)?;
+    if is_empty_text(node) {
+      continue;
+    }
+    values.push(resolve_expression(node, context))
+  }
+  Ok(values)
+}
+
+fn is_text_like(node: &Object) -> Result<bool> {
+  let node_type = node.get_named_property::<String>("type")?;
+  Ok(if node_type == "JSXExpressionContainer" {
+    let expression_type = _get_expression(node).get_named_property::<String>("type")?;
+    expression_type != "ConditionalExpression" && expression_type != "LogicalExpression"
+  } else {
+    node_type == "JSXText"
+  })
+}
 
 #[napi]
 pub fn process_conditional_expression<'a>(

@@ -1,5 +1,5 @@
 use napi::{
-  Either,
+  Either, Result,
   bindgen_prelude::{Array, JsObjectValue, Object},
 };
 use napi_derive::napi;
@@ -37,13 +37,16 @@ pub fn unwrap_ts_node(node: Object) -> Object {
   ts_return_type = "import('oxc-parser').Node"
 )]
 pub fn get_expression(node: Object) -> Object {
+  _get_expression(&node)
+}
+pub fn _get_expression<'a>(node: &Object<'a>) -> Object<'a> {
   let node = match node.get::<String>("type") {
     Ok(Some(t)) if t == "JSXExpressionContainer" => node
       .get::<Object>("expression")
       .ok()
       .flatten()
-      .map_or(node, |n| n),
-    _ => node,
+      .map_or(*node, |n| n),
+    _ => *node,
   };
   let node = match node.get::<String>("type") {
     Ok(Some(t)) if t == "ParenthesizedExpression" => node

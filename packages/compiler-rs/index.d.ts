@@ -465,6 +465,8 @@ export declare function transformNode(context: object): void
 
 export declare function transformTemplateRef(node: object, context: object): () => void | null
 
+export declare function transformText(node: object, context: object): () => void | null
+
 export declare function transformVBind(dir: import('oxc-parser').JSXAttribute, _: import('oxc-parser').JSXElement, context: object): DirectiveTransformResult | null
 
 export declare function transformVFor(node: object, context: object): () => void | null
