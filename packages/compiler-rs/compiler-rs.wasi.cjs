@@ -142,6 +142,7 @@ module.exports.processLogicalExpression = __napiModule.exports.processLogicalExp
 module.exports.resolveDirective = __napiModule.exports.resolveDirective
 module.exports.resolveExpression = __napiModule.exports.resolveExpression
 module.exports.resolveJSXText = __napiModule.exports.resolveJSXText
+module.exports.transformChildren = __napiModule.exports.transformChildren
 module.exports.transformNode = __napiModule.exports.transformNode
 module.exports.transformTemplateRef = __napiModule.exports.transformTemplateRef
 module.exports.transformText = __napiModule.exports.transformText

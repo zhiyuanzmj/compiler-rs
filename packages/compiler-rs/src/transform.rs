@@ -9,6 +9,7 @@ use napi::{
   bindgen_prelude::{FnArgs, Function, JsObjectValue, Object},
 };
 use napi_derive::napi;
+pub mod transform_children;
 pub mod transform_template_ref;
 pub mod transform_text;
 pub mod v_bind;

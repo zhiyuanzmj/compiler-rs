@@ -461,6 +461,8 @@ export interface SlotOutletIRNode {
 export type SourceLocation =
   [number, number]
 
+export declare function transformChildren(node: object, context: object): void
+
 export declare function transformNode(context: object): void
 
 export declare function transformTemplateRef(node: object, context: object): () => void | null

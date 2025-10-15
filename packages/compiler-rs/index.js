@@ -591,6 +591,7 @@ module.exports.processLogicalExpression = nativeBinding.processLogicalExpression
 module.exports.resolveDirective = nativeBinding.resolveDirective
 module.exports.resolveExpression = nativeBinding.resolveExpression
 module.exports.resolveJSXText = nativeBinding.resolveJSXText
+module.exports.transformChildren = nativeBinding.transformChildren
 module.exports.transformNode = nativeBinding.transformNode
 module.exports.transformTemplateRef = nativeBinding.transformTemplateRef
 module.exports.transformText = nativeBinding.transformText

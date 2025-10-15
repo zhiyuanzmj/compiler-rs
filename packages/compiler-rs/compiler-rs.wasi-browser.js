@@ -90,6 +90,7 @@ export const processLogicalExpression = __napiModule.exports.processLogicalExpre
 export const resolveDirective = __napiModule.exports.resolveDirective
 export const resolveExpression = __napiModule.exports.resolveExpression
 export const resolveJSXText = __napiModule.exports.resolveJSXText
+export const transformChildren = __napiModule.exports.transformChildren
 export const transformNode = __napiModule.exports.transformNode
 export const transformTemplateRef = __napiModule.exports.transformTemplateRef
 export const transformText = __napiModule.exports.transformText

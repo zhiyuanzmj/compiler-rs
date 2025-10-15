@@ -6,11 +6,17 @@ import {
   transformElement,
   transformText,
   transformVBind,
+  transformVIf,
 } from '../../src'
 import { makeCompile } from './_utils'
 
 const compileWithElementTransform = makeCompile({
-  nodeTransforms: [transformText, transformElement, transformChildren],
+  nodeTransforms: [
+    transformText,
+    transformVIf,
+    transformElement,
+    transformChildren,
+  ],
   directiveTransforms: { bind: transformVBind },
 })
 
@@ -122,9 +128,9 @@ describe('compiler: children transform', () => {
     const { code } = compileWithElementTransform(
       `<div>
     <div>x</div>
-    <div><span>{{ msg }}</span></div>
-    <div><span>{{ msg }}</span></div>
-    <div><span>{{ msg }}</span></div>
+    <div><span>{ msg }</span></div>
+    <div><span>{ msg }</span></div>
+    <div><span>{ msg }</span></div>
   </div>`,
     )
     expect(code).toMatchSnapshot()
@@ -140,6 +146,26 @@ describe('compiler: children transform', () => {
     )
     expect(code).contains(`const n0 = _nthChild(n1, 2)`)
     expect(code).toMatchSnapshot()
+  })
+
+  test('anchor insertion in middle', () => {
+    const { code, ir } = compileWithElementTransform(
+      `<div>
+        <div></div>
+        <div v-if={1}></div>
+        <div></div>
+      </div>`,
+    )
+    // ensure the insertion anchor is generated before the insertion statement
+    expect(code).toMatch(`const n3 = _next(_child(n4))`)
+    expect(code).toMatch(`_setInsertionState(n4, n3)`)
+    expect(code).toMatchSnapshot()
+    expect(ir.templates).toMatchInlineSnapshot(`
+      [
+        "<div></div>",
+        "<div><div></div><!><div></div></div>",
+      ]
+    `)
   })
 
   test('JSXComponent in JSXExpressionContainer', () => {
