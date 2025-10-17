@@ -149,6 +149,8 @@ export interface GetTextChildIRNode {
 
 export declare function getTextLikeValue(node: import('oxc-parser').Node, excludeNumber?: boolean | undefined | null): string | null
 
+export declare function hasDynamicKeyVBind(node: object): boolean
+
 export interface IfIRNode {
   type: IRNodeTypes.IF
   id: number
@@ -317,6 +319,8 @@ export declare function isFragmentNode(node: import('oxc-parser').Node | RootNod
 
 export declare function isJSXComponent(node: import('oxc-parser').Node): boolean
 
+export declare function isMemberExpression(exp: SimpleExpressionNode): boolean
+
 export declare function isNumericLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').NumericLiteral
 
 export declare function isStringLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').StringLiteral
@@ -482,6 +486,8 @@ export declare function transformVFor(node: object, context: object): () => void
 export declare function transformVHtml(dir: object, node: object, context: object): void
 
 export declare function transformVIf(node: object, context: object): () => void | null
+
+export declare function transformVModel(dir: object, node: object, context: object): DirectiveTransformResult | null
 
 export declare function transformVOn(dir: object, node: object, context: object): DirectiveTransformResult | null
 

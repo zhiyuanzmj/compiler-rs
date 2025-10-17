@@ -15,19 +15,11 @@ export {
   isConstantNode,
   isFragmentNode,
   isJSXComponent,
+  isMemberExpression,
   isNumericLiteral,
   isStringLiteral,
   isTemplate,
 } from '@vue-jsx-vapor/compiler-rs'
-
-export function isMemberExpression(exp: SimpleExpressionNode) {
-  if (!exp.ast) return
-  const ret = unwrapTSNode(exp.ast) as Expression
-  return (
-    ret.type === 'MemberExpression' ||
-    (ret.type === 'Identifier' && ret.name !== 'undefined')
-  )
-}
 
 const nonIdentifierRE = /^$|^\d|[^$\w\u00A0-\uFFFF]/
 export const isSimpleIdentifier = (name: string): boolean =>

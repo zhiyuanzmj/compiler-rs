@@ -77,7 +77,7 @@ const defaultOptions: Required<TransformOptions> = {
   nodeTransforms: [],
   directiveTransforms: {},
   templates: [],
-  isCustomElement: NOOP,
+  isCustomElement: (tag: string) => !tag,
   isTS: false,
   withFallback: false,
   onError: (error: CompilerError) => {

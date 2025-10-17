@@ -18,7 +18,6 @@ export {
   type InsertNodeIRNode,
   type IREffect,
   type IRFor,
-  type KeyOverride,
   type OperationNode,
   type PrependNodeIRNode,
   type RootIRNode,

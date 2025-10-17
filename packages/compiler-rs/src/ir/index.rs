@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use napi::{
   Either,
-  bindgen_prelude::{Either3, Either18, Object},
+  bindgen_prelude::{Either3, Either5, Either18, Object},
 };
 use napi_derive::napi;
 

@@ -6,7 +6,27 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::utils::{expression::is_globally_allowed, utils::unwrap_ts_node};
+use crate::{
+  ir::index::SimpleExpressionNode,
+  utils::{expression::is_globally_allowed, utils::unwrap_ts_node},
+};
+
+#[napi]
+pub fn _is_member_expression(exp: SimpleExpressionNode) -> bool {
+  is_member_expression(&exp)
+}
+
+pub fn is_member_expression(exp: &SimpleExpressionNode) -> bool {
+  let Some(ast) = exp.ast else { return false };
+  let ret = unwrap_ts_node(ast);
+  let _type = ret.get_named_property::<String>("type").unwrap();
+  _type == "MemberExpression"
+    || (_type == "Identifier"
+      && !ret
+        .get_named_property::<String>("name")
+        .unwrap()
+        .eq("undefined"))
+}
 
 macro_rules! def_literal_checker {
   ($name:ident, $type:ty, $ts_return_type: literal) => {
