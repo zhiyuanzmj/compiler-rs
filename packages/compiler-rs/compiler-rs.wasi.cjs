@@ -152,6 +152,7 @@ module.exports.transformVBind = __napiModule.exports.transformVBind
 module.exports.transformVFor = __napiModule.exports.transformVFor
 module.exports.transformVHtml = __napiModule.exports.transformVHtml
 module.exports.transformVIf = __napiModule.exports.transformVIf
+module.exports.transformVOn = __napiModule.exports.transformVOn
 module.exports.transformVOnce = __napiModule.exports.transformVOnce
 module.exports.transformVShow = __napiModule.exports.transformVShow
 module.exports.transformVSlot = __napiModule.exports.transformVSlot

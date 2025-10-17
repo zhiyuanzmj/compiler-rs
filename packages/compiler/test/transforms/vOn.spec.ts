@@ -46,7 +46,6 @@ describe('v-on', () => {
           isStatic: false,
         },
         modifiers: { keys: [], nonKeys: [], options: [] },
-        keyOverride: undefined,
         delegate: true,
       },
     ])
@@ -125,7 +124,6 @@ describe('v-on', () => {
           nonKeys: ['stop', 'prevent'],
           options: ['capture', 'once'],
         },
-        keyOverride: undefined,
         delegate: false,
       },
     ])
@@ -260,7 +258,6 @@ describe('v-on', () => {
           isStatic: true,
         },
         modifiers: { nonKeys: ['right'] },
-        keyOverride: undefined,
       },
     ])
 
@@ -280,7 +277,6 @@ describe('v-on', () => {
           isStatic: true,
         },
         modifiers: { nonKeys: ['middle'] },
-        keyOverride: undefined,
       },
     ])
 

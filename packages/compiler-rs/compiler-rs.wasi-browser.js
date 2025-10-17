@@ -100,6 +100,7 @@ export const transformVBind = __napiModule.exports.transformVBind
 export const transformVFor = __napiModule.exports.transformVFor
 export const transformVHtml = __napiModule.exports.transformVHtml
 export const transformVIf = __napiModule.exports.transformVIf
+export const transformVOn = __napiModule.exports.transformVOn
 export const transformVOnce = __napiModule.exports.transformVOnce
 export const transformVShow = __napiModule.exports.transformVShow
 export const transformVSlot = __napiModule.exports.transformVSlot

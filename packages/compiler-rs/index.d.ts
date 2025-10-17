@@ -323,9 +323,6 @@ export declare function isStringLiteral(node?: import('oxc-parser').Node | undef
 
 export declare function isTemplate(node?: import('oxc-parser').Node | undefined | null): boolean
 
-export type KeyOverride =
-  [find: string, replacement: string]
-
 export const locStub: SourceLocation
 
 export interface Modifiers {
@@ -399,7 +396,7 @@ export interface SetEventIRNode {
   key: SimpleExpressionNode
   value?: SimpleExpressionNode
   modifiers: Modifiers
-  keyOverride?: KeyOverride
+  keyOverride?: [string, string]
   delegate: boolean
   effect: boolean
 }
@@ -485,6 +482,8 @@ export declare function transformVFor(node: object, context: object): () => void
 export declare function transformVHtml(dir: object, node: object, context: object): void
 
 export declare function transformVIf(node: object, context: object): () => void | null
+
+export declare function transformVOn(dir: object, node: object, context: object): DirectiveTransformResult | null
 
 export declare function transformVOnce(node: object, context: object): void
 

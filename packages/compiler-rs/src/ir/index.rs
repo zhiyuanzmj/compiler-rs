@@ -171,12 +171,6 @@ pub struct SetNodesIRNode {
   pub generated: Option<bool>, // whether this is a generated empty text node by `processTextLikeContainer`
 }
 
-#[napi(array)]
-pub struct KeyOverride(
-  #[napi(js_name = "find")] pub String,
-  #[napi(js_name = "replacement")] pub String,
-);
-
 #[napi(object)]
 pub struct Modifiers {
   // modifiers for addEventListener() options, e.g. .passive & .capture
@@ -195,7 +189,7 @@ pub struct SetEventIRNode {
   pub key: SimpleExpressionNode,
   pub value: Option<SimpleExpressionNode>,
   pub modifiers: Modifiers,
-  pub key_override: Option<KeyOverride>,
+  pub key_override: Option<(String, String)>,
   pub delegate: bool,
   // Whether it's in effect
   pub effect: bool,

@@ -601,6 +601,7 @@ module.exports.transformVBind = nativeBinding.transformVBind
 module.exports.transformVFor = nativeBinding.transformVFor
 module.exports.transformVHtml = nativeBinding.transformVHtml
 module.exports.transformVIf = nativeBinding.transformVIf
+module.exports.transformVOn = nativeBinding.transformVOn
 module.exports.transformVOnce = nativeBinding.transformVOnce
 module.exports.transformVShow = nativeBinding.transformVShow
 module.exports.transformVSlot = nativeBinding.transformVSlot

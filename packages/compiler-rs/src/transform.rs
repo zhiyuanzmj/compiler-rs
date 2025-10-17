@@ -17,6 +17,7 @@ pub mod v_bind;
 pub mod v_for;
 pub mod v_html;
 pub mod v_if;
+pub mod v_on;
 pub mod v_once;
 pub mod v_show;
 pub mod v_slot;
