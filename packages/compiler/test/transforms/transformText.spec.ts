@@ -70,9 +70,11 @@ describe('compiler: text transform', () => {
   })
 
   it('text like', () => {
-    const { ir, code } = compileWithTextTransform('<div>{`foo`}{1}{1n}</div>')
+    const { code, templates } = compileWithTextTransform(
+      '<div>{ (2) }{`foo${1}`}{1}{1n}</div>',
+    )
     expect(code).toMatchSnapshot()
-    expect(ir.templates[0]).not.toContain('setNodes')
+    expect(templates[0]).includes(`_template("<div>2foo111</div>", true)`)
   })
 })
 

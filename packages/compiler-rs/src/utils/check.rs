@@ -1,7 +1,7 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use napi::{
-  JsValue, Unknown, ValueType,
+  JsValue, ValueType,
   bindgen_prelude::{BigInt, JsObjectValue, Object},
 };
 use napi_derive::napi;
@@ -402,4 +402,12 @@ static VOID_TAGS: LazyLock<HashSet<&str>> = LazyLock::new(|| {
 });
 pub fn is_void_tag(tag_name: &str) -> bool {
   VOID_TAGS.contains(&tag_name)
+}
+
+static BUILD_IN_DIRECTIVE: [&str; 15] = [
+  "bind", "cloak", "else-if", "else", "for", "html", "if", "model", "on", "once", "pre", "show",
+  "slot", "text", "memo",
+];
+pub fn is_build_in_directive(prop_name: &str) -> bool {
+  BUILD_IN_DIRECTIVE.contains(&prop_name)
 }

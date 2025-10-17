@@ -1,15 +1,15 @@
 use napi::{
   Either, Env, Result,
-  bindgen_prelude::{FnArgs, Function, JsObjectValue, Object},
+  bindgen_prelude::{Either18, Function, JsObjectValue, Object},
 };
 use napi_derive::napi;
 
 use crate::{
   ir::index::{DeclareOldRefIRNode, IRNodeTypes, SetTemplateRefIRNode},
-  transform::is_operation,
+  transform::{is_operation, register_effect},
   utils::{
     check::is_fragment_node,
-    expression::{_is_constant_expression, _resolve_expression, EMPTY_EXPRESSION},
+    expression::{_is_constant_expression, _resolve_expression},
     utils::find_prop,
   },
 };
@@ -27,7 +27,7 @@ pub fn transform_template_ref<'a>(
   let Some(dir) = find_prop(node, Either::A(String::from("ref"))) else {
     return Ok(None);
   };
-  let Ok(value) = dir.get_named_property::<Object>("value") else {
+  let Ok(_) = dir.get_named_property::<Object>("value") else {
     return Ok(None);
   };
   context
@@ -58,21 +58,19 @@ pub fn transform_template_ref<'a>(
         )?;
     }
 
-    context
-      .get_named_property::<Function<FnArgs<(bool, SetTemplateRefIRNode)>, ()>>("registerEffect")?
-      .apply(
-        context,
-        FnArgs::from((
-          is_operation(vec![&value], context),
-          SetTemplateRefIRNode {
-            _type: IRNodeTypes::SET_TEMPLATE_REF,
-            element: id,
-            value,
-            ref_for: context.get::<i32>("inVFor")?.is_some_and(|i| i != 0),
-            effect,
-          },
-        )),
-      )?;
+    register_effect(
+      context,
+      is_operation(vec![&value], context),
+      Either18::J(SetTemplateRefIRNode {
+        _type: IRNodeTypes::SET_TEMPLATE_REF,
+        element: id,
+        value,
+        ref_for: context.get::<i32>("inVFor")?.is_some_and(|i| i != 0),
+        effect,
+      }),
+      None,
+      None,
+    )?;
     Ok(())
   })?))
 }

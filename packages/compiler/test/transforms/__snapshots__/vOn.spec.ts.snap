@@ -83,7 +83,7 @@ exports[`v-on > should support multiple modifiers and event options 1`] = `
 "
   const n0 = t0()
   _on(n0, "click", _withModifiers(e => test(e), ["stop","prevent"]), {
-    capture: true, 
+    capture: true,
     once: true
   })
   return n0

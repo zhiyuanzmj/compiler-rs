@@ -22,7 +22,7 @@ exports[`compiler: vModel transform > component > v-model with arguments for com
   const n0 = _createComponent(Comp, {
     foo: () => (foo),
     "onUpdate:foo": () => _value => (foo = _value),
-    fooModifiers: () => ({ trim: true }), 
+    fooModifiers: () => ({ trim: true }),
     bar: () => (bar),
     "onUpdate:bar": () => _value => (bar = _value),
     barModifiers: () => ({ number: true })
@@ -44,7 +44,7 @@ exports[`compiler: vModel transform > component > v-model with dynamic arguments
   const n0 = _createComponent(Comp, { $: [
     () => ({ [foo]: foo,
     ["onUpdate:" + foo]: () => _value => (foo = _value),
-    [foo + "Modifiers"]: () => ({ trim: true }) }), 
+    [foo + "Modifiers"]: () => ({ trim: true }) }),
     () => ({ [bar.value]: bar,
     ["onUpdate:" + bar.value]: () => _value => (bar = _value),
     [bar.value + "Modifiers"]: () => ({ number: true }) })

@@ -5,7 +5,7 @@ exports[`compiler: transform slot > dynamic slots name 1`] = `
   const n4 = _createComponent(Comp, null, {
     $: [
       () => ({
-        name: name, 
+        name: name,
         fn: () => {
           const n1 = _createNodes(() => (foo))
           return n1
@@ -22,7 +22,7 @@ exports[`compiler: transform slot > dynamic slots name w/ v-for 1`] = `
   const n4 = _createComponent(Comp, null, {
     $: [
       () => (_createForSlots(list, (item) => ({
-        name: item, 
+        name: item,
         fn: (_slotProps0) => {
           const n1 = _createNodes(() => (_slotProps0["bar"]))
           return n1
@@ -40,7 +40,7 @@ exports[`compiler: transform slot > dynamic slots name w/ v-if / v-else[-if] 1`]
     $: [
       () => (condition
         ? {
-          name: "condition", 
+          name: "condition",
           fn: () => {
             const n1 = t0()
             return n1
@@ -48,7 +48,7 @@ exports[`compiler: transform slot > dynamic slots name w/ v-if / v-else[-if] 1`]
         }
         : anotherCondition
           ? {
-            name: "condition", 
+            name: "condition",
             fn: (_slotProps0) => {
               const n4 = t1()
               return n4
@@ -56,14 +56,14 @@ exports[`compiler: transform slot > dynamic slots name w/ v-if / v-else[-if] 1`]
           }
           : otherCondition
             ? {
-              name: "condition", 
+              name: "condition",
               fn: () => {
                 const n7 = t2()
                 return n7
               }
             }
             : {
-              name: "condition", 
+              name: "condition",
               fn: () => {
                 const n10 = t3()
                 return n10
@@ -134,7 +134,7 @@ exports[`compiler: transform slot > on component dynamically named slot 1`] = `
   const n1 = _createComponent(Comp, null, {
     $: [
       () => ({
-        name: named, 
+        name: named,
         fn: (_slotProps0) => {
           const n0 = _createNodes(() => (_slotProps0["foo"] + bar))
           return n0

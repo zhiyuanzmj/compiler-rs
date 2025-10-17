@@ -64,7 +64,11 @@ pub fn get_text_like_value(
   #[napi(ts_arg_type = "import('oxc-parser').Node")] node: Object,
   exclude_number: Option<bool>,
 ) -> Option<String> {
-  let node = get_expression(node);
+  _get_text_like_value(&node, exclude_number)
+}
+
+pub fn _get_text_like_value(node: &Object, exclude_number: Option<bool>) -> Option<String> {
+  let node = _get_expression(node);
   if is_string_literal(Some(node)) {
     return node.get::<String>("value").ok().flatten();
   } else if !exclude_number.unwrap_or(false)
@@ -76,20 +80,24 @@ pub fn get_text_like_value(
       return node.get::<String>("bigint").ok().flatten();
     }
   } else if matches!(node.get::<String>("type"), Ok(Some(type_value)) if type_value == "TemplateLiteral")
-    && node.get::<Array>("expressions").ok().flatten()?.len() == 0
   {
-    return node
-      .get::<Vec<Object>>("quasis")
-      .ok()
-      .flatten()?
-      .iter()
-      .next()?
-      .get::<Object>("value")
-      .ok()
-      .flatten()?
-      .get::<String>("cooked")
-      .ok()
-      .flatten();
+    let quasis = node.get_named_property::<Vec<Object>>("quasis").ok()?;
+    let expressions = node.get_named_property::<Vec<Object>>("expressions").ok()?;
+    let mut result = String::new();
+    for i in 0..quasis.len() {
+      result += &quasis[i]
+        .get_named_property::<Object>("value")
+        .ok()?
+        .get_named_property::<String>("cooked")
+        .ok()?;
+      if let Some(expression) = expressions.get(i) {
+        let Some(expression_value) = _get_text_like_value(expression, None) else {
+          return None;
+        };
+        result += &expression_value;
+      }
+    }
+    return Some(result);
   }
   None
 }

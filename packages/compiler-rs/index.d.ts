@@ -351,6 +351,11 @@ export declare function processConditionalExpression(node: import('oxc-parser').
 
 export declare function processLogicalExpression(node: object, context: object): () => void
 
+export interface PropsResult {
+  dynamic: boolean
+  props: Array<IRProps> | IRPropsStatic
+}
+
 export declare function resolveDirective(node: object, context: object): DirectiveNode
 
 export declare function resolveExpression(node: import('oxc-parser').Node, context: object): SimpleExpressionNode
@@ -462,6 +467,10 @@ export type SourceLocation =
   [number, number]
 
 export declare function transformChildren(node: object, context: object): void
+
+export declare function transformComponentElement(tag: string, propsResult: PropsResult, singleRoot: boolean, context: object): void
+
+export declare function transformElement(_: object, context: object): () => void
 
 export declare function transformNode(context: object): void
 
