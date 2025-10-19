@@ -1,19 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import {
-  DynamicFlag,
-  IRNodeTypes,
-  transformChildren,
-  transformElement,
-  transformVBind,
-} from '../../src'
+import { DynamicFlag, IRNodeTypes } from '../../src'
 import { makeCompile } from './_utils'
 
-const compileWithVBind = makeCompile({
-  nodeTransforms: [transformElement, transformChildren],
-  directiveTransforms: {
-    bind: transformVBind,
-  },
-})
+const compileWithVBind = makeCompile()
 
 describe('compiler v-bind', () => {
   test('basic', () => {

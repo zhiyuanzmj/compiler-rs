@@ -18,27 +18,26 @@ use crate::{
       IRSlotDynamicBasic, IRSlotDynamicConditional, IRSlotDynamicLoop, IRSlotType, IRSlots,
       IRSlotsStatic, SlotBlockIRNode,
     },
-    index::{DirectiveNode, DynamicFlag, IRDynamicInfo, IRFor, IRNodeTypes, SimpleExpressionNode},
+    index::{
+      BlockIRNode, DirectiveNode, DynamicFlag, IRDynamicInfo, IRNodeTypes, SimpleExpressionNode,
+    },
   },
-  transform::v_for::get_for_parse_result,
+  transform::{enter_block, v_for::get_for_parse_result},
   utils::{
     check::{is_jsx_component, is_template},
     directive::resolve_directive,
     error::{ErrorCodes, on_error},
-    expression::resolve_expression,
     my_box::MyBox,
     text::is_empty_text,
-    transform::{new_block, new_dynamic},
-    utils::{find_prop, get_expression},
+    utils::find_prop,
   },
 };
 
-#[napi]
-pub fn transform_v_slot<'a>(
-  env: &'a Env,
+pub fn transform_v_slot(
+  env: Env,
   node: Object<'static>,
-  context: Object,
-) -> Result<Option<Function<'a, (), ()>>> {
+  context: Object<'static>,
+) -> Result<Option<Box<dyn FnOnce() -> Result<()>>>> {
   if !node.get_named_property::<String>("type")?.eq("JSXElement") {
     return Ok(None);
   }
@@ -63,19 +62,19 @@ pub fn transform_v_slot<'a>(
   } else if is_slot_template && let Some(dir) = dir {
     return Ok(Some(transform_template_slot(env, dir, node, context)?));
   } else if !is_component && dir.is_some() {
-    on_error(*env, ErrorCodes::X_V_SLOT_MISPLACED, context);
+    on_error(env, ErrorCodes::X_V_SLOT_MISPLACED, context);
   }
 
   Ok(None)
 }
 
 // <Foo v-slot:default>
-pub fn transform_component_slot<'a>(
-  env: &'a Env,
+pub fn transform_component_slot(
+  env: Env,
   dir: Option<DirectiveNode>,
   node: Object<'static>,
-  context: Object,
-) -> Result<Function<'a, (), ()>> {
+  mut context: Object<'static>,
+) -> Result<Box<dyn FnOnce() -> Result<()>>> {
   let children = node.get_named_property::<Vec<Object>>("children")?;
   let has_dir = dir.is_some();
 
@@ -90,56 +89,60 @@ pub fn transform_component_slot<'a>(
     })
     .collect();
 
-  let (.., exit_key) = create_slot_block(dir.map_or(None, |dir| dir.exp), node, context, false)?;
+  let (.., exit_key) = _create_slot_block(dir.map_or(None, |dir| dir.exp), node, context, false)?;
 
-  Ok(env.create_function_from_closure("cb", move |e| {
-    let mut context = e.first_arg::<Object>()?;
-    let node = context.get_named_property::<Object>("node")?;
+  Ok(Box::new(move || {
     let dir = find_prop(node, Either::A(String::from("v-slot")))
       .map(|dir| resolve_directive(dir, context).unwrap());
     let arg = dir.map_or(None, |dir| dir.arg);
     let block = context.get_named_property::<SlotBlockIRNode>("block")?;
     let block1 = context.get_named_property::<Object>("block")?;
     let mut slots = context.get_named_property::<Vec<IRSlots>>("slots")?;
+    // let mut _slots = context.get_named_property::<Object>("slots")?;
 
     context
       .get_named_property::<Object>("exitBlocks")?
       .get_named_property::<Function<(), ()>>(&exit_key)?
       .apply(&context, ())?;
+    // exit_block()?;
     let has_other_slots = !slots.is_empty();
     if has_dir && has_other_slots {
       // already has on-component slot - this is incorrect usage.
-      on_error(*e.env, ErrorCodes::X_V_SLOT_MIXED_SLOT_USAGE, context);
+      on_error(env, ErrorCodes::X_V_SLOT_MIXED_SLOT_USAGE, context);
       return Ok(());
     }
 
     if !non_slot_template_children.is_empty() {
       if has_static_slot(&slots, "default") {
         on_error(
-          *e.env,
+          env,
           ErrorCodes::X_V_SLOT_EXTRANEOUS_DEFAULT_SLOT_CHILDREN,
           context,
         );
       } else {
         register_slot(&mut slots, arg, block, block1);
         context.set("slots", slots)?;
+        // _register_slot(_slots, arg, block);
+        // context.set("slots", _slots)?;
       }
     } else if has_other_slots {
       context.set("slots", slots)?;
     }
 
     Ok(())
-  })?)
+  }))
 }
 
 // <template v-slot:foo>
-pub fn transform_template_slot<'a>(
-  env: &'a Env,
+pub fn transform_template_slot(
+  env: Env,
   dir: DirectiveNode,
   node: Object<'static>,
-  context: Object,
-) -> Result<Function<'a, (), ()>> {
-  let mut dynamic = context.get_named_property::<Object>("dynamic")?;
+  context: Object<'static>,
+) -> Result<Box<dyn FnOnce() -> Result<()>>> {
+  let mut dynamic = context
+    .get_named_property::<Object>("block")?
+    .get_named_property::<Object>("dynamic")?;
   dynamic.set(
     "flags",
     dynamic.get_named_property::<i32>("flags")? | DynamicFlag::NON_TEMPLATE as i32,
@@ -154,7 +157,7 @@ pub fn transform_template_slot<'a>(
   );
   let slots = context.get_named_property::<Object>("slots")?;
   let mut _slots = context.get_named_property::<Vec<IRSlots>>("slots")?;
-  let (block, on_exit, ..) = create_slot_block(exp, node, context, true)?;
+  let (block, exit_block, ..) = _create_slot_block(exp, node, context, true)?;
 
   let is_basic = v_for.is_none() && v_if.is_none() && v_else.is_none();
 
@@ -165,7 +168,7 @@ pub fn transform_template_slot<'a>(
       String::from("default")
     };
     if !slot_name.is_empty() && has_static_slot(&_slots, &slot_name) {
-      on_error(*env, ErrorCodes::X_V_SLOT_DUPLICATE_SLOT_NAMES, context)
+      on_error(env, ErrorCodes::X_V_SLOT_DUPLICATE_SLOT_NAMES, context)
     } else {
       _register_slot(slots, arg, block);
     }
@@ -208,7 +211,7 @@ pub fn transform_template_slot<'a>(
         };
         set_slot(v_if_slot, negative);
       } else {
-        on_error(*env, ErrorCodes::X_V_ELSE_NO_ADJACENT_IF, context)
+        on_error(env, ErrorCodes::X_V_ELSE_NO_ADJACENT_IF, context)
       }
     }
   } else if let Some(v_for) = v_for {
@@ -235,7 +238,7 @@ pub fn transform_template_slot<'a>(
     }
   }
 
-  Ok(on_exit)
+  Ok(Box::new(move || exit_block.call(())))
 }
 
 fn set_slot(
@@ -366,16 +369,31 @@ fn has_static_slot(slots: &Vec<IRSlots>, name: &str) -> bool {
   })
 }
 
-fn create_slot_block<'a>(
+fn create_slot_block(
+  env: Env,
   props: Option<SimpleExpressionNode>,
   node: Object<'static>,
-  context: Object,
+  context: Object<'static>,
+  exclude_slots: bool,
+) -> Result<(Object<'static>, Box<dyn FnOnce() -> Result<()>>)> {
+  let mut block = context
+    .get_named_property::<Function<Object, Object>>("createBlock")?
+    .call(node)?;
+  block.set("props", props)?;
+  let (block, exit_block) = enter_block(env, context, block, false, exclude_slots)?;
+  Ok((block, exit_block))
+}
+
+fn _create_slot_block<'a>(
+  props: Option<SimpleExpressionNode>,
+  node: Object<'static>,
+  context: Object<'static>,
   exclude_slots: bool,
 ) -> Result<(Object<'a>, Function<'static, (), ()>, String)> {
   let block = SlotBlockIRNode {
     _type: IRNodeTypes::BLOCK,
     node,
-    dynamic: new_dynamic(),
+    dynamic: IRDynamicInfo::new(),
     effect: Vec::new(),
     operation: Vec::new(),
     returns: Vec::new(),

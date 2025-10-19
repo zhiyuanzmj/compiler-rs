@@ -5,38 +5,10 @@ use napi::{
 use napi_derive::napi;
 
 use crate::{
-  ir::{
-    component::IRSlots,
-    index::{BlockIRNode, DynamicFlag, IRDynamicInfo, IRNodeTypes},
-  },
+  ir::index::BlockIRNode,
+  transform::{enter_block, reference},
   utils::check::is_template,
 };
-
-#[napi]
-pub fn new_dynamic() -> IRDynamicInfo {
-  return IRDynamicInfo {
-    flags: DynamicFlag::REFERENCED,
-    children: Vec::new(),
-    id: None,
-    anchor: None,
-    template: None,
-    has_dynamic_child: None,
-    operation: None,
-  };
-}
-
-#[napi]
-pub fn new_block(node: Object<'static>) -> BlockIRNode {
-  BlockIRNode {
-    _type: IRNodeTypes::BLOCK,
-    node,
-    dynamic: new_dynamic(),
-    effect: Vec::new(),
-    operation: Vec::new(),
-    returns: Vec::new(),
-    temp_id: 0,
-  }
-}
 
 #[napi(ts_return_type = "[BlockIRNode, () => void]")]
 pub fn create_branch(
@@ -47,18 +19,33 @@ pub fn create_branch(
 ) -> Result<(Object<'static>, Function<'static, (), ()>, String)> {
   let node = wrap_fragment(env, node)?;
   context.set("node", node)?;
-  let branch = new_block(node);
+  let branch = BlockIRNode::new(node);
   let exit_key = context.get_named_property::<i32>("exitKey")?;
-  // let (branch, exit_block) = enter_block(env, context, branch, is_v_for.unwrap_or(false), false)?;
   let (branch, exit_block) = context
     .get_named_property::<Function<FnArgs<(BlockIRNode, bool)>, (Object, Function<(), ()>)>>(
       "enterBlock",
     )?
     .apply(context, FnArgs::from((branch, is_v_for.unwrap_or(false))))?;
-  context
-    .get_named_property::<Function<(), i32>>("reference")?
-    .apply(context, ())?;
+  reference(context)?;
   Ok((branch, exit_block, exit_key.to_string()))
+}
+
+pub fn _create_branch(
+  env: Env,
+  node: Object<'static>,
+  mut context: Object<'static>,
+  is_v_for: Option<bool>,
+) -> Result<(Object<'static>, Box<dyn FnOnce() -> Result<()>>)> {
+  let node = wrap_fragment(env, node)?;
+  context.set("node", node)?;
+  // let branch = BlockIRNode::new(node);
+  let branch = context
+    .get_named_property::<Function<Object, Object>>("createBlock")?
+    .call(node)?;
+
+  let (branch, exit_block) = enter_block(env, context, branch, is_v_for.unwrap_or(false), false)?;
+  reference(context)?;
+  Ok((branch, exit_block))
 }
 
 #[napi(ts_return_type = "import('oxc-parser').JSXFragment")]
@@ -86,53 +73,4 @@ pub fn wrap_fragment(env: Env, node: Object) -> Result<Object> {
     ],
   )?;
   Ok(obj)
-}
-
-fn enter_block(
-  env: Env,
-  mut context: Object,
-  ir: BlockIRNode,
-  is_v_for: bool,
-  exclude_slots: bool,
-) -> Result<(BlockIRNode, impl FnOnce())> {
-  let block = context.get_named_property::<BlockIRNode>("block")?;
-  let template = context.get_named_property::<String>("template")?;
-  let dynamic = context.get_named_property::<IRDynamicInfo>("dynamic")?;
-  let children_template = context.get_named_property::<Vec<Option<String>>>("childrenTemplate")?;
-  let slots = context.get_named_property::<Vec<IRSlots>>("slots")?;
-  context.set("block", ir)?;
-  let ir = context.get_named_property::<BlockIRNode>("block")?;
-  let ir1 = context.get_named_property::<BlockIRNode>("block")?;
-  context.set("dynamic", ir1.dynamic)?;
-  context.set("template", String::new())?;
-
-  context.set("childrenTemplate", env.create_array(0))?;
-  if !exclude_slots {
-    context.set("slots", env.create_array(0))?;
-  }
-
-  if is_v_for {
-    context.set("inVFor", context.get_named_property::<i32>("inVFor")? + 1)?;
-  }
-
-  let exit_block = move || {
-    context
-      .get_named_property::<Function<(), ()>>("registerTemplate")
-      .unwrap()
-      .apply(context, ());
-    context.set("block", block);
-    context.set("dynamic", dynamic);
-    context.set("template", template);
-    context.set("childrenTemplate", children_template);
-    if !exclude_slots {
-      context.set("slots", slots);
-    }
-    if is_v_for {
-      context.set(
-        "inVFor",
-        context.get_named_property::<i32>("inVFor").unwrap() - 1,
-      );
-    }
-  };
-  Ok((ir, exit_block))
 }

@@ -1,22 +1,9 @@
 import { describe, expect, test, vi } from 'vitest'
-import {
-  IRNodeTypes,
-  transformChildren,
-  transformElement,
-  transformText,
-  transformVBind,
-  transformVOn,
-} from '../../src'
+import { IRNodeTypes } from '../../src'
 import { ErrorCodes } from '../../src/utils'
 import { makeCompile } from './_utils'
 
-const compileWithVOn = makeCompile({
-  nodeTransforms: [transformElement, transformText, transformChildren],
-  directiveTransforms: {
-    on: transformVOn,
-    bind: transformVBind,
-  },
-})
+const compileWithVOn = makeCompile()
 
 describe('v-on', () => {
   test('simple expression', () => {

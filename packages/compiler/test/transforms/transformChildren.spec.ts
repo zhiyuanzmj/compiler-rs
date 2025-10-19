@@ -1,24 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import {
-  IRDynamicPropsKind,
-  IRNodeTypes,
-  transformChildren,
-  transformElement,
-  transformText,
-  transformVBind,
-  transformVIf,
-} from '../../src'
+import { IRDynamicPropsKind, IRNodeTypes } from '../../src'
 import { makeCompile } from './_utils'
 
-const compileWithElementTransform = makeCompile({
-  nodeTransforms: [
-    transformText,
-    transformVIf,
-    transformElement,
-    transformChildren,
-  ],
-  directiveTransforms: { bind: transformVBind },
-})
+const compileWithElementTransform = makeCompile()
 
 describe('compiler: children transform', () => {
   test('basic', () => {

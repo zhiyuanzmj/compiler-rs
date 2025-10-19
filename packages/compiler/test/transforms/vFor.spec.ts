@@ -1,30 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import {
-  IRNodeTypes,
-  transformChildren,
-  transformElement,
-  transformText,
-  transformVBind,
-  transformVFor,
-  transformVOn,
-  transformVText,
-  type ForIRNode,
-} from '../../src'
+import { IRNodeTypes, type ForIRNode } from '../../src'
 import { makeCompile } from './_utils'
 
-const compileWithVFor = makeCompile({
-  nodeTransforms: [
-    transformVFor,
-    transformElement,
-    transformText,
-    transformChildren,
-  ],
-  directiveTransforms: {
-    bind: transformVBind,
-    on: transformVOn,
-    text: transformVText,
-  },
-})
+const compileWithVFor = makeCompile()
 
 describe('compiler: v-for', () => {
   test('basic v-for', () => {

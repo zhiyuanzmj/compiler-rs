@@ -4,26 +4,25 @@ use napi::{
   Either, Env, Result,
   bindgen_prelude::{Function, JsObjectValue, Object},
 };
-use napi_derive::napi;
 
 use crate::{
   ir::index::{DynamicFlag, ForIRNode, IRFor, IRNodeTypes, SimpleExpressionNode},
+  transform::reference,
   utils::{
     check::{_is_constant_node, is_jsx_component, is_template},
     error::{ErrorCodes, on_error},
     expression::resolve_expression,
     text::is_empty_text,
-    transform::create_branch,
+    transform::_create_branch,
     utils::{find_prop, get_expression},
   },
 };
 
-#[napi]
-pub fn transform_v_for<'a>(
-  env: &'a Env,
+pub fn transform_v_for(
+  env: Env,
   node: Object<'static>,
-  context: Object,
-) -> Result<Option<Function<'a, (), ()>>> {
+  context: Object<'static>,
+) -> Result<Option<Box<dyn FnOnce() -> Result<()>>>> {
   if !node.get_named_property::<String>("type")?.eq("JSXElement")
     || (is_template(Some(node)) && find_prop(node, Either::A("v-slot".to_string())).is_some())
   {
@@ -43,31 +42,21 @@ pub fn transform_v_for<'a>(
     .apply(seen, dir_start)?;
 
   let component = is_jsx_component(node) || is_template_with_single_component(node)?;
-  let id = context
-    .get_named_property::<Function<(), i32>>("reference")?
-    .apply(context, ())?;
-  let mut dynamic = context.get_named_property::<Object>("dynamic")?;
+  let id = reference(context)?;
+  let mut dynamic = context
+    .get_named_property::<Object>("block")?
+    .get_named_property::<Object>("dynamic")?;
   dynamic.set(
     "flags",
     dynamic.get_named_property::<i32>("flags")?
       | DynamicFlag::NON_TEMPLATE as i32
       | DynamicFlag::INSERT as i32,
   )?;
-  let (.., exit_key) = create_branch(*env, node, context, Some(true))?;
-  context
-    .get_named_property::<Object>("nodes")?
-    .set(&exit_key, node)?;
-  Ok(Some(env.create_function_from_closure("cb", move |e| {
-    let context = e.first_arg::<Object>()?;
+  let (block, exit_block) = _create_branch(env, node, context, Some(true))?;
+  Ok(Some(Box::new(move || {
+    exit_block()?;
 
-    context
-      .get_named_property::<Object>("exitBlocks")?
-      .get_named_property::<Function<(), ()>>(&exit_key)?
-      .apply(&context, ())?;
     let parent = context.get_named_property::<Object>("parent");
-    let node = context
-      .get_named_property::<Object>("nodes")?
-      .get_named_property::<Object>(&exit_key)?;
     let Some(dir) = find_prop(node, Either::A("v-for".to_string())) else {
       return Ok(());
     };
@@ -76,9 +65,9 @@ pub fn transform_v_for<'a>(
       index,
       key,
       source,
-    } = get_for_parse_result(e.env, dir, context)?;
+    } = get_for_parse_result(env, dir, context)?;
     let Some(source) = source else {
-      on_error(*e.env, ErrorCodes::X_V_FOR_MALFORMED_EXPRESSION, context);
+      on_error(env, ErrorCodes::X_V_FOR_MALFORMED_EXPRESSION, context);
       return Ok(());
     };
 
@@ -96,7 +85,7 @@ pub fn transform_v_for<'a>(
 
     // if v-for is the only child of a parent element, it can go the fast path
     // when the entire list is emptied
-    let only_child = !e.env.strict_equals(
+    let only_child = !env.strict_equals(
       context
         .get_named_property::<Object>("parent")?
         .get_named_property::<Object>("block")?
@@ -113,32 +102,33 @@ pub fn transform_v_for<'a>(
       .len()
       == 1;
 
-    context.get_named_property::<Object>("dynamic")?.set(
-      "operation",
-      ForIRNode {
-        _type: IRNodeTypes::FOR,
-        id,
-        value,
-        key,
-        index,
-        key_prop,
-        render: context
-          .get_named_property::<Object>("blocks")?
-          .get_named_property::<Object>(&exit_key)?,
-        once: context.get_named_property::<bool>("inVOnce")? || _is_constant_node(&source.ast),
-        source,
-        component,
-        only_child,
-        parent: None,
-        anchor: None,
-      },
-    )?;
+    context
+      .get_named_property::<Object>("block")?
+      .get_named_property::<Object>("dynamic")?
+      .set(
+        "operation",
+        ForIRNode {
+          _type: IRNodeTypes::FOR,
+          id,
+          value,
+          key,
+          index,
+          key_prop,
+          render: block,
+          once: context.get_named_property::<bool>("inVOnce")? || _is_constant_node(&source.ast),
+          source,
+          component,
+          only_child,
+          parent: None,
+          anchor: None,
+        },
+      )?;
 
     Ok(())
-  })?))
+  })))
 }
 
-pub fn get_for_parse_result(env: &Env, dir: Object, context: Object) -> Result<IRFor> {
+pub fn get_for_parse_result(env: Env, dir: Object, context: Object) -> Result<IRFor> {
   let mut value: Option<SimpleExpressionNode> = None;
   let mut index: Option<SimpleExpressionNode> = None;
   let mut key: Option<SimpleExpressionNode> = None;
@@ -182,7 +172,7 @@ pub fn get_for_parse_result(env: &Env, dir: Object, context: Object) -> Result<I
       ));
     }
   } else {
-    on_error(*env, ErrorCodes::X_V_FOR_NO_EXPRESSION, context);
+    on_error(env, ErrorCodes::X_V_FOR_NO_EXPRESSION, context);
   }
   return Ok(IRFor {
     value,

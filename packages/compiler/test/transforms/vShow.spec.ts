@@ -1,14 +1,8 @@
 import { describe, expect, test, vi } from 'vitest'
-import { transformChildren, transformElement, transformVShow } from '../../src'
 import { ErrorCodes } from '../../src/utils'
 import { makeCompile } from './_utils'
 
-const compileWithVShow = makeCompile({
-  nodeTransforms: [transformElement, transformChildren],
-  directiveTransforms: {
-    show: transformVShow,
-  },
-})
+const compileWithVShow = makeCompile()
 
 describe('compiler: v-show transform', () => {
   test('simple expression', () => {

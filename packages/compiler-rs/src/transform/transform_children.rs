@@ -1,43 +1,44 @@
 use napi::{
-  Result,
-  bindgen_prelude::{FnArgs, Function, JsObjectValue, Object},
+  Env, Result,
+  bindgen_prelude::{Either18, FnArgs, Function, JsObjectValue, Object},
 };
-use napi_derive::napi;
 
 use crate::{
   ir::index::{DynamicFlag, IRNodeTypes, InsertNodeIRNode, is_block_operation},
-  transform::transform_node,
-  utils::check::{is_jsx_component, is_template},
+  transform::{reference, register_operation, register_template, transform_node},
+  utils::check::{is_fragment_node, is_jsx_component},
 };
 
-#[napi]
-pub fn transform_children(node: Object, context: Object) -> Result<()> {
+pub fn transform_children(
+  env: Env,
+  node: Object<'static>,
+  context: Object<'static>,
+) -> Result<Option<Box<dyn FnOnce() -> Result<()>>>> {
   let node_type = node.get_named_property::<String>("type")?;
-  let is_fragment = node_type == "ROOT"
-    || node_type == "JSXFragment"
-    || (is_template(Some(node)) || is_jsx_component(node));
+  let is_fragment_or_component = is_fragment_node(node) || is_jsx_component(node);
 
-  if node_type != "JSXElement" && !is_fragment {
-    return Ok(());
+  if node_type != "JSXElement" && !is_fragment_or_component {
+    return Ok(None);
   }
 
   let mut i = 0;
+  let mut dynamic = context
+    .get_named_property::<Object>("block")?
+    .get_named_property::<Object>("dynamic")?;
   for child in node.get_named_property::<Vec<Object>>("children")? {
     let child_context = context
       .get_named_property::<Function<FnArgs<(Object, i32)>, Object>>("create")?
       .apply(context, FnArgs::from((child, i)))?;
-    transform_node(child_context)?;
-
-    let child_dynamic = child_context.get_named_property::<Object>("dynamic")?;
+    let mut child_dynamic = child_context
+      .get_named_property::<Object>("block")?
+      .get_named_property::<Object>("dynamic")?;
+    child_dynamic.set("parent", dynamic)?;
+    transform_node(env, child_context)?;
 
     let flags = child_dynamic.get_named_property::<i32>("flags")?;
-    if is_fragment {
-      child_context
-        .get_named_property::<Function<(), i32>>("reference")?
-        .apply(child_context, ())?;
-      child_context
-        .get_named_property::<Function<(), i32>>("registerTemplate")?
-        .apply(child_context, ())?;
+    if is_fragment_or_component {
+      reference(child_context)?;
+      register_template(child_context)?;
 
       if flags & DynamicFlag::NON_TEMPLATE as i32 == 0 || flags & DynamicFlag::INSERT as i32 != 0 {
         let returns = context
@@ -57,7 +58,6 @@ pub fn transform_children(node: Object, context: Object) -> Result<()> {
         )?;
     }
 
-    let mut dynamic = context.get_named_property::<Object>("dynamic")?;
     if child_dynamic
       .get_named_property::<bool>("hasDynamicChild")
       .unwrap_or(false)
@@ -70,23 +70,29 @@ pub fn transform_children(node: Object, context: Object) -> Result<()> {
 
     dynamic.get_named_property::<Object>("children")?.set(
       i.to_string(),
-      child_context.get_named_property::<Object>("dynamic")?,
+      child_context
+        .get_named_property::<Object>("block")?
+        .get_named_property::<Object>("dynamic")?,
     )?;
 
     i = i + 1;
   }
+  context
+    .get_named_property::<Object>("block")?
+    .set("dynamic", dynamic)?;
 
-  if !is_fragment {
+  if !is_fragment_or_component {
     process_dynamic_children(context)?;
   }
 
-  Ok(())
+  Ok(None)
 }
 
-pub fn process_dynamic_children(context: Object) -> Result<()> {
+fn process_dynamic_children(context: Object) -> Result<()> {
   let mut prev_dynamics = vec![];
   let mut has_static_template = false;
   let children = context
+    .get_named_property::<Object>("block")?
     .get_named_property::<Object>("dynamic")?
     .get_named_property::<Vec<Object>>("children")?;
 
@@ -136,32 +142,24 @@ pub fn register_insertion(
   for child in dynamics {
     if child.get_named_property::<i32>("template").is_ok() {
       // template node due to invalid nesting - generate actual insertion
-      context
-        .get_named_property::<Function<InsertNodeIRNode, ()>>("registerOperation")?
-        .apply(
-          context,
-          InsertNodeIRNode {
-            _type: IRNodeTypes::INSERT_NODE,
-            elements: dynamics
-              .iter()
-              .map(|child| child.get_named_property::<i32>("id").unwrap())
-              .collect(),
-            parent: context
-              .get_named_property::<Function<(), i32>>("reference")?
-              .apply(context, ())?,
-            anchor,
-          },
-        )?;
+      register_operation(
+        &context,
+        Either18::L(InsertNodeIRNode {
+          _type: IRNodeTypes::INSERT_NODE,
+          elements: dynamics
+            .iter()
+            .map(|child| child.get_named_property::<i32>("id").unwrap())
+            .collect(),
+          parent: reference(context)?,
+          anchor,
+        }),
+        None,
+      )?;
     } else if let Ok(mut operation) = child.get_named_property("operation")
       && is_block_operation(operation)
     {
       // block types
-      operation.set(
-        "parent",
-        context
-          .get_named_property::<Function<(), i32>>("reference")?
-          .apply(context, ())?,
-      )?;
+      operation.set("parent", reference(context)?)?;
       operation.set("anchor", anchor)?;
     }
   }

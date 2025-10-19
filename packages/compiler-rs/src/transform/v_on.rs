@@ -2,14 +2,13 @@ use std::{collections::HashSet, sync::LazyLock};
 
 use napi::{
   Either, Env, Result,
-  bindgen_prelude::{Either18, Function, JsObjectValue, Object},
+  bindgen_prelude::{Either18, JsObjectValue, Object},
 };
-use napi_derive::napi;
 use regex::Regex;
 
 use crate::{
   ir::index::{IRNodeTypes, Modifiers, SetEventIRNode, SimpleExpressionNode},
-  transform::{DirectiveTransformResult, is_operation, register_effect},
+  transform::{DirectiveTransformResult, is_operation, reference, register_effect},
   utils::{
     check::is_jsx_component,
     error::{ErrorCodes, on_error},
@@ -18,7 +17,6 @@ use crate::{
   },
 };
 
-#[napi]
 pub fn transform_v_on(
   env: Env,
   dir: Object,
@@ -127,9 +125,7 @@ pub fn transform_v_on(
     is_operation(vec![&arg], &context),
     Either18::H(SetEventIRNode {
       _type: IRNodeTypes::SET_EVENT,
-      element: context
-        .get_named_property::<Function<(), i32>>("reference")?
-        .apply(context, ())?,
+      element: reference(context)?,
       value: exp,
       modifiers: Modifiers {
         keys: key_modifiers,

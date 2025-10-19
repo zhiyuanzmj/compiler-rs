@@ -399,8 +399,8 @@ pub fn is_jsx_component(node: Object) -> bool {
 }
 
 #[napi(
-  ts_args_type = "node: import('oxc-parser').Node | RootNode",
-  ts_return_type = "node is import('oxc-parser').JSXElement | import('oxc-parser').JSXFragment | RootNode"
+  ts_args_type = "node: import('oxc-parser').Node",
+  ts_return_type = "node is import('oxc-parser').JSXElement | import('oxc-parser').JSXFragment"
 )]
 pub fn is_fragment_node(node: Object) -> bool {
   if let Ok(node_type) = node.get_named_property::<String>("type") {

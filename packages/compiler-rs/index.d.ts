@@ -6,7 +6,7 @@ export interface BaseIRNode {
 
 export interface BlockIRNode {
   type: IRNodeTypes.BLOCK
-  node: RootNode | import('oxc-parser').Node
+  node: import('oxc-parser').Node
   dynamic: IRDynamicInfo
   tempId: number
   effect: Array<IREffect>
@@ -16,10 +16,25 @@ export interface BlockIRNode {
 
 export declare function camelize(str: string): string
 
+export interface CodegenOptions {
+  /** * Generate source map?
+   * @default false
+   */
+  sourceMap?: boolean
+  /** * Filename for source map generation.
+   * Also used for self-recursive reference in templates
+   * @default 'index.jsx'
+   */
+  filename?: string
+  templates?: Array<string>
+}
+
 export interface CompilerError extends SyntaxError {
   code: number
   loc?: SourceLocation
 }
+
+export declare function create(context: object, node: object, index: number): object
 
 export declare function createBranch(node: object, context: object, isVFor?: boolean | undefined | null): [BlockIRNode, () => void]
 
@@ -148,8 +163,6 @@ export interface GetTextChildIRNode {
 }
 
 export declare function getTextLikeValue(node: import('oxc-parser').Node, excludeNumber?: boolean | undefined | null): string | null
-
-export declare function hasDynamicKeyVBind(node: object): boolean
 
 export interface IfIRNode {
   type: IRNodeTypes.IF
@@ -315,7 +328,7 @@ export declare function isConstantNode(node?: object | undefined | null): boolea
 
 export declare function isEmptyText(node: object): boolean
 
-export declare function isFragmentNode(node: import('oxc-parser').Node | RootNode): node is import('oxc-parser').JSXElement | import('oxc-parser').JSXFragment | RootNode
+export declare function isFragmentNode(node: import('oxc-parser').Node): node is import('oxc-parser').JSXElement | import('oxc-parser').JSXFragment
 
 export declare function isJSXComponent(node: import('oxc-parser').Node): boolean
 
@@ -348,38 +361,22 @@ export interface PrependNodeIRNode {
   parent: number
 }
 
-export declare function processConditionalExpression(node: import('oxc-parser').ConditionalExpression, context: object): () => void
-
-export declare function processLogicalExpression(node: object, context: object): () => void
-
 export interface PropsResult {
   dynamic: boolean
   props: Array<IRProps> | IRPropsStatic
 }
+
+export declare function pushTemplate(context: object, content: string): number
+
+export declare function reference(context: object): number
+
+export declare function registerTemplate(context: object): number
 
 export declare function resolveDirective(node: object, context: object): DirectiveNode
 
 export declare function resolveExpression(node: import('oxc-parser').Node, context: object): SimpleExpressionNode
 
 export declare function resolveJSXText(node: import('oxc-parser').JSXText): string
-
-export interface RootIRNode {
-  type: IRNodeTypes.ROOT
-  node: RootNode
-  source: string
-  templates: Array<string>
-  rootTemplateIndex?: number
-  component: Set<string>
-  directive: Set<string>
-  block: BlockIRNode
-  hasTemplateRef: boolean
-}
-
-export interface RootNode {
-  type: IRNodeTypes.ROOT | 'JSXFragment'
-  source: string
-  children: Array<import('oxc-parser').JSXChild>
-}
 
 export interface SetDynamicEventsIRNode {
   type: IRNodeTypes.SET_DYNAMIC_EVENTS
@@ -451,7 +448,7 @@ export interface SimpleExpressionNode {
 
 export interface SlotBlockIRNode {
   type: IRNodeTypes.BLOCK
-  node: RootNode | import('oxc-parser').Node
+  node: import('oxc-parser').Node
   dynamic: IRDynamicInfo
   tempId: number
   effect: Array<IREffect>
@@ -467,39 +464,9 @@ export interface SlotOutletIRNode {
 export type SourceLocation =
   [number, number]
 
-export declare function transformChildren(node: object, context: object): void
-
 export declare function transformComponentElement(tag: string, propsResult: PropsResult, singleRoot: boolean, context: object): void
 
-export declare function transformElement(_: object, context: object): () => void
-
 export declare function transformNode(context: object): void
-
-export declare function transformTemplateRef(node: object, context: object): () => void | null
-
-export declare function transformText(node: object, context: object): () => void | null
-
-export declare function transformVBind(dir: import('oxc-parser').JSXAttribute, _: import('oxc-parser').JSXElement, context: object): DirectiveTransformResult | null
-
-export declare function transformVFor(node: object, context: object): () => void | null
-
-export declare function transformVHtml(dir: object, node: object, context: object): void
-
-export declare function transformVIf(node: object, context: object): () => void | null
-
-export declare function transformVModel(dir: object, node: object, context: object): DirectiveTransformResult | null
-
-export declare function transformVOn(dir: object, node: object, context: object): DirectiveTransformResult | null
-
-export declare function transformVOnce(node: object, context: object): void
-
-export declare function transformVShow(dir: object, _: object, context: object): void
-
-export declare function transformVSlot(node: object, context: object): () => void | null
-
-export declare function transformVSlots(dir: object, node: object, context: object): void
-
-export declare function transformVText(dir: import('oxc-parser').JSXAttribute, node: import('oxc-parser').JSXElement, context: object): void
 
 export const TS_NODE_TYPES: string[]
 

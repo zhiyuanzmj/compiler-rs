@@ -1,8 +1,7 @@
 use napi::{
-  Result,
+  Env, Result,
   bindgen_prelude::{JsObjectValue, Object},
 };
-use napi_derive::napi;
 
 use crate::{
   transform::DirectiveTransformResult,
@@ -13,10 +12,9 @@ use crate::{
   },
 };
 
-#[napi]
 pub fn transform_v_bind(
-  #[napi(ts_arg_type = "import('oxc-parser').JSXAttribute")] dir: Object,
-  #[napi(ts_arg_type = "import('oxc-parser').JSXElement")] _: Object,
+  dir: Object,
+  _: Object,
   context: Object,
 ) -> Result<Option<DirectiveTransformResult>> {
   let name = dir.get_named_property::<Object>("name")?;

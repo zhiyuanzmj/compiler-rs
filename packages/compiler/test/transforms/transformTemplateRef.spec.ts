@@ -2,26 +2,13 @@ import { describe, expect, test } from 'vitest'
 import {
   DynamicFlag,
   IRNodeTypes,
-  transformChildren,
-  transformElement,
-  transformTemplateRef,
-  transformVFor,
-  transformVIf,
   type ForIRNode,
   type IfIRNode,
 } from '../../src'
 
 import { makeCompile } from './_utils'
 
-const compileWithTransformRef = makeCompile({
-  nodeTransforms: [
-    transformVIf,
-    transformVFor,
-    transformTemplateRef,
-    transformElement,
-    transformChildren,
-  ],
-})
+const compileWithTransformRef = makeCompile()
 
 describe('compiler: template ref transform', () => {
   test('static ref', () => {

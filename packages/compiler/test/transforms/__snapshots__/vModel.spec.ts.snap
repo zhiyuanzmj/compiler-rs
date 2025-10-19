@@ -99,6 +99,7 @@ exports[`compiler: vModel transform > should support input (dynamic type) 1`] = 
 "
   const n0 = t0()
   _applyDynamicModel(n0, () => (model), _value => (model = _value))
+  _renderEffect(() => _setProp(n0, "type", foo))
   return n0
 "
 `;

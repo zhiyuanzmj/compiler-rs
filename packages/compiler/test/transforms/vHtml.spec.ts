@@ -1,19 +1,9 @@
 import { describe, expect, test, vi } from 'vitest'
-import {
-  IRNodeTypes,
-  transformChildren,
-  transformElement,
-  transformVHtml,
-} from '../../src'
+import { IRNodeTypes } from '../../src'
 import { ErrorCodes } from '../../src/utils'
 import { makeCompile } from './_utils'
 
-const compileWithVHtml = makeCompile({
-  nodeTransforms: [transformElement, transformChildren],
-  directiveTransforms: {
-    html: transformVHtml,
-  },
-})
+const compileWithVHtml = makeCompile()
 
 describe('v-html', () => {
   test('should convert v-html to innerHTML', () => {
@@ -56,7 +46,7 @@ describe('v-html', () => {
     expect(helpers).contains('setHtml')
 
     // children should have been removed
-    expect(ir.templates).toEqual(['<div></div>'])
+    expect(ir.templates).toEqual(['<div>hello</div>'])
 
     expect(ir.block.operation).toMatchObject([])
     expect(ir.block.effect).toMatchObject([
@@ -80,7 +70,7 @@ describe('v-html', () => {
     ])
 
     // children should have been removed
-    expect(templates).includes('_template("<div></div>", true)')
+    expect(templates).includes('_template("<div>hello</div>", true)')
   })
 
   test('should raise error if has no expression', () => {

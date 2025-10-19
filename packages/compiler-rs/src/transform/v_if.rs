@@ -4,26 +4,25 @@ use napi::{
   Either, Env, Result,
   bindgen_prelude::{Function, JsObjectValue, Object},
 };
-use napi_derive::napi;
 
 use crate::{
   ir::index::{DynamicFlag, IRNodeTypes, IfIRNode},
+  transform::reference,
   utils::{
     check::{_is_constant_node, is_template},
     directive::resolve_directive,
     error::{ErrorCodes, on_error},
     expression::create_simple_expression,
-    transform::create_branch,
+    transform::_create_branch,
     utils::find_prop,
   },
 };
 
-#[napi]
-pub fn transform_v_if<'a>(
-  env: &'a Env,
+pub fn transform_v_if(
+  env: Env,
   node: Object<'static>,
-  context: Object,
-) -> Result<Option<Function<'a, (), ()>>> {
+  context: Object<'static>,
+) -> Result<Option<Box<dyn FnOnce() -> Result<()>>>> {
   if !node.get_named_property::<String>("type")?.eq("JSXElement")
     || (is_template(Some(node)) && find_prop(node, Either::A("v-slot".to_string())).is_some())
   {
@@ -53,7 +52,7 @@ pub fn transform_v_if<'a>(
   if dir.name != "else"
     && (dir.exp.is_none() || dir.exp.as_ref().unwrap().content.trim().is_empty())
   {
-    on_error(*env, ErrorCodes::X_V_IF_NO_EXPRESSION, context);
+    on_error(env, ErrorCodes::X_V_IF_NO_EXPRESSION, context);
     dir.exp = Some(create_simple_expression(
       "true".to_string(),
       Some(false),
@@ -62,69 +61,55 @@ pub fn transform_v_if<'a>(
     ));
   }
 
-  let mut dynamic = context.get_named_property::<Object>("dynamic")?;
+  let mut dynamic = context
+    .get_named_property::<Object>("block")?
+    .get_named_property::<Object>("dynamic")?;
   dynamic.set(
     "flags",
     dynamic.get_named_property::<i32>("flags")? | DynamicFlag::NON_TEMPLATE as i32,
   )?;
 
   if dir.name == "if" {
-    let id = context
-      .get_named_property::<Function<(), i32>>("reference")?
-      .apply(context, ())?;
+    let id = reference(context)?;
     dynamic.set(
       "flags",
       dynamic.get_named_property::<i32>("flags")? | DynamicFlag::INSERT as i32,
     )?;
-    let (.., exit_key) = create_branch(*env, node, context, None)?;
-    context
-      .get_named_property::<Object>("nodes")?
-      .set(&exit_key, node)?;
-    return Ok(Some(env.create_function_from_closure("cb", move |e| {
-      let context = e.get::<Object>(0)?;
-      context
-        .get_named_property::<Object>("exitBlocks")?
-        .get_named_property::<Function<(), ()>>(&exit_key)?
-        .apply(context, ())?;
-      let node = context
-        .get_named_property::<Object>("nodes")?
-        .get_named_property::<Object>(&exit_key)?;
+    let (block, exit_block) = _create_branch(env, node, context, None)?;
+    return Ok(Some(Box::new(move || {
+      exit_block()?;
       let dir = resolve_directive(
         find_prop(node, Either::A("v-if".to_string())).unwrap(),
         context,
       )?;
 
-      context.get_named_property::<Object>("dynamic")?.set(
-        "operation",
-        IfIRNode {
-          _type: IRNodeTypes::IF,
-          id,
-          positive: context
-            .get_named_property::<Object>("blocks")?
-            .get_named_property::<Object>(&exit_key)?,
-          once: Some(
-            context.get_named_property::<bool>("inVOnce")?
-              || _is_constant_node(&dir.exp.as_ref().unwrap().ast),
-          ),
-          condition: dir.exp.unwrap(),
-          negative: None,
-          anchor: None,
-          parent: None,
-        },
-      )?;
+      context
+        .get_named_property::<Object>("block")?
+        .get_named_property::<Object>("dynamic")?
+        .set(
+          "operation",
+          IfIRNode {
+            _type: IRNodeTypes::IF,
+            id,
+            positive: block,
+            once: Some(
+              context.get_named_property::<bool>("inVOnce")?
+                || _is_constant_node(&dir.exp.as_ref().unwrap().ast),
+            ),
+            condition: dir.exp.unwrap(),
+            negative: None,
+            anchor: None,
+            parent: None,
+          },
+        )?;
 
       Ok(())
-    })?));
+    })));
   }
 
-  let parent = context.get_named_property::<Object>("parent");
-  let siblings = parent.map(|parent| {
-    parent
-      .get_named_property::<Object>("dynamic")
-      .unwrap()
-      .get_named_property::<Vec<Object>>("children")
-      .unwrap()
-  });
+  let siblings = dynamic
+    .get_named_property::<Object>("parent")?
+    .get_named_property::<Vec<Object>>("children");
   let mut last_if_node = None;
   if let Ok(siblings) = siblings {
     let mut i = siblings.len();
@@ -145,7 +130,7 @@ pub fn transform_v_if<'a>(
   } else {
     true
   } {
-    on_error(*env, ErrorCodes::X_V_ELSE_NO_ADJACENT_IF, context);
+    on_error(env, ErrorCodes::X_V_ELSE_NO_ADJACENT_IF, context);
     return Ok(None);
   }
 
@@ -162,10 +147,10 @@ pub fn transform_v_if<'a>(
       .get_named_property::<Object>("negative")
       .is_ok()
   {
-    on_error(*env, ErrorCodes::X_V_ELSE_NO_ADJACENT_IF, context);
+    on_error(env, ErrorCodes::X_V_ELSE_NO_ADJACENT_IF, context);
   }
 
-  let (branch, on_exit, ..) = create_branch(*env, node, context, None)?;
+  let (branch, exit_block) = _create_branch(env, node, context, None)?;
 
   if dir.name == "else" {
     last_if_node.set("negative", branch)?;
@@ -187,5 +172,5 @@ pub fn transform_v_if<'a>(
       },
     )?
   }
-  Ok(Some(on_exit))
+  Ok(Some(exit_block))
 }

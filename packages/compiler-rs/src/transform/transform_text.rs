@@ -2,32 +2,32 @@ use std::collections::HashSet;
 
 use napi::{
   Either, Env,
-  bindgen_prelude::{Function, JsObjectValue, Object, Result},
+  bindgen_prelude::{Either18, Function, JsObjectValue, Object, Result},
 };
-use napi_derive::napi;
 
 use crate::{
   ir::index::{
     CreateNodesIRNode, DynamicFlag, GetTextChildIRNode, IRNodeTypes, IfIRNode, SetNodesIRNode,
     SimpleExpressionNode,
   },
-  transform::transform_node,
+  transform::{reference, register_operation, transform_node},
   utils::{
     check::{_is_constant_node, is_fragment_node, is_jsx_component, is_template},
     expression::{_get_literal_expression_value, resolve_expression},
     text::{is_empty_text, resolve_jsx_text},
-    transform::create_branch,
+    transform::{_create_branch, create_branch},
     utils::{_get_expression, find_prop, get_expression},
   },
 };
 
-#[napi]
-pub fn transform_text<'a>(
-  env: &'a Env,
+pub fn transform_text(
+  env: Env,
   node: Object<'static>,
-  mut context: Object,
-) -> Result<Option<Function<'a, (), ()>>> {
-  let mut dynamic = context.get_named_property::<Object>("dynamic")?;
+  mut context: Object<'static>,
+) -> Result<Option<Box<dyn FnOnce() -> Result<()>>>> {
+  let mut dynamic = context
+    .get_named_property::<Object>("block")?
+    .get_named_property::<Object>("dynamic")?;
   if let Ok(start) = node.get_named_property::<i32>("start") {
     let seen = context.get_named_property::<HashSet<i32>>("seen")?;
     if seen.contains(&start) {
@@ -138,7 +138,9 @@ fn precess_interpolation(mut context: Object) -> Result<()> {
 
   let values = precess_text_like_expressions(nodes, context)?;
   if values.is_empty() {
-    let mut dynamic = context.get_named_property::<Object>("dynamic")?;
+    let mut dynamic = context
+      .get_named_property::<Object>("block")?
+      .get_named_property::<Object>("dynamic")?;
     dynamic.set(
       "flags",
       dynamic.get_named_property::<i32>("flags")? | DynamicFlag::NON_TEMPLATE as i32,
@@ -146,39 +148,35 @@ fn precess_interpolation(mut context: Object) -> Result<()> {
     return Ok(());
   }
 
-  let id = context
-    .get_named_property::<Function<(), i32>>("reference")?
-    .apply(context, ())?;
+  let id = reference(context)?;
   let once = context.get_named_property::<bool>("inVOnce")?;
   if is_fragment_node(parent) || find_prop(parent, Either::A(String::from("v-slot"))).is_some() {
-    context
-      .get_named_property::<Function<CreateNodesIRNode, ()>>("registerOperation")?
-      .apply(
-        context,
-        CreateNodesIRNode {
-          _type: IRNodeTypes::CREATE_NODES,
-          id,
-          once,
-          values,
-        },
-      )?;
+    register_operation(
+      &context,
+      Either18::K(CreateNodesIRNode {
+        _type: IRNodeTypes::CREATE_NODES,
+        id,
+        once,
+        values,
+      }),
+      None,
+    )?;
   } else {
     context.set(
       "template",
       context.get_named_property::<String>("template")? + " ",
     )?;
-    context
-      .get_named_property::<Function<SetNodesIRNode, ()>>("registerOperation")?
-      .apply(
-        context,
-        SetNodesIRNode {
-          _type: IRNodeTypes::SET_NODES,
-          element: id,
-          once,
-          values,
-          generated: None,
-        },
-      )?;
+    register_operation(
+      &context,
+      Either18::G(SetNodesIRNode {
+        _type: IRNodeTypes::SET_NODES,
+        element: id,
+        once,
+        values,
+        generated: None,
+      }),
+      None,
+    )?;
   }
   Ok(())
 }
@@ -201,29 +199,26 @@ fn process_text_container(children: Vec<Object<'static>>, mut context: Object) -
     context.set("childrenTemplate", literals)?;
   } else {
     context.set("childrenTemplate", vec![" ".to_string()])?;
-    let reference = context.get_named_property::<Function<(), i32>>("reference")?;
-    context
-      .get_named_property::<Function<GetTextChildIRNode, ()>>("registerOperation")?
-      .apply(
-        context,
-        GetTextChildIRNode {
-          _type: IRNodeTypes::GET_TEXT_CHILD,
-          parent: reference.apply(context, ())?,
-        },
-      )?;
-    context
-      .get_named_property::<Function<SetNodesIRNode, ()>>("registerOperation")?
-      .apply(
-        context,
-        SetNodesIRNode {
-          _type: IRNodeTypes::SET_NODES,
-          element: reference.apply(context, ())?,
-          once: context.get_named_property::<bool>("inVOnce")?,
-          values,
-          // indicates this node is generated, so prefix should be "x" instead of "n"
-          generated: Some(true),
-        },
-      )?;
+    register_operation(
+      &context,
+      Either18::R(GetTextChildIRNode {
+        _type: IRNodeTypes::GET_TEXT_CHILD,
+        parent: reference(context)?,
+      }),
+      None,
+    )?;
+    register_operation(
+      &context,
+      Either18::G(SetNodesIRNode {
+        _type: IRNodeTypes::SET_NODES,
+        element: reference(context)?,
+        once: context.get_named_property::<bool>("inVOnce")?,
+        values,
+        // indicates this node is generated, so prefix should be "x" instead of "n"
+        generated: Some(true),
+      }),
+      None,
+    )?;
   }
   Ok(())
 }
@@ -253,53 +248,42 @@ fn is_text_like(node: &Object) -> Result<bool> {
   })
 }
 
-#[napi]
-pub fn process_conditional_expression<'a>(
-  env: &'a Env,
-  #[napi(ts_arg_type = "import('oxc-parser').ConditionalExpression")] node: Object<'static>,
-  context: Object,
-) -> Result<Function<'a, (), ()>> {
-  let mut dynamic = context.get_named_property::<Object>("dynamic")?;
+pub fn process_conditional_expression(
+  env: Env,
+  node: Object<'static>,
+  context: Object<'static>,
+) -> Result<Box<dyn FnOnce() -> Result<()>>> {
+  let mut dynamic = context
+    .get_named_property::<Object>("block")?
+    .get_named_property::<Object>("dynamic")?;
   dynamic.set(
     "flags",
     dynamic.get_named_property::<i32>("flags")?
       | DynamicFlag::NON_TEMPLATE as i32
       | DynamicFlag::INSERT as i32,
   )?;
-  let id = context
-    .get_named_property::<Function<(), i32>>("reference")?
-    .apply(context, ())?;
-  let (.., exit_key) = create_branch(
-    *env,
+  let id = reference(context)?;
+  let (block, exit_block) = _create_branch(
+    env,
     node.get_named_property::<Object>("consequent")?,
     context,
     None,
   )?;
-  context
-    .get_named_property::<Object>("nodes")?
-    .set(&exit_key, node)?;
 
-  Ok(env.create_function_from_closure("cb", move |e| {
-    let context = e.get::<Object>(0)?;
-    context
-      .get_named_property::<Object>("exitBlocks")?
-      .get_named_property::<Function<(), ()>>(&exit_key)?
-      .apply(context, ())?;
-    let node = context
-      .get_named_property::<Object>("nodes")?
-      .get_named_property::<Object>(&exit_key)?;
+  Ok(Box::new(move || {
+    exit_block()?;
     let test = node.get_named_property::<Object>("test")?;
     let alternate = node.get_named_property::<Object>("alternate")?;
 
-    let mut dynamic = context.get_named_property::<Object>("dynamic")?;
+    let mut dynamic = context
+      .get_named_property::<Object>("block")?
+      .get_named_property::<Object>("dynamic")?;
     dynamic.set(
       "operation",
       IfIRNode {
         _type: IRNodeTypes::IF,
         id,
-        positive: context
-          .get_named_property::<Object>("blocks")?
-          .get_named_property::<Object>(&exit_key)?,
+        positive: block,
         once: Some(
           context
             .get_named_property::<bool>("inVOnce")
@@ -314,54 +298,43 @@ pub fn process_conditional_expression<'a>(
     )?;
 
     set_negative(
-      *e.env,
+      env,
       alternate,
       dynamic.get_named_property::<Object>("operation")?,
       context,
     )?;
 
     Ok(())
-  })?)
+  }))
 }
 
-#[napi]
-pub fn process_logical_expression<'a>(
-  env: &'a Env,
+pub fn process_logical_expression(
+  env: Env,
   node: Object<'static>,
-  context: Object,
-) -> Result<Function<'a, (), ()>> {
+  context: Object<'static>,
+) -> Result<Box<dyn FnOnce() -> Result<()>>> {
   let left = node.get_named_property::<Object>("left")?;
   let right = node.get_named_property::<Object>("right")?;
   let operator = node.get_named_property::<String>("operator")?;
 
-  let mut dynamic = context.get_named_property::<Object>("dynamic")?;
+  let mut dynamic = context
+    .get_named_property::<Object>("block")?
+    .get_named_property::<Object>("dynamic")?;
   dynamic.set(
     "flags",
     dynamic.get_named_property::<i32>("flags")?
       | DynamicFlag::NON_TEMPLATE as i32
       | DynamicFlag::INSERT as i32,
   )?;
-  let id = context
-    .get_named_property::<Function<(), i32>>("reference")?
-    .apply(context, ())?;
-  let (.., exit_key) = create_branch(
-    *env,
+  let id = reference(context)?;
+  let (block, exit_block) = _create_branch(
+    env,
     if operator == "&&" { right } else { left },
     context,
     None,
   )?;
-  context
-    .get_named_property::<Object>("nodes")?
-    .set(&exit_key, node)?;
-  Ok(env.create_function_from_closure("cb", move |e| {
-    let context = e.get::<Object>(0)?;
-    context
-      .get_named_property::<Object>("exitBlocks")?
-      .get_named_property::<Function<(), ()>>(&exit_key)?
-      .apply(context, ())?;
-    let node = context
-      .get_named_property::<Object>("nodes")?
-      .get_named_property::<Object>(&exit_key)?;
+  Ok(Box::new(move || {
+    exit_block()?;
     let left = node.get_named_property::<Object>("left")?;
     let right = node.get_named_property::<Object>("right")?;
     let operator = node.get_named_property::<String>("operator")?;
@@ -370,34 +343,34 @@ pub fn process_logical_expression<'a>(
       _type: IRNodeTypes::IF,
       id,
       condition: resolve_expression(left, context),
-      positive: context
-        .get_named_property::<Object>("blocks")?
-        .get_named_property(&exit_key)?,
+      positive: block,
       once: Some(context.get_named_property::<bool>("inVOnce")? || _is_constant_node(&Some(left))),
       negative: None,
       anchor: None,
       parent: None,
     };
     context
+      .get_named_property::<Object>("block")?
       .get_named_property::<Object>("dynamic")?
       .set("operation", operation)?;
     set_negative(
-      *e.env,
+      env,
       if operator == "&&" { left } else { right },
       context
+        .get_named_property::<Object>("block")?
         .get_named_property::<Object>("dynamic")?
         .get_named_property::<Object>("operation")?,
       context,
     )?;
     Ok(())
-  })?)
+  }))
 }
 
 pub fn set_negative(
   env: Env,
   node: Object<'static>,
   mut operation: Object,
-  context: Object,
+  context: Object<'static>,
 ) -> Result<()> {
   let node_type = node.get_named_property::<String>("type")?;
   if node_type == "ConditionalExpression" {
@@ -419,7 +392,7 @@ pub fn set_negative(
       parent: None,
     };
     operation.set("negative", negative)?;
-    transform_node(context)?;
+    transform_node(env, context)?;
     set_negative(
       env,
       node.get_named_property::<Object>("alternate")?,
@@ -448,7 +421,7 @@ pub fn set_negative(
       parent: None,
     };
     operation.set("negative", negative)?;
-    transform_node(context)?;
+    transform_node(env, context)?;
     set_negative(
       env,
       if operator.eq("&&") { left } else { right },
@@ -459,7 +432,7 @@ pub fn set_negative(
   } else {
     let (branch, on_exit, ..) = create_branch(env, node, context, None)?;
     operation.set("negative", branch)?;
-    transform_node(context)?;
+    transform_node(env, context)?;
     on_exit.call(())?;
   }
   Ok(())

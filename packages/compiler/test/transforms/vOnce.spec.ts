@@ -1,13 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import { IRNodeTypes } from '../../src'
-import { getBaseTransformPreset } from '../../src/compile'
 import { makeCompile } from './_utils'
 
-const [nodeTransforms, directiveTransforms] = getBaseTransformPreset()
-const compileWithOnce = makeCompile({
-  nodeTransforms,
-  directiveTransforms,
-})
+const compileWithOnce = makeCompile()
 
 describe('compiler: v-once', () => {
   test('basic', () => {

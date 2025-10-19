@@ -1,7 +1,13 @@
+import type {
+  BlockIRNode,
+  DynamicFlag,
+  IRNodeTypes,
+  OperationNode,
+} from '@vue-jsx-vapor/compiler-rs'
+
 export {
   CreateNodesIRNode,
   DynamicFlag,
-  IRDynamicInfo,
   IRNode,
   IRNodeTypes,
   isBlockOperation,
@@ -20,8 +26,6 @@ export {
   type IRFor,
   type OperationNode,
   type PrependNodeIRNode,
-  type RootIRNode,
-  type RootNode,
   type SetDynamicEventsIRNode,
   type SetDynamicPropsIRNode,
   type SetEventIRNode,
@@ -35,3 +39,26 @@ export {
 } from '@vue-jsx-vapor/compiler-rs'
 
 export * from './component'
+
+export interface IRDynamicInfo {
+  id?: number
+  flags: DynamicFlag
+  anchor?: number
+  children: Array<IRDynamicInfo>
+  template?: number
+  hasDynamicChild?: boolean
+  operation?: OperationNode
+  parent?: IRDynamicInfo
+}
+
+export interface RootIRNode {
+  type: IRNodeTypes.ROOT
+  node: object
+  source: string
+  templates: string[]
+  rootTemplateIndex?: number
+  component: Set<string>
+  directive: Set<string>
+  block: BlockIRNode
+  hasTemplateRef: boolean
+}

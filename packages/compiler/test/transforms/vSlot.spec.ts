@@ -1,33 +1,9 @@
 import { describe, expect, test, vi } from 'vitest'
-import {
-  IRNodeTypes,
-  IRSlotType,
-  transformChildren,
-  transformElement,
-  transformText,
-  transformVBind,
-  transformVFor,
-  transformVIf,
-  transformVOn,
-  transformVSlot,
-} from '../../src'
+import { IRNodeTypes, IRSlotType } from '../../src'
 import { ErrorCodes } from '../../src/utils'
 import { makeCompile } from './_utils'
 
-const compileWithSlots = makeCompile({
-  nodeTransforms: [
-    transformVIf,
-    transformVFor,
-    transformElement,
-    transformText,
-    transformVSlot,
-    transformChildren,
-  ],
-  directiveTransforms: {
-    bind: transformVBind,
-    on: transformVOn,
-  },
-})
+const compileWithSlots = makeCompile()
 
 describe('compiler: transform slot', () => {
   test('implicit default slot', () => {

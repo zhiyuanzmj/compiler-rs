@@ -2,10 +2,10 @@ use napi::{
   Env, Result,
   bindgen_prelude::{JsObjectValue, Object},
 };
-use napi_derive::napi;
 
 use crate::{
   ir::component::{IRSlotType, IRSlotsExpression},
+  transform::DirectiveTransformResult,
   utils::{
     check::is_jsx_component,
     error::{ErrorCodes, on_error},
@@ -13,8 +13,12 @@ use crate::{
   },
 };
 
-#[napi]
-pub fn transform_v_slots(env: Env, dir: Object, node: Object, mut context: Object) -> Result<()> {
+pub fn transform_v_slots(
+  env: Env,
+  dir: Object,
+  node: Object,
+  mut context: Object,
+) -> Result<Option<DirectiveTransformResult>> {
   if is_jsx_component(node)
     && dir
       .get_named_property::<Object>("value")?
@@ -36,5 +40,5 @@ pub fn transform_v_slots(env: Env, dir: Object, node: Object, mut context: Objec
   } else {
     on_error(env, ErrorCodes::X_V_SLOT_MISPLACED, context)
   }
-  Ok(())
+  Ok(None)
 }

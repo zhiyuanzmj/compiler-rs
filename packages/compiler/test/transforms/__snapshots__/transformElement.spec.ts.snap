@@ -78,7 +78,7 @@ exports[`compiler: element transform > component > {...obj} between static props
 
 exports[`compiler: element transform > component > Fragment should not mark as single root 1`] = `
 "
-  const n0 = _createComponent(Comp)
+  const n0 = _createComponent(Comp, null, null, true)
   return n0
 "
 `;
@@ -100,7 +100,7 @@ exports[`compiler: element transform > component > component with fallback 1`] =
 
 exports[`compiler: element transform > component > generate multi root component 1`] = `
 "
-  const n0 = _createComponent(Comp)
+  const n0 = _createComponent(Comp, null, null, true)
   const n1 = t0()
   return [n0, n1]
 "

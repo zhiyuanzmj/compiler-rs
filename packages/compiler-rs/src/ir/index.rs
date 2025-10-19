@@ -1,4 +1,8 @@
-use std::collections::HashSet;
+use std::{
+  cell::RefCell,
+  collections::HashSet,
+  rc::{Rc, Weak},
+};
 
 use napi::{
   Either,
@@ -46,20 +50,11 @@ pub struct BaseIRNode {
   pub _type: IRNodeTypes,
 }
 
-#[napi(object)]
-pub struct RootNode {
-  #[napi(ts_type = "IRNodeTypes.ROOT | 'JSXFragment'")]
-  pub _type: Either<IRNodeTypes, String>,
-  pub source: String,
-  #[napi(ts_type = "Array<import('oxc-parser').JSXChild>")]
-  pub children: Vec<Object<'static>>,
-}
-
 #[napi(object, js_name = "BlockIRNode")]
 pub struct BlockIRNode {
   #[napi(ts_type = "IRNodeTypes.BLOCK")]
   pub _type: IRNodeTypes,
-  #[napi(ts_type = "RootNode | import('oxc-parser').Node")]
+  #[napi(ts_type = "import('oxc-parser').Node")]
   pub node: Object<'static>,
   pub dynamic: IRDynamicInfo,
   pub temp_id: i32,
@@ -67,19 +62,72 @@ pub struct BlockIRNode {
   pub operation: Vec<OperationNode>,
   pub returns: Vec<i32>,
 }
+impl BlockIRNode {
+  pub fn new(node: Object<'static>) -> Self {
+    BlockIRNode {
+      _type: IRNodeTypes::BLOCK,
+      node,
+      dynamic: IRDynamicInfo::new(),
+      temp_id: 0,
+      effect: Vec::new(),
+      operation: Vec::new(),
+      returns: Vec::new(),
+    }
+  }
+}
 
-#[napi(object, js_name = "RootIRNode")]
-pub struct RootIRNode {
-  #[napi(ts_type = "IRNodeTypes.ROOT")]
+pub struct _BlockIRNode {
   pub _type: IRNodeTypes,
-  pub node: RootNode,
+  pub node: Object<'static>,
+  pub dynamic: _IRDynamicInfo,
+  pub temp_id: i32,
+  pub effect: Vec<IREffect>,
+  pub operation: Vec<OperationNode>,
+  pub returns: Vec<i32>,
+}
+impl _BlockIRNode {
+  pub fn new(node: Object<'static>) -> Self {
+    _BlockIRNode {
+      _type: IRNodeTypes::BLOCK,
+      node,
+      dynamic: _IRDynamicInfo::new(),
+      temp_id: 0,
+      effect: Vec::new(),
+      operation: Vec::new(),
+      returns: Vec::new(),
+    }
+  }
+}
+
+pub struct RootIRNode {
+  pub _type: IRNodeTypes,
+  pub node: Object<'static>,
   pub source: String,
   pub templates: Vec<String>,
   pub root_template_index: Option<i32>,
   pub component: HashSet<String>,
   pub directive: HashSet<String>,
-  pub block: BlockIRNode,
+  pub block: RefCell<Weak<RefCell<_BlockIRNode>>>,
   pub has_template_ref: bool,
+}
+
+impl RootIRNode {
+  pub fn new(node: Object<'static>, source: String, templates: Vec<String>) -> Self {
+    let block = Rc::new(RefCell::new(_BlockIRNode::new(node)));
+    let root = RootIRNode {
+      _type: IRNodeTypes::ROOT,
+      node,
+      source,
+      templates,
+      component: HashSet::new(),
+      directive: HashSet::new(),
+      block: RefCell::new(Weak::new()),
+      has_template_ref: false,
+      root_template_index: None,
+    };
+    *root.block.borrow_mut() = Rc::downgrade(&block);
+    root
+  }
 }
 
 #[napi(object, js_name = "IfIRNode")]
@@ -338,6 +386,44 @@ pub struct IRDynamicInfo {
   pub has_dynamic_child: Option<bool>,
   #[napi(ts_type = "OperationNode")]
   pub operation: Option<MyBox<OperationNode>>,
+}
+impl IRDynamicInfo {
+  pub fn new() -> Self {
+    IRDynamicInfo {
+      flags: DynamicFlag::REFERENCED,
+      children: Vec::new(),
+      template: None,
+      has_dynamic_child: None,
+      operation: None,
+      id: None,
+      anchor: None,
+    }
+  }
+}
+
+pub struct _IRDynamicInfo {
+  pub id: Option<i32>,
+  pub flags: DynamicFlag,
+  pub anchor: Option<i32>,
+  pub children: Vec<_IRDynamicInfo>,
+  pub template: Option<i32>,
+  pub has_dynamic_child: Option<bool>,
+  pub operation: Option<MyBox<OperationNode>>,
+  pub parent: RefCell<Weak<IRDynamicInfo>>,
+}
+impl _IRDynamicInfo {
+  pub fn new() -> Self {
+    _IRDynamicInfo {
+      flags: DynamicFlag::REFERENCED,
+      children: Vec::new(),
+      parent: RefCell::new(Weak::new()),
+      template: None,
+      has_dynamic_child: None,
+      operation: None,
+      id: None,
+      anchor: None,
+    }
+  }
 }
 
 #[napi(object, js_name = "IREffect")]

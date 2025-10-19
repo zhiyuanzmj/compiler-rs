@@ -1,12 +1,13 @@
 use napi::{
   Env, Result,
-  bindgen_prelude::{FnArgs, Function, JsObjectValue, Object},
+  bindgen_prelude::{Either18, JsObjectValue, Object},
 };
-use napi_derive::napi;
 
 use crate::{
   ir::index::{GetTextChildIRNode, IRNodeTypes, SetTextIRNode},
-  transform::is_operation,
+  transform::{
+    DirectiveTransformResult, is_operation, reference, register_effect, register_operation,
+  },
   utils::{
     check::is_void_tag,
     error::{ErrorCodes, on_error},
@@ -15,13 +16,12 @@ use crate::{
   },
 };
 
-#[napi]
 pub fn transform_v_text(
   env: Env,
-  #[napi(ts_arg_type = "import('oxc-parser').JSXAttribute")] dir: Object,
-  #[napi(ts_arg_type = "import('oxc-parser').JSXElement")] node: Object,
+  dir: Object,
+  node: Object,
   mut context: Object,
-) -> Result<()> {
+) -> Result<Option<DirectiveTransformResult>> {
   let exp = if let Ok(value) = dir.get_named_property::<Object>("value") {
     resolve_expression(value, context)
   } else {
@@ -48,7 +48,7 @@ pub fn transform_v_text(
       .get_named_property("name")?,
     context,
   )) {
-    return Ok(());
+    return Ok(None);
   }
 
   let literal = _get_literal_expression_value(&exp);
@@ -56,31 +56,27 @@ pub fn transform_v_text(
     context.set("childrenTemplate", vec![literal])?
   } else {
     context.set("childrenTemplate", [" "])?;
-    let reference = context.get_named_property::<Function<(), i32>>("reference")?;
-    context
-      .get_named_property::<Function<GetTextChildIRNode, ()>>("registerOperation")?
-      .apply(
-        context,
-        GetTextChildIRNode {
-          _type: IRNodeTypes::GET_TEXT_CHILD,
-          parent: reference.apply(context, ())?,
-        },
-      )?;
-    context
-      .get_named_property::<Function<FnArgs<(bool, SetTextIRNode)>, ()>>("registerEffect")?
-      .apply(
-        context,
-        FnArgs::from((
-          is_operation(vec![&exp], &context),
-          SetTextIRNode {
-            _type: IRNodeTypes::SET_TEXT,
-            element: reference.apply(context, ())?,
-            values: vec![exp],
-            generated: Some(true),
-          },
-        )),
-      )?
+    register_operation(
+      &context,
+      Either18::R(GetTextChildIRNode {
+        _type: IRNodeTypes::GET_TEXT_CHILD,
+        parent: reference(context)?,
+      }),
+      None,
+    )?;
+    register_effect(
+      &context,
+      is_operation(vec![&exp], &context),
+      Either18::C(SetTextIRNode {
+        _type: IRNodeTypes::SET_TEXT,
+        element: reference(context)?,
+        values: vec![exp],
+        generated: Some(true),
+      }),
+      None,
+      None,
+    )?;
   }
 
-  Ok(())
+  Ok(None)
 }

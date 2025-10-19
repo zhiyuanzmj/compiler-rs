@@ -1,19 +1,9 @@
 import { describe, expect, test, vi } from 'vitest'
-import {
-  IRNodeTypes,
-  transformChildren,
-  transformElement,
-  transformVModel,
-} from '../../src'
+import { IRNodeTypes } from '../../src'
 import { ErrorCodes } from '../../src/utils'
 import { makeCompile } from './_utils'
 
-const compileWithVModel = makeCompile({
-  nodeTransforms: [transformElement, transformChildren],
-  directiveTransforms: {
-    model: transformVModel,
-  },
-})
+const compileWithVModel = makeCompile()
 
 describe('compiler: vModel transform', () => {
   test('should support simple expression', () => {

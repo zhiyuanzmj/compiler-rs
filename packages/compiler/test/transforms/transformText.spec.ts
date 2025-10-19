@@ -1,29 +1,10 @@
 // TODO: add tests for this transform
 import { describe, expect, it, test } from 'vitest'
-import {
-  IRNodeTypes,
-  transformChildren,
-  transformElement,
-  transformText,
-  transformVBind,
-  transformVOn,
-  transformVOnce,
-} from '../../src'
+import { IRNodeTypes } from '../../src'
 
 import { makeCompile } from './_utils'
 
-const compileWithTextTransform = makeCompile({
-  nodeTransforms: [
-    transformVOnce,
-    transformElement,
-    transformText,
-    transformChildren,
-  ],
-  directiveTransforms: {
-    bind: transformVBind,
-    on: transformVOn,
-  },
-})
+const compileWithTextTransform = makeCompile()
 
 describe('compiler: text transform', () => {
   it('no consecutive text', () => {

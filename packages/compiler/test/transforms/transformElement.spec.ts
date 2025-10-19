@@ -1,28 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import {
-  IRDynamicPropsKind,
-  IRNodeTypes,
-  transformChildren,
-  transformElement,
-  transformText,
-  transformVBind,
-  transformVFor,
-  transformVOn,
-} from '../../src'
+import { IRDynamicPropsKind, IRNodeTypes } from '../../src'
 import { makeCompile } from './_utils'
 
-const compileWithElementTransform = makeCompile({
-  nodeTransforms: [
-    transformVFor,
-    transformElement,
-    transformText,
-    transformChildren,
-  ],
-  directiveTransforms: {
-    bind: transformVBind,
-    on: transformVOn,
-  },
-})
+const compileWithElementTransform = makeCompile()
 
 describe('compiler: element transform', () => {
   describe('component', () => {
@@ -59,13 +39,13 @@ describe('compiler: element transform', () => {
     test('generate multi root component', () => {
       const { code } = compileWithElementTransform(`<><Comp/>123</>`)
       expect(code).toMatchSnapshot()
-      expect(code).contains('_createComponent(Comp)')
+      expect(code).contains('_createComponent(Comp, null, null, true)')
     })
 
     test('Fragment should not mark as single root', () => {
       const { code } = compileWithElementTransform(`<><Comp/></>`)
       expect(code).toMatchSnapshot()
-      expect(code).contains('_createComponent(Comp)')
+      expect(code).contains('_createComponent(Comp, null, null, true)')
     })
 
     test('v-for on component should not mark as single root', () => {

@@ -8,7 +8,8 @@ use napi_derive::napi;
 
 use crate::{
   ir::index::{
-    IRDynamicInfo, IREffect, IRFor, IRNodeTypes, Modifiers, OperationNode, SimpleExpressionNode,
+    DynamicFlag, IRDynamicInfo, IREffect, IRFor, IRNodeTypes, Modifiers, OperationNode,
+    SimpleExpressionNode,
   },
   utils::my_box::MyBox,
 };
@@ -68,7 +69,7 @@ pub type IRProps = Either3<IRPropsStatic, IRPropsDynamicAttribute, IRPropsDynami
 pub struct SlotBlockIRNode {
   #[napi(ts_type = "IRNodeTypes.BLOCK")]
   pub _type: IRNodeTypes,
-  #[napi(ts_type = "RootNode | import('oxc-parser').Node")]
+  #[napi(ts_type = "import('oxc-parser').Node")]
   pub node: Object<'static>,
   pub dynamic: IRDynamicInfo,
   pub temp_id: i32,
@@ -76,6 +77,20 @@ pub struct SlotBlockIRNode {
   pub operation: Vec<OperationNode>,
   pub returns: Vec<i32>,
   pub props: Option<SimpleExpressionNode>,
+}
+impl SlotBlockIRNode {
+  pub fn new(node: Object<'static>, props: Option<SimpleExpressionNode>) -> Self {
+    SlotBlockIRNode {
+      _type: IRNodeTypes::BLOCK,
+      node,
+      dynamic: IRDynamicInfo::new(),
+      effect: Vec::new(),
+      operation: Vec::new(),
+      returns: Vec::new(),
+      temp_id: 0,
+      props,
+    }
+  }
 }
 
 #[napi]

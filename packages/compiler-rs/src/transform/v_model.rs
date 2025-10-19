@@ -2,11 +2,10 @@ use napi::{
   Either, Env, Result,
   bindgen_prelude::{Either18, Function, JsObjectValue, Object},
 };
-use napi_derive::napi;
 
 use crate::{
   ir::index::{DirectiveIRNode, IRNodeTypes},
-  transform::{DirectiveTransformResult, register_operation},
+  transform::{DirectiveTransformResult, reference, register_operation},
   utils::{
     check::{is_jsx_component, is_member_expression, is_string_literal},
     directive::resolve_directive,
@@ -17,7 +16,6 @@ use crate::{
   },
 };
 
-#[napi]
 pub fn transform_v_model(
   env: Env,
   _dir: Object,
@@ -123,9 +121,7 @@ pub fn transform_v_model(
       &context,
       Either18::N(DirectiveIRNode {
         _type: IRNodeTypes::DIRECTIVE,
-        element: context
-          .get_named_property::<Function<(), i32>>("reference")?
-          .apply(context, ())?,
+        element: reference(context)?,
         dir,
         name: "model".to_string(),
         model_type: Some(model_type.to_string()),
@@ -148,8 +144,7 @@ fn check_duplicated_value(env: Env, node: Object, context: Object) {
   }
 }
 
-#[napi]
-pub fn has_dynamic_key_v_bind(node: Object) -> Result<bool> {
+fn has_dynamic_key_v_bind(node: Object) -> Result<bool> {
   Ok(
     node
       .get_named_property::<Object>("openingElement")?

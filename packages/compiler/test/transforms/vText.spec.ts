@@ -1,19 +1,9 @@
 import { describe, expect, test, vi } from 'vitest'
-import {
-  IRNodeTypes,
-  transformChildren,
-  transformElement,
-  transformVText,
-} from '../../src'
+import { IRNodeTypes } from '../../src'
 import { ErrorCodes } from '../../src/utils'
 import { makeCompile } from './_utils'
 
-const compileWithVText = makeCompile({
-  nodeTransforms: [transformElement, transformChildren],
-  directiveTransforms: {
-    text: transformVText,
-  },
-})
+const compileWithVText = makeCompile()
 
 describe('v-text', () => {
   test('should convert v-text to setText', () => {

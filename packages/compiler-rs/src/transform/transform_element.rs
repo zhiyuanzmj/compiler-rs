@@ -17,7 +17,12 @@ use crate::{
       SetDynamicPropsIRNode, SetPropIRNode, SimpleExpressionNode,
     },
   },
-  transform::{DirectiveTransformResult, is_operation, register_effect, register_operation},
+  transform::{
+    DirectiveTransformResult, is_operation, push_template, reference, register_effect,
+    register_operation, v_bind::transform_v_bind, v_html::transform_v_html, v_if::transform_v_if,
+    v_model::transform_v_model, v_on::transform_v_on, v_show::transform_v_show,
+    v_slots::transform_v_slots, v_text::transform_v_text,
+  },
   utils::{
     check::{is_build_in_directive, is_jsx_component, is_template, is_void_tag},
     directive::resolve_directive,
@@ -40,88 +45,81 @@ static IS_EVENT_REGEX: LazyLock<regex::Regex> =
 static IS_DIRECTIVE_REGEX: LazyLock<regex::Regex> =
   LazyLock::new(|| regex::Regex::new(r"^v-[a-z]").unwrap());
 
-#[napi]
-pub fn transform_element<'a>(
-  env: &'a Env,
-  _: Object,
-  context: Object,
-) -> Result<Function<'a, (), ()>> {
+pub fn transform_element(
+  env: Env,
+  _: Object<'static>,
+  context: Object<'static>,
+) -> Result<Option<Box<dyn FnOnce() -> Result<()>>>> {
   let block = context.get_named_property::<Object>("block")?;
-  let effect_index = block.get_named_property::<Vec<Object>>("effect")?.len() as i32;
-  let operation_index = block.get_named_property::<Vec<Object>>("operation")?.len() as i32;
-  Ok(
-    env.create_function_from_closure("postTransformElement", move |e| {
-      let context = e.get::<Object>(0)?;
-      let env = e.env;
-      let mut effect_index = effect_index;
-      let mut operation_index = operation_index;
-      let get_effect_index = Rc::new(RefCell::new(Box::new(move || {
-        let current = effect_index;
-        effect_index += 1;
-        current
-      }) as Box<dyn FnMut() -> i32>));
-      let get_operation_index = Rc::new(RefCell::new(Box::new(move || {
-        let current = operation_index;
-        operation_index += 1;
-        current
-      }) as Box<dyn FnMut() -> i32>));
-      let node = context.get_named_property::<Object>("node")?;
-      if !node.get_named_property::<String>("type")?.eq("JSXElement") || is_template(Some(node)) {
-        return Ok(());
-      }
+  let mut effect_index = block.get_named_property::<Vec<Object>>("effect")?.len() as i32;
+  let get_effect_index = Rc::new(RefCell::new(Box::new(move || {
+    let current = effect_index;
+    effect_index += 1;
+    current
+  }) as Box<dyn FnMut() -> i32>));
+  let mut operation_index = block.get_named_property::<Vec<Object>>("operation")?.len() as i32;
+  let get_operation_index = Rc::new(RefCell::new(Box::new(move || {
+    let current = operation_index;
+    operation_index += 1;
+    current
+  }) as Box<dyn FnMut() -> i32>));
+  Ok(Some(Box::new(move || {
+    let node = context.get_named_property::<Object>("node")?;
+    if !node.get_named_property::<String>("type")?.eq("JSXElement") || is_template(Some(node)) {
+      return Ok(());
+    }
 
-      let name = node
-        .get_named_property::<Object>("openingElement")?
-        .get_named_property::<Object>("name")?;
-      let tag = get_text(name, context);
-      let is_component = is_jsx_component(node);
-      let props_result = build_props(
-        env,
-        node,
+    let name = node
+      .get_named_property::<Object>("openingElement")?
+      .get_named_property::<Object>("name")?;
+    let tag = get_text(name, context);
+    let is_component = is_jsx_component(node);
+    let props_result = build_props(
+      env,
+      node,
+      context,
+      is_component,
+      Rc::clone(&get_effect_index),
+      Rc::clone(&get_operation_index),
+    )?;
+    let mut parent = context.get_named_property::<Object>("parent");
+    while let Ok(_parent) = parent
+      && _parent
+        .get_named_property::<Object>("node")?
+        .get_named_property::<String>("type")?
+        .eq("JSXElement")
+      && is_template(_parent.get_named_property::<Object>("node").ok())
+      && let Ok(_parent) = _parent.get_named_property::<Object>("parent")
+    {
+      parent = Ok(_parent)
+    }
+    let single_root = if let Ok(parent) = parent
+      && env.strict_equals(context.get_named_property::<Object>("root")?, parent)?
+      && !parent
+        .get_named_property::<Object>("node")?
+        .get_named_property::<String>("type")?
+        .eq("JSXFragment")
+    {
+      true
+    } else {
+      false
+    };
+
+    if is_component {
+      transform_component_element(env, tag, props_result, single_root, context)?;
+    } else {
+      transform_native_element(
+        tag,
+        props_result,
+        single_root,
         context,
-        is_component,
         Rc::clone(&get_effect_index),
         Rc::clone(&get_operation_index),
       )?;
-      let mut parent = context.get_named_property::<Object>("parent");
-      while let Ok(_parent) = parent
-        && _parent
-          .get_named_property::<Object>("node")?
-          .get_named_property::<String>("type")?
-          .eq("JSXElement")
-        && is_template(_parent.get_named_property::<Object>("node").ok())
-        && let Ok(_parent) = _parent.get_named_property::<Object>("parent")
-      {
-        parent = Ok(_parent)
-      }
-      let single_root = if let Ok(parent) = parent
-        && env.strict_equals(context.get_named_property::<Object>("root")?, parent)?
-        && !parent
-          .get_named_property::<Object>("node")?
-          .get_named_property::<String>("type")?
-          .eq("JSXFragment")
-      {
-        true
-      } else {
-        false
-      };
+    }
 
-      if is_component {
-        transform_component_element(*env, tag, props_result, single_root, context)?;
-      } else {
-        transform_native_element(
-          tag,
-          props_result,
-          single_root,
-          context,
-          Rc::clone(&get_effect_index),
-          Rc::clone(&get_operation_index),
-        )?;
-      }
-
-      Ok(())
-    })?,
-  )
+    Ok(())
+  })))
 }
 
 pub fn transform_native_element<'a>(
@@ -144,9 +142,7 @@ pub fn transform_native_element<'a>(
         false,
         Either18::E(SetDynamicPropsIRNode {
           _type: IRNodeTypes::SET_DYNAMIC_PROPS,
-          element: context
-            .get_named_property::<Function<(), i32>>("reference")?
-            .apply(context, ())?,
+          element: reference(context)?,
           props,
           root: single_root,
         }),
@@ -174,9 +170,7 @@ pub fn transform_native_element<'a>(
             ),
             Either18::D(SetPropIRNode {
               _type: IRNodeTypes::SET_PROP,
-              element: context
-                .get_named_property::<Function<(), i32>>("reference")?
-                .apply(context, ())?,
+              element: reference(context)?,
               prop,
               tag: tag.clone(),
               root: single_root,
@@ -220,16 +214,11 @@ pub fn transform_native_element<'a>(
       .eq("JSXIdentifier")
     && !is_valid_html_nesting(&name.get_named_property::<String>("name")?, &tag)
   {
-    context
-      .get_named_property::<Function<(), i32>>("reference")?
-      .apply(context, ())?;
-    let mut dynamic = context.get_named_property::<Object>("dynamic")?;
-    dynamic.set(
-      "template",
-      context
-        .get_named_property::<Function<String, i32>>("pushTemplate")?
-        .apply(context, template)?,
-    )?;
+    reference(context)?;
+    let mut dynamic = context
+      .get_named_property::<Object>("block")?
+      .get_named_property::<Object>("dynamic")?;
+    dynamic.set("template", push_template(context, template)?)?;
     dynamic.set(
       "flags",
       dynamic.get_named_property::<i32>("flags")?
@@ -281,7 +270,9 @@ pub fn transform_component_element(
       .apply(component, tag.clone())?;
   }
 
-  let mut dynamic = context.get_named_property::<Object>("dynamic")?;
+  let mut dynamic = context
+    .get_named_property::<Object>("block")?
+    .get_named_property::<Object>("dynamic")?;
   dynamic.set(
     "flags",
     dynamic.get_named_property::<i32>("flags")?
@@ -293,9 +284,7 @@ pub fn transform_component_element(
     "operation",
     CreateComponentIRNode {
       _type: IRNodeTypes::CREATE_COMPONENT_NODE,
-      id: context
-        .get_named_property::<Function<(), i32>>("reference")?
-        .apply(context, ())?,
+      id: reference(context)?,
       tag,
       props: match props_result.props {
         Either::A(props) => props,
@@ -322,8 +311,8 @@ pub struct PropsResult {
   pub props: Either<Vec<IRProps>, IRPropsStatic>,
 }
 
-pub fn build_props<'a>(
-  env: &'a Env,
+pub fn build_props(
+  env: Env,
   node: Object,
   context: Object,
   is_component: bool,
@@ -383,9 +372,7 @@ pub fn build_props<'a>(
             is_operation(vec![&value], &context),
             Either18::F(SetDynamicEventsIRNode {
               _type: IRNodeTypes::SET_DYNAMIC_EVENTS,
-              element: context
-                .get_named_property::<Function<(), i32>>("reference")?
-                .apply(context, ())?,
+              element: reference(context)?,
               value,
             }),
             Some(Rc::clone(&get_effect_index)),
@@ -393,12 +380,13 @@ pub fn build_props<'a>(
           )?;
         }
       } else {
-        on_error(*env, ErrorCodes::X_V_ON_NO_EXPRESSION, context);
+        on_error(env, ErrorCodes::X_V_ON_NO_EXPRESSION, context);
       }
       continue;
     }
 
     if let Some(prop) = transform_prop(
+      env,
       prop,
       node,
       is_component,
@@ -448,6 +436,7 @@ pub fn build_props<'a>(
 }
 
 pub fn transform_prop(
+  env: Env,
   prop: Object,
   node: Object,
   is_component: bool,
@@ -505,8 +494,22 @@ pub fn transform_prop(
     options.get_named_property::<HashMap<
       String,
       Function<FnArgs<(Object, Object, Object)>, Option<DirectiveTransformResult>>,
-    >>("directiveTransforms")?;
-  if let Some(directive_transform) = directive_transforms.get(&name) {
+    >>("directiveTransforms");
+
+  match name.as_str() {
+    "bind" => return transform_v_bind(prop, node, context),
+    "on" => return transform_v_on(env, prop, node, context),
+    "model" => return transform_v_model(env, prop, node, context),
+    "show" => return transform_v_show(env, prop, node, context),
+    "html" => return transform_v_html(env, prop, node, context),
+    "text" => return transform_v_text(env, prop, node, context),
+    "slots" => return transform_v_slots(env, prop, node, context),
+    _ => (),
+  };
+
+  if let Ok(directive_transforms) = directive_transforms
+    && let Some(directive_transform) = directive_transforms.get(&name)
+  {
     return Ok(directive_transform.call(FnArgs::from((prop, node, context)))?);
   }
 
@@ -527,9 +530,7 @@ pub fn transform_prop(
       &context,
       Either18::N(DirectiveIRNode {
         _type: IRNodeTypes::DIRECTIVE,
-        element: context
-          .get_named_property::<Function<(), i32>>("reference")?
-          .apply(context, ())?,
+        element: reference(context)?,
         dir: resolve_directive(prop, context)?,
         name,
         asset: Some(with_fallback),

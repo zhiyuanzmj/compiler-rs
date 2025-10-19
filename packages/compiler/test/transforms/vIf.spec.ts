@@ -1,26 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import {
-  IRNodeTypes,
-  transformChildren,
-  transformElement,
-  transformText,
-  transformVIf,
-  transformVText,
-  type IfIRNode,
-} from '../../src'
+import { IRNodeTypes, type IfIRNode } from '../../src'
 import { makeCompile } from './_utils'
 
-const compileWithVIf = makeCompile({
-  nodeTransforms: [
-    transformVIf,
-    transformElement,
-    transformText,
-    transformChildren,
-  ],
-  directiveTransforms: {
-    text: transformVText,
-  },
-})
+const compileWithVIf = makeCompile()
 
 describe('compiler: v-if', () => {
   test('basic v-if', () => {

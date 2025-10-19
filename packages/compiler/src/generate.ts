@@ -10,22 +10,11 @@ import {
   NEWLINE,
 } from './utils/generate'
 import type { BlockIRNode, RootIRNode, SimpleExpressionNode } from './ir'
+import type { CodegenOptions } from '@vue-jsx-vapor/compiler-rs'
+
 import type { RawSourceMap } from 'source-map-js'
 
-export type CodegenOptions = {
-  /**
-   * Generate source map?
-   * @default false
-   */
-  sourceMap?: boolean
-  /**
-   * Filename for source map generation.
-   * Also used for self-recursive reference in templates
-   * @default 'index.jsx'
-   */
-  filename?: string
-  templates?: string[]
-}
+export { CodegenOptions }
 
 export class CodegenContext {
   options: Required<CodegenOptions>

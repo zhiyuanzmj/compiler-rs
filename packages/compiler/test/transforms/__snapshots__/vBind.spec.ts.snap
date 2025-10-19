@@ -35,7 +35,7 @@ exports[`compiler v-bind > no expression 1`] = `
 exports[`compiler v-bind > number value 1`] = `
 "
   const n0 = t0()
-  const n1 = _createComponent(Comp, { depth: () => (0) })
+  const n1 = _createComponent(Comp, { depth: () => (0) }, null, true)
   return [n0, n1]
 "
 `;

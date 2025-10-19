@@ -1,12 +1,11 @@
 use napi::{
   Either, Env, Result,
-  bindgen_prelude::{Either18, Function, JsObjectValue, Object},
+  bindgen_prelude::{Either18, JsObjectValue, Object},
 };
-use napi_derive::napi;
 
 use crate::{
   ir::index::{DeclareOldRefIRNode, IRNodeTypes, SetTemplateRefIRNode},
-  transform::{is_operation, register_effect},
+  transform::{is_operation, reference, register_effect, register_operation},
   utils::{
     check::is_fragment_node,
     expression::{_is_constant_expression, _resolve_expression},
@@ -14,12 +13,11 @@ use crate::{
   },
 };
 
-#[napi]
-pub fn transform_template_ref<'a>(
-  env: &'a Env,
+pub fn transform_template_ref(
+  _: Env,
   node: Object<'static>,
-  context: Object,
-) -> Result<Option<Function<'a, (), ()>>> {
+  context: Object<'static>,
+) -> Result<Option<Box<dyn FnOnce() -> Result<()>>>> {
   if is_fragment_node(node) {
     return Ok(None);
   }
@@ -34,33 +32,29 @@ pub fn transform_template_ref<'a>(
     .get_named_property::<Object>("ir")?
     .set("hasTemplateRef", true)?;
 
-  Ok(Some(env.create_function_from_closure("cb", move |e| {
-    let context = &e.first_arg::<Object>()?;
+  Ok(Some(Box::new(move || {
     let node = context.get_named_property::<Object>("node")?;
     let value = find_prop(node, Either::A(String::from("ref")))
       .unwrap()
       .get_named_property::<Object>("value")?;
     let value = _resolve_expression(value, &context);
 
-    let id = context
-      .get_named_property::<Function<(), i32>>("reference")?
-      .apply(context, ())?;
+    let id = reference(context)?;
     let effect = !_is_constant_expression(&value);
     if effect {
-      context
-        .get_named_property::<Function<DeclareOldRefIRNode, ()>>("registerOperation")?
-        .apply(
-          context,
-          DeclareOldRefIRNode {
-            _type: IRNodeTypes::DECLARE_OLD_REF,
-            id,
-          },
-        )?;
+      register_operation(
+        &context,
+        Either18::P(DeclareOldRefIRNode {
+          _type: IRNodeTypes::DECLARE_OLD_REF,
+          id,
+        }),
+        None,
+      )?;
     }
 
     register_effect(
-      context,
-      is_operation(vec![&value], context),
+      &context,
+      is_operation(vec![&value], &context),
       Either18::J(SetTemplateRefIRNode {
         _type: IRNodeTypes::SET_TEMPLATE_REF,
         element: id,
@@ -72,5 +66,5 @@ pub fn transform_template_ref<'a>(
       None,
     )?;
     Ok(())
-  })?))
+  })))
 }
