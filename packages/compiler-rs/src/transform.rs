@@ -1,6 +1,6 @@
 use std::{
   cell::RefCell,
-  collections::HashMap,
+  collections::{HashMap, HashSet},
   rc::{Rc, Weak},
 };
 
@@ -190,9 +190,7 @@ pub fn reference(context: Object) -> Result<i32> {
     "flags",
     dynamic.get_named_property::<i32>("flags")? | DynamicFlag::REFERENCED as i32,
   )?;
-  let id = context
-    .get_named_property::<Function<(), i32>>("increaseId")?
-    .call(())?;
+  let id = increase_id(context)?;
   dynamic.set("id", id)?;
   Ok(id)
 }
@@ -337,21 +335,78 @@ pub fn enter_block(
   Ok((ir, exit_block))
 }
 
-#[napi]
-pub fn create<'a>(env: &'a Env, context: Object, node: Object, index: i32) -> Result<Object<'a>> {
+pub fn _enter_block(
+  env: Env,
+  mut this: Object<'static>,
+  ir: BlockIRNode,
+  is_v_for: bool,
+  exclude_slots: bool,
+) -> Result<(BlockIRNode, Box<dyn FnOnce() -> Result<()>>)> {
+  let block = this.get_named_property::<Object>("block")?;
+  let template = this.get_named_property::<String>("template")?;
+  let children_template = this.get_named_property::<Vec<String>>("childrenTemplate")?;
+  let slots = this.get_named_property::<Vec<Object>>("slots")?;
+
+  // this.set("block", ir)?;
+  this.set("template", String::new())?;
+  this.set("childrenTemplate", env.create_array(0))?;
+  if !exclude_slots {
+    this.set("slots", env.create_array(0))?;
+  }
+
+  if is_v_for {
+    this.set("inVFor", this.get_named_property::<i32>("inVFor")? + 1)?;
+  }
+
+  let exit_block = Box::new(move || {
+    // exit
+    register_template(this)?;
+    this.set("block", block)?;
+    this.set("template", template)?;
+    this.set("childrenTemplate", children_template)?;
+    if !exclude_slots {
+      this.set("slots", slots)?;
+    }
+    if is_v_for {
+      this.set(
+        "inVFor",
+        this.get_named_property::<i32>("inVFor").unwrap() + 1,
+      )?;
+    }
+    Ok(())
+  }) as Box<dyn FnOnce() -> Result<()>>;
+
+  Ok((ir, exit_block))
+}
+
+pub fn create<'a>(env: Env, context: Object, node: Object, index: i32) -> Result<Object<'a>> {
   context
     .get_named_property::<Object>("block")?
     .set("dynamic", IRDynamicInfo::new())?;
-  let mut object = Object::new(env)?;
+  let mut object = Object::new(&env)?;
+  object.set("block", context.get_named_property::<Object>("block"))?;
+  object.set("inVFor", context.get_named_property::<i32>("inVFor"))?;
+  object.set("inVOnce", context.get_named_property::<bool>("inVOnce"))?;
+  object.set("ir", context.get_named_property::<Object>("ir"))?;
+  object.set("options", context.get_named_property::<Object>("options"))?;
+  object.set("root", context.get_named_property::<Object>("root"))?;
+  object.set("seen", context.get_named_property::<HashSet<i32>>("seen"))?;
+  object.set("slots", context.get_named_property::<Object>("slots"))?;
+
   object.set("node", node)?;
   object.set("parent", context)?;
   object.set("index", index)?;
+
   object.set("template", String::new())?;
   object.set("childrenTemplate", env.create_array(0))?;
-
-  object.set("node", node)?;
-  object.set("node", node)?;
   Ok(object)
+}
+
+pub fn increase_id(context: Object) -> Result<i32> {
+  let mut root: Object = context.get_named_property("root")?;
+  let current = root.get_named_property("globalId")?;
+  root.set("globalId", current + 1)?;
+  Ok(current)
 }
 
 #[napi]
@@ -389,11 +444,6 @@ pub fn transform_node(env: Env, mut context: Object<'static>) -> Result<()> {
     register_template(context)?;
   }
   Ok(())
-}
-
-#[napi]
-pub fn new_dynamic() -> IRDynamicInfo {
-  IRDynamicInfo::new()
 }
 
 #[napi]

@@ -558,8 +558,6 @@ if (!nativeBinding) {
 
 module.exports = nativeBinding
 module.exports.camelize = nativeBinding.camelize
-module.exports.create = nativeBinding.create
-module.exports.createBranch = nativeBinding.createBranch
 module.exports.createCompilerError = nativeBinding.createCompilerError
 module.exports.createSimpleExpression = nativeBinding.createSimpleExpression
 module.exports.DynamicFlag = nativeBinding.DynamicFlag
@@ -587,7 +585,6 @@ module.exports.isTemplate = nativeBinding.isTemplate
 module.exports.locStub = nativeBinding.locStub
 module.exports.LOC_STUB = nativeBinding.LOC_STUB
 module.exports.newBlock = nativeBinding.newBlock
-module.exports.newDynamic = nativeBinding.newDynamic
 module.exports.pushTemplate = nativeBinding.pushTemplate
 module.exports.reference = nativeBinding.reference
 module.exports.registerTemplate = nativeBinding.registerTemplate

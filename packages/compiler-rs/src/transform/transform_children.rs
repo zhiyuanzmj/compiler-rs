@@ -5,7 +5,9 @@ use napi::{
 
 use crate::{
   ir::index::{DynamicFlag, IRNodeTypes, InsertNodeIRNode, is_block_operation},
-  transform::{reference, register_operation, register_template, transform_node},
+  transform::{
+    create, increase_id, reference, register_operation, register_template, transform_node,
+  },
   utils::check::{is_fragment_node, is_jsx_component},
 };
 
@@ -26,9 +28,10 @@ pub fn transform_children(
     .get_named_property::<Object>("block")?
     .get_named_property::<Object>("dynamic")?;
   for child in node.get_named_property::<Vec<Object>>("children")? {
-    let child_context = context
-      .get_named_property::<Function<FnArgs<(Object, i32)>, Object>>("create")?
-      .apply(context, FnArgs::from((child, i)))?;
+    let child_context = create(env, context, child, i)?;
+    // let child_context = context
+    //   .get_named_property::<Function<FnArgs<(Object, i32)>, Object>>("create")?
+    //   .apply(context, FnArgs::from((child, i)))?;
     let mut child_dynamic = child_context
       .get_named_property::<Object>("block")?
       .get_named_property::<Object>("dynamic")?;
@@ -112,9 +115,7 @@ fn process_dynamic_children(context: Object) -> Result<()> {
           let flags =
             prev_dynamics[0].get_named_property::<i32>("flags")? - DynamicFlag::NON_TEMPLATE as i32;
           prev_dynamics[0].set("flags", flags)?;
-          let anchor = context
-            .get_named_property::<Function<(), i32>>("increaseId")?
-            .apply(context, ())?;
+          let anchor = increase_id(context)?;
           prev_dynamics[0].set("anchor", anchor)?;
           register_insertion(&prev_dynamics, context, Some(anchor))?;
         } else {

@@ -13,7 +13,7 @@ use crate::{
     error::{ErrorCodes, on_error},
     expression::resolve_expression,
     text::is_empty_text,
-    transform::_create_branch,
+    transform::create_block,
     utils::{find_prop, get_expression},
   },
 };
@@ -52,7 +52,7 @@ pub fn transform_v_for(
       | DynamicFlag::NON_TEMPLATE as i32
       | DynamicFlag::INSERT as i32,
   )?;
-  let (block, exit_block) = _create_branch(env, node, context, Some(true))?;
+  let (block, exit_block) = create_block(env, node, context, Some(true))?;
   Ok(Some(Box::new(move || {
     exit_block()?;
 

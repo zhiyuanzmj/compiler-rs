@@ -5,32 +5,12 @@ use napi::{
 use napi_derive::napi;
 
 use crate::{
-  ir::index::BlockIRNode,
-  transform::{enter_block, reference},
+  ir::index::{BlockIRNode, IRDynamicInfo, IRNodeTypes},
+  transform::{_enter_block, enter_block, reference},
   utils::check::is_template,
 };
 
-#[napi(ts_return_type = "[BlockIRNode, () => void]")]
-pub fn create_branch(
-  env: Env,
-  node: Object<'static>,
-  mut context: Object,
-  is_v_for: Option<bool>,
-) -> Result<(Object<'static>, Function<'static, (), ()>, String)> {
-  let node = wrap_fragment(env, node)?;
-  context.set("node", node)?;
-  let branch = BlockIRNode::new(node);
-  let exit_key = context.get_named_property::<i32>("exitKey")?;
-  let (branch, exit_block) = context
-    .get_named_property::<Function<FnArgs<(BlockIRNode, bool)>, (Object, Function<(), ()>)>>(
-      "enterBlock",
-    )?
-    .apply(context, FnArgs::from((branch, is_v_for.unwrap_or(false))))?;
-  reference(context)?;
-  Ok((branch, exit_block, exit_key.to_string()))
-}
-
-pub fn _create_branch(
+pub fn create_block(
   env: Env,
   node: Object<'static>,
   mut context: Object<'static>,
@@ -38,14 +18,18 @@ pub fn _create_branch(
 ) -> Result<(Object<'static>, Box<dyn FnOnce() -> Result<()>>)> {
   let node = wrap_fragment(env, node)?;
   context.set("node", node)?;
-  // let branch = BlockIRNode::new(node);
-  let branch = context
-    .get_named_property::<Function<Object, Object>>("createBlock")?
-    .call(node)?;
+  let mut block = Object::new(&env)?;
+  block.set("type", IRNodeTypes::BLOCK)?;
+  block.set("node", node)?;
+  block.set("dynamic", IRDynamicInfo::new())?;
+  block.set("tempId", 0)?;
+  block.set("effect", env.create_array(0))?;
+  block.set("operation", env.create_array(0))?;
+  block.set("returns", env.create_array(0))?;
 
-  let (branch, exit_block) = enter_block(env, context, branch, is_v_for.unwrap_or(false), false)?;
+  let (block, exit_block) = enter_block(env, context, block, is_v_for.unwrap_or(false), false)?;
   reference(context)?;
-  Ok((branch, exit_block))
+  Ok((block, exit_block))
 }
 
 #[napi(ts_return_type = "import('oxc-parser').JSXFragment")]

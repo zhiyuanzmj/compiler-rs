@@ -10,7 +10,7 @@ import {
   type IRSlots,
   type RootIRNode,
 } from './ir'
-import { newBlock, newDynamic, type CompilerError } from './utils'
+import { newBlock, type CompilerError } from './utils'
 import type { CodegenOptions } from './generate'
 
 export { DirectiveTransformResult, transformNode }
@@ -61,10 +61,6 @@ export class TransformContext {
 
   slots: IRSlots[] = []
 
-  exitKey = 0
-  exitBlocks = {}
-  blocks = {}
-  nodes = {}
   seen = new Set()
 
   private globalId = 0
@@ -77,78 +73,6 @@ export class TransformContext {
     this.options = extend({}, defaultOptions, options)
     this.block = this.ir.block
     this.root = this as TransformContext
-  }
-
-  createBlock(node: Node) {
-    return {
-      type: IRNodeTypes.BLOCK,
-      node,
-      dynamic: newDynamic(),
-      tempId: 0,
-      effect: [],
-      operation: [],
-      returns: [],
-    }
-  }
-
-  enterBlock(
-    ir: BlockIRNode,
-    isVFor: boolean = false,
-    // should removed
-    exclude_slots = false,
-  ): [BlockIRNode, () => void] {
-    const { block, template, childrenTemplate, slots } = this
-    this.block = ir
-    this.template = ''
-    this.childrenTemplate = []
-    if (!exclude_slots) this.slots = []
-
-    isVFor && this.inVFor++
-    const exitBlock = () => {
-      // exit
-      registerTemplate(this)
-      this.block = block
-      this.template = template
-      this.childrenTemplate = childrenTemplate
-      if (!exclude_slots) this.slots = slots
-      isVFor && this.inVFor--
-    }
-    // @ts-expect-error should removed
-    this.exitBlocks[this.exitKey] = exitBlock
-    // @ts-expect-error should removed
-    this.blocks[this.exitKey] = ir
-    this.exitKey++
-    return [ir, exitBlock]
-  }
-
-  increaseId = () => this.globalId++
-
-  create(node: Node, index: number): TransformContext {
-    this.block.dynamic = newDynamic()
-    return Object.assign(Object.create(TransformContext.prototype), this, {
-      // block: this.block,
-      // increaseId: this.increaseId,
-      // blocks: this.blocks,
-      // create: this.create,
-      // enterBlock: this.enterBlock,
-      // exitBlocks: this.exitBlocks,
-      // exitKey: this.exitKey,
-      // inVFor: this.inVFor,
-      // inVOnce: this.inVOnce,
-      // ir: this.ir,
-      // nodes: this.nodes,
-      // options: this.options,
-      // root: this.root,
-      // seen: this.seen,
-      // slots: this.slots,
-
-      node,
-      parent: this as any,
-      index,
-
-      template: '',
-      childrenTemplate: [],
-    } satisfies Partial<TransformContext>)
   }
 }
 

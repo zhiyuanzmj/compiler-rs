@@ -13,7 +13,7 @@ use crate::{
     directive::resolve_directive,
     error::{ErrorCodes, on_error},
     expression::create_simple_expression,
-    transform::_create_branch,
+    transform::create_block,
     utils::find_prop,
   },
 };
@@ -75,7 +75,7 @@ pub fn transform_v_if(
       "flags",
       dynamic.get_named_property::<i32>("flags")? | DynamicFlag::INSERT as i32,
     )?;
-    let (block, exit_block) = _create_branch(env, node, context, None)?;
+    let (block, exit_block) = create_block(env, node, context, None)?;
     return Ok(Some(Box::new(move || {
       exit_block()?;
       let dir = resolve_directive(
@@ -150,7 +150,7 @@ pub fn transform_v_if(
     on_error(env, ErrorCodes::X_V_ELSE_NO_ADJACENT_IF, context);
   }
 
-  let (branch, exit_block) = _create_branch(env, node, context, None)?;
+  let (branch, exit_block) = create_block(env, node, context, None)?;
 
   if dir.name == "else" {
     last_if_node.set("negative", branch)?;

@@ -109,8 +109,6 @@ const { instance: __napiInstance, module: __wasiModule, napiModule: __napiModule
 })
 module.exports = __napiModule.exports
 module.exports.camelize = __napiModule.exports.camelize
-module.exports.create = __napiModule.exports.create
-module.exports.createBranch = __napiModule.exports.createBranch
 module.exports.createCompilerError = __napiModule.exports.createCompilerError
 module.exports.createSimpleExpression = __napiModule.exports.createSimpleExpression
 module.exports.DynamicFlag = __napiModule.exports.DynamicFlag
@@ -138,7 +136,6 @@ module.exports.isTemplate = __napiModule.exports.isTemplate
 module.exports.locStub = __napiModule.exports.locStub
 module.exports.LOC_STUB = __napiModule.exports.LOC_STUB
 module.exports.newBlock = __napiModule.exports.newBlock
-module.exports.newDynamic = __napiModule.exports.newDynamic
 module.exports.pushTemplate = __napiModule.exports.pushTemplate
 module.exports.reference = __napiModule.exports.reference
 module.exports.registerTemplate = __napiModule.exports.registerTemplate

@@ -57,8 +57,6 @@ const {
 })
 export default __napiModule.exports
 export const camelize = __napiModule.exports.camelize
-export const create = __napiModule.exports.create
-export const createBranch = __napiModule.exports.createBranch
 export const createCompilerError = __napiModule.exports.createCompilerError
 export const createSimpleExpression = __napiModule.exports.createSimpleExpression
 export const DynamicFlag = __napiModule.exports.DynamicFlag
@@ -86,7 +84,6 @@ export const isTemplate = __napiModule.exports.isTemplate
 export const locStub = __napiModule.exports.locStub
 export const LOC_STUB = __napiModule.exports.LOC_STUB
 export const newBlock = __napiModule.exports.newBlock
-export const newDynamic = __napiModule.exports.newDynamic
 export const pushTemplate = __napiModule.exports.pushTemplate
 export const reference = __napiModule.exports.reference
 export const registerTemplate = __napiModule.exports.registerTemplate

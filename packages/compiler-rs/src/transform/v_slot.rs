@@ -1,16 +1,9 @@
-use std::{
-  cell::RefCell,
-  collections::HashMap,
-  ops::{Deref, DerefMut, RangeTo},
-  rc::Rc,
-};
+use std::collections::HashMap;
 
 use napi::{
-  Either, Env, Unknown, ValueType,
+  Either, Env,
   bindgen_prelude::{Either3, FnArgs, Function, JsObjectValue, Object, Result, ToNapiValue},
 };
-use napi_derive::napi;
-use oxc_allocator::IntoIn;
 
 use crate::{
   ir::{
@@ -18,9 +11,7 @@ use crate::{
       IRSlotDynamicBasic, IRSlotDynamicConditional, IRSlotDynamicLoop, IRSlotType, IRSlots,
       IRSlotsStatic, SlotBlockIRNode,
     },
-    index::{
-      BlockIRNode, DirectiveNode, DynamicFlag, IRDynamicInfo, IRNodeTypes, SimpleExpressionNode,
-    },
+    index::{DirectiveNode, DynamicFlag, IRDynamicInfo, IRNodeTypes, SimpleExpressionNode},
   },
   transform::{enter_block, v_for::get_for_parse_result},
   utils::{
@@ -89,22 +80,17 @@ pub fn transform_component_slot(
     })
     .collect();
 
-  let (.., exit_key) = _create_slot_block(dir.map_or(None, |dir| dir.exp), node, context, false)?;
+  let (block, exit_block) =
+    create_slot_block(env, dir.map_or(None, |dir| dir.exp), node, context, false)?;
 
   Ok(Box::new(move || {
     let dir = find_prop(node, Either::A(String::from("v-slot")))
       .map(|dir| resolve_directive(dir, context).unwrap());
     let arg = dir.map_or(None, |dir| dir.arg);
-    let block = context.get_named_property::<SlotBlockIRNode>("block")?;
-    let block1 = context.get_named_property::<Object>("block")?;
-    let mut slots = context.get_named_property::<Vec<IRSlots>>("slots")?;
-    // let mut _slots = context.get_named_property::<Object>("slots")?;
+    let slots = context.get_named_property::<Vec<IRSlots>>("slots")?;
+    let mut _slots = context.get_named_property::<Object>("slots")?;
 
-    context
-      .get_named_property::<Object>("exitBlocks")?
-      .get_named_property::<Function<(), ()>>(&exit_key)?
-      .apply(&context, ())?;
-    // exit_block()?;
+    exit_block()?;
     let has_other_slots = !slots.is_empty();
     if has_dir && has_other_slots {
       // already has on-component slot - this is incorrect usage.
@@ -120,10 +106,8 @@ pub fn transform_component_slot(
           context,
         );
       } else {
-        register_slot(&mut slots, arg, block, block1);
-        context.set("slots", slots)?;
-        // _register_slot(_slots, arg, block);
-        // context.set("slots", _slots)?;
+        _register_slot(_slots, arg, block);
+        context.set("slots", _slots)?;
       }
     } else if has_other_slots {
       context.set("slots", slots)?;
@@ -157,7 +141,7 @@ pub fn transform_template_slot(
   );
   let slots = context.get_named_property::<Object>("slots")?;
   let mut _slots = context.get_named_property::<Vec<IRSlots>>("slots")?;
-  let (block, exit_block, ..) = _create_slot_block(exp, node, context, true)?;
+  let (block, exit_block) = create_slot_block(env, exp, node, context, true)?;
 
   let is_basic = v_for.is_none() && v_if.is_none() && v_else.is_none();
 
@@ -238,7 +222,7 @@ pub fn transform_template_slot(
     }
   }
 
-  Ok(Box::new(move || exit_block.call(())))
+  Ok(exit_block)
 }
 
 fn set_slot(
@@ -376,35 +360,17 @@ fn create_slot_block(
   context: Object<'static>,
   exclude_slots: bool,
 ) -> Result<(Object<'static>, Box<dyn FnOnce() -> Result<()>>)> {
-  let mut block = context
-    .get_named_property::<Function<Object, Object>>("createBlock")?
-    .call(node)?;
-  block.set("props", props)?;
+  let mut block = Object::new(&env)?;
+  block.set("type", IRNodeTypes::BLOCK)?;
+  block.set("node", node)?;
+  block.set("dynamic", IRDynamicInfo::new())?;
+  block.set("tempId", 0)?;
+  block.set("effect", env.create_array(0))?;
+  block.set("operation", env.create_array(0))?;
+  block.set("returns", env.create_array(0))?;
+  if let Some(props) = props {
+    block.set("props", props)?;
+  }
   let (block, exit_block) = enter_block(env, context, block, false, exclude_slots)?;
   Ok((block, exit_block))
-}
-
-fn _create_slot_block<'a>(
-  props: Option<SimpleExpressionNode>,
-  node: Object<'static>,
-  context: Object<'static>,
-  exclude_slots: bool,
-) -> Result<(Object<'a>, Function<'static, (), ()>, String)> {
-  let block = SlotBlockIRNode {
-    _type: IRNodeTypes::BLOCK,
-    node,
-    dynamic: IRDynamicInfo::new(),
-    effect: Vec::new(),
-    operation: Vec::new(),
-    returns: Vec::new(),
-    temp_id: 0,
-    props,
-  };
-  let exit_key = context.get_named_property::<i32>("exitKey")?;
-  let (block, exit_block) = context
-    .get_named_property::<Function<FnArgs<(SlotBlockIRNode, bool,bool)>, (Object, Function<(), ()>)>>(
-      "enterBlock",
-    )?
-    .apply(context, FnArgs::from((block, false, exclude_slots)))?;
-  Ok((block, exit_block, exit_key.to_string()))
 }

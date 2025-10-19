@@ -34,10 +34,6 @@ export interface CompilerError extends SyntaxError {
   loc?: SourceLocation
 }
 
-export declare function create(context: object, node: object, index: number): object
-
-export declare function createBranch(node: object, context: object, isVFor?: boolean | undefined | null): [BlockIRNode, () => void]
-
 export declare function createCompilerError(code: ErrorCodes, loc?: SourceLocation | undefined | null): CompilerError
 
 export interface CreateComponentIRNode {
@@ -143,7 +139,7 @@ export interface ForIRNode {
   type: IRNodeTypes.FOR
   id: number
   keyProp?: SimpleExpressionNode
-  render: BlockIRNode
+  render: object
   once: boolean
   component: boolean
   onlyChild: boolean
@@ -349,8 +345,6 @@ export interface Modifiers {
 }
 
 export declare function newBlock(node: object): BlockIRNode
-
-export declare function newDynamic(): IRDynamicInfo
 
 export type OperationNode =
   IfIRNode | ForIRNode | SetTextIRNode | SetPropIRNode | SetDynamicPropsIRNode | SetDynamicEventsIRNode | SetNodesIRNode | SetEventIRNode | SetHtmlIRNode | SetTemplateRefIRNode | CreateNodesIRNode | InsertNodeIRNode | PrependNodeIRNode | DirectiveIRNode | CreateComponentIRNode | DeclareOldRefIRNode | SlotOutletIRNode | GetTextChildIRNode

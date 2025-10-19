@@ -15,7 +15,7 @@ use crate::{
     check::{_is_constant_node, is_fragment_node, is_jsx_component, is_template},
     expression::{_get_literal_expression_value, resolve_expression},
     text::{is_empty_text, resolve_jsx_text},
-    transform::{_create_branch, create_branch},
+    transform::create_block,
     utils::{_get_expression, find_prop, get_expression},
   },
 };
@@ -263,7 +263,7 @@ pub fn process_conditional_expression(
       | DynamicFlag::INSERT as i32,
   )?;
   let id = reference(context)?;
-  let (block, exit_block) = _create_branch(
+  let (block, exit_block) = create_block(
     env,
     node.get_named_property::<Object>("consequent")?,
     context,
@@ -327,7 +327,7 @@ pub fn process_logical_expression(
       | DynamicFlag::INSERT as i32,
   )?;
   let id = reference(context)?;
-  let (block, exit_block) = _create_branch(
+  let (block, exit_block) = create_block(
     env,
     if operator == "&&" { right } else { left },
     context,
@@ -374,7 +374,7 @@ pub fn set_negative(
 ) -> Result<()> {
   let node_type = node.get_named_property::<String>("type")?;
   if node_type == "ConditionalExpression" {
-    let (branch, on_exit, _) = create_branch(
+    let (branch, on_exit) = create_block(
       env,
       node.get_named_property::<Object>("consequent")?,
       context,
@@ -399,12 +399,12 @@ pub fn set_negative(
       operation.get_named_property::<Object>("negative")?,
       context,
     )?;
-    on_exit.call(())?;
+    on_exit()?;
   } else if node_type == "LogicalExpression" {
     let left = node.get_named_property::<Object>("left")?;
     let right = node.get_named_property::<Object>("right")?;
     let operator = node.get_named_property::<String>("operator")?;
-    let (branch, on_exit, ..) = create_branch(
+    let (branch, on_exit) = create_block(
       env,
       if operator.eq("&&") { right } else { left },
       context,
@@ -428,12 +428,12 @@ pub fn set_negative(
       operation.get_named_property::<Object>("negative")?,
       context,
     )?;
-    on_exit.call(())?;
+    on_exit()?;
   } else {
-    let (branch, on_exit, ..) = create_branch(env, node, context, None)?;
+    let (branch, on_exit) = create_block(env, node, context, None)?;
     operation.set("negative", branch)?;
     transform_node(env, context)?;
-    on_exit.call(())?;
+    on_exit()?;
   }
   Ok(())
 }
