@@ -13,5 +13,4 @@ export {
   type IRSlotDynamicLoop,
   type IRSlots,
   type IRSlotsStatic,
-  type SlotBlockIRNode,
 } from '@vue-jsx-vapor/compiler-rs'

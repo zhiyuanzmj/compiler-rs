@@ -1,4 +1,4 @@
-use std::sync::LazyLock;
+use std::{rc::Rc, sync::LazyLock};
 
 use napi::{Result, bindgen_prelude::Object};
 use napi_derive::napi;
@@ -6,13 +6,13 @@ use regex::Regex;
 
 use crate::{
   ir::index::DirectiveNode,
+  transform::TransformContext,
   utils::expression::{create_simple_expression, get_value, resolve_expression},
 };
 
 static NAMESPACE_REGEX: LazyLock<Regex> =
   LazyLock::new(|| Regex::new(r"^(?:\$([\w-]+)\$)?([\w-]+)?").unwrap());
-#[napi]
-pub fn resolve_directive(node: Object, context: Object) -> Result<DirectiveNode> {
+pub fn resolve_directive(node: Object, context: &Rc<TransformContext>) -> Result<DirectiveNode> {
   let name = node.get::<Object>("name")?.expect("name is required!");
   let name_type = name
     .get::<String>("type")

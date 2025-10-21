@@ -10,9 +10,7 @@ export function compile(
   source: JSXElement | JSXFragment | string,
   options: CompilerOptions = {},
 ): VaporCodegenResult {
-  const resolvedOptions = extend({}, options, {
-    filename: 'index.jsx',
-  })
+  const resolvedOptions = extend({ filename: 'index.tsx' }, options)
   if (!resolvedOptions.source && isString(source)) {
     resolvedOptions.source = source
   }
@@ -30,7 +28,7 @@ export function compile(
     children,
   } as unknown as Node
 
-  const ir = transform(ast, extend({}, resolvedOptions))
+  const ir = transform(ast, extend({}, resolvedOptions) as any)
 
   return generate(ir, resolvedOptions)
 }

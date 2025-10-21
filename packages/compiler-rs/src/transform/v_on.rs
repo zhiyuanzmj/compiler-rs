@@ -1,14 +1,14 @@
-use std::{collections::HashSet, sync::LazyLock};
+use std::{collections::HashSet, rc::Rc, sync::LazyLock};
 
 use napi::{
-  Either, Env, Result,
+  Either, Result,
   bindgen_prelude::{Either18, JsObjectValue, Object},
 };
 use regex::Regex;
 
 use crate::{
-  ir::index::{IRNodeTypes, Modifiers, SetEventIRNode, SimpleExpressionNode},
-  transform::{DirectiveTransformResult, is_operation, reference, register_effect},
+  ir::index::{BlockIRNode, IRNodeTypes, Modifiers, SetEventIRNode, SimpleExpressionNode},
+  transform::{DirectiveTransformResult, TransformContext},
   utils::{
     check::is_jsx_component,
     error::{ErrorCodes, on_error},
@@ -18,10 +18,10 @@ use crate::{
 };
 
 pub fn transform_v_on(
-  env: Env,
   dir: Object,
   node: Object,
-  context: Object,
+  context: &Rc<TransformContext>,
+  context_block: &mut BlockIRNode,
 ) -> Result<Option<DirectiveTransformResult>> {
   let Ok(name) = dir.get_named_property::<Object>("name") else {
     return Ok(None);
@@ -39,7 +39,7 @@ pub fn transform_v_on(
 
   let value = dir.get_named_property::<Object>("value");
   if value.is_err() && modifiers.is_empty() {
-    on_error(env, ErrorCodes::X_V_ON_NO_EXPRESSION, context);
+    on_error(ErrorCodes::X_V_ON_NO_EXPRESSION, context);
   }
 
   let mut arg = create_simple_expression(name_string.clone(), Some(true), Some(name), None);
@@ -120,12 +120,13 @@ pub fn transform_v_on(
     && event_option_modifiers.len() == 0
     && DELEGATED_EVENTS.contains(arg.content.as_str());
 
-  register_effect(
-    &context,
-    is_operation(vec![&arg], &context),
+  let element = context.reference(&mut context_block.dynamic)?;
+  context.register_effect(
+    context_block,
+    context.is_operation(vec![&arg]),
     Either18::H(SetEventIRNode {
       _type: IRNodeTypes::SET_EVENT,
-      element: reference(context)?,
+      element,
       value: exp,
       modifiers: Modifiers {
         keys: key_modifiers,

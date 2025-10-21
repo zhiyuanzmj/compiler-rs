@@ -17,6 +17,7 @@ serde_json = "1.0.145"
 regex = "1.11.3"
 oxc_allocator = "0.93.0"
 oxc_span = "0.93.0"
+bitflags = "2.10.0"
 
 [build-dependencies]
 napi-build = "2"

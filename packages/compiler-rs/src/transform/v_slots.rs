@@ -1,11 +1,16 @@
+use std::rc::Rc;
+
 use napi::{
-  Env, Result,
-  bindgen_prelude::{JsObjectValue, Object},
+  Result,
+  bindgen_prelude::{Either3, JsObjectValue, Object},
 };
 
 use crate::{
-  ir::component::{IRSlotType, IRSlotsExpression},
-  transform::DirectiveTransformResult,
+  ir::{
+    component::{IRSlotType, IRSlotsExpression},
+    index::BlockIRNode,
+  },
+  transform::{DirectiveTransformResult, TransformContext},
   utils::{
     check::is_jsx_component,
     error::{ErrorCodes, on_error},
@@ -14,10 +19,10 @@ use crate::{
 };
 
 pub fn transform_v_slots(
-  env: Env,
   dir: Object,
   node: Object,
-  mut context: Object,
+  context: &Rc<TransformContext>,
+  _: &mut BlockIRNode,
 ) -> Result<Option<DirectiveTransformResult>> {
   if is_jsx_component(node)
     && dir
@@ -25,20 +30,17 @@ pub fn transform_v_slots(
       .get_named_property::<String>("type")?
       .eq("JSXExpressionContainer")
   {
-    context.set_named_property(
-      "slots",
-      vec![IRSlotsExpression {
-        slot_type: IRSlotType::EXPRESSION,
-        slots: resolve_expression(
-          dir
-            .get_named_property::<Object>("value")?
-            .get_named_property("expression")?,
-          context,
-        ),
-      }],
-    )?
+    *context.slots.borrow_mut() = vec![Either3::C(IRSlotsExpression {
+      slot_type: IRSlotType::EXPRESSION,
+      slots: resolve_expression(
+        dir
+          .get_named_property::<Object>("value")?
+          .get_named_property("expression")?,
+        context,
+      ),
+    })];
   } else {
-    on_error(env, ErrorCodes::X_V_SLOT_MISPLACED, context)
+    on_error(ErrorCodes::X_V_SLOT_MISPLACED, context)
   }
   Ok(None)
 }

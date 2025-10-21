@@ -1,63 +1,57 @@
-use std::collections::HashSet;
+use std::rc::Rc;
 
 use napi::{
-  Either, Env, Result,
-  bindgen_prelude::{Function, JsObjectValue, Object},
+  Either, Result,
+  bindgen_prelude::{Either18, JsObjectValue, Object},
 };
 
 use crate::{
-  ir::index::{DynamicFlag, ForIRNode, IRFor, IRNodeTypes, SimpleExpressionNode},
-  transform::reference,
+  ir::index::{
+    BlockIRNode, DynamicFlag, ForIRNode, IRDynamicInfo, IRFor, IRNodeTypes, SimpleExpressionNode,
+  },
+  transform::TransformContext,
   utils::{
     check::{_is_constant_node, is_jsx_component, is_template},
     error::{ErrorCodes, on_error},
     expression::resolve_expression,
+    my_box::MyBox,
     text::is_empty_text,
-    transform::create_block,
     utils::{find_prop, get_expression},
   },
 };
 
-pub fn transform_v_for(
-  env: Env,
+pub fn transform_v_for<'a>(
   node: Object<'static>,
-  context: Object<'static>,
-) -> Result<Option<Box<dyn FnOnce() -> Result<()>>>> {
+  context: &'a Rc<TransformContext>,
+  context_block: &'a mut BlockIRNode,
+  _: &'a mut IRDynamicInfo,
+) -> Result<Option<Box<dyn FnOnce() -> Result<()> + 'a>>> {
   if !node.get_named_property::<String>("type")?.eq("JSXElement")
-    || (is_template(Some(node)) && find_prop(node, Either::A("v-slot".to_string())).is_some())
+    || (is_template(&node) && find_prop(&node, Either::A("v-slot".to_string())).is_some())
   {
     return Ok(None);
   }
-  let Some(dir) = find_prop(node, Either::A("v-for".to_string())) else {
+  let Some(dir) = find_prop(&node, Either::A("v-for".to_string())) else {
     return Ok(None);
   };
-  let seen = context.get_named_property::<HashSet<i32>>("seen")?;
-  let dir_start = dir.get_named_property::<i32>("start")?;
-  if seen.contains(&dir_start) {
+  let seen = &mut context.seen.borrow_mut();
+  let start = dir.get_named_property::<i32>("start")?;
+  if seen.contains(&start) {
     return Ok(None);
   }
-  let seen = context.get_named_property::<Object>("seen")?;
-  seen
-    .get_named_property::<Function<i32>>("add")?
-    .apply(seen, dir_start)?;
+  seen.insert(start);
 
   let component = is_jsx_component(node) || is_template_with_single_component(node)?;
-  let id = reference(context)?;
-  let mut dynamic = context
-    .get_named_property::<Object>("block")?
-    .get_named_property::<Object>("dynamic")?;
-  dynamic.set(
-    "flags",
-    dynamic.get_named_property::<i32>("flags")?
-      | DynamicFlag::NON_TEMPLATE as i32
-      | DynamicFlag::INSERT as i32,
-  )?;
-  let (block, exit_block) = create_block(env, node, context, Some(true))?;
+  let dynamic = &mut context_block.dynamic;
+  let id = context.reference(dynamic)?;
+  dynamic.flags = dynamic.flags | DynamicFlag::NON_TEMPLATE as i32 | DynamicFlag::INSERT as i32;
+  let block = context_block as *mut BlockIRNode;
+  let exit_block = context.create_block(unsafe { &mut *block }, node, Some(true))?;
   Ok(Some(Box::new(move || {
-    exit_block()?;
+    let block = exit_block()?;
 
-    let parent = context.get_named_property::<Object>("parent");
-    let Some(dir) = find_prop(node, Either::A("v-for".to_string())) else {
+    let parent = context.parent.borrow().upgrade().unwrap();
+    let Some(dir) = find_prop(&node, Either::A("v-for".to_string())) else {
       return Ok(());
     };
     let IRFor {
@@ -65,13 +59,13 @@ pub fn transform_v_for(
       index,
       key,
       source,
-    } = get_for_parse_result(env, dir, context)?;
+    } = get_for_parse_result(dir, context)?;
     let Some(source) = source else {
-      on_error(env, ErrorCodes::X_V_FOR_MALFORMED_EXPRESSION, context);
+      on_error(ErrorCodes::X_V_FOR_MALFORMED_EXPRESSION, context);
       return Ok(());
     };
 
-    let key_prop = find_prop(node, Either::A("key".to_string()));
+    let key_prop = find_prop(&node, Either::A("key".to_string()));
     let key_prop = if let Some(key_prop) = key_prop
       && key_prop
         .get_named_property::<String>("type")?
@@ -85,50 +79,41 @@ pub fn transform_v_for(
 
     // if v-for is the only child of a parent element, it can go the fast path
     // when the entire list is emptied
-    let only_child = !env.strict_equals(
-      context
-        .get_named_property::<Object>("parent")?
-        .get_named_property::<Object>("block")?
-        .get_named_property::<Object>("node")?,
-      context
-        .get_named_property::<Object>("parent")?
-        .get_named_property::<Object>("node")?,
-    )? && parent?
-      .get_named_property::<Object>("node")?
-      .get_named_property::<Vec<Object>>("children")?
-      .into_iter()
-      .filter(|child| !is_empty_text(*child))
-      .collect::<Vec<Object>>()
-      .len()
-      == 1;
+    let only_child = context_block.node.is_some()
+      && !context
+        .env
+        .strict_equals(context_block.node.unwrap(), *parent.node.borrow())?
+      && parent
+        .node
+        .borrow()
+        .get_named_property::<Vec<Object>>("children")?
+        .into_iter()
+        .filter(|child| !is_empty_text(*child))
+        .collect::<Vec<Object>>()
+        .len()
+        == 1;
 
-    context
-      .get_named_property::<Object>("block")?
-      .get_named_property::<Object>("dynamic")?
-      .set(
-        "operation",
-        ForIRNode {
-          _type: IRNodeTypes::FOR,
-          id,
-          value,
-          key,
-          index,
-          key_prop,
-          render: block,
-          once: context.get_named_property::<bool>("inVOnce")? || _is_constant_node(&source.ast),
-          source,
-          component,
-          only_child,
-          parent: None,
-          anchor: None,
-        },
-      )?;
+    context_block.dynamic.operation = Some(MyBox(Box::new(Either18::B(ForIRNode {
+      _type: IRNodeTypes::FOR,
+      id,
+      value,
+      key,
+      index,
+      key_prop,
+      render: block,
+      once: *context.in_v_once.borrow() || _is_constant_node(&source.ast),
+      source,
+      component,
+      only_child,
+      parent: None,
+      anchor: None,
+    }))));
 
     Ok(())
   })))
 }
 
-pub fn get_for_parse_result(env: Env, dir: Object, context: Object) -> Result<IRFor> {
+pub fn get_for_parse_result(dir: Object, context: &Rc<TransformContext>) -> Result<IRFor> {
   let mut value: Option<SimpleExpressionNode> = None;
   let mut index: Option<SimpleExpressionNode> = None;
   let mut key: Option<SimpleExpressionNode> = None;
@@ -172,7 +157,7 @@ pub fn get_for_parse_result(env: Env, dir: Object, context: Object) -> Result<IR
       ));
     }
   } else {
-    on_error(env, ErrorCodes::X_V_FOR_NO_EXPRESSION, context);
+    on_error(ErrorCodes::X_V_FOR_NO_EXPRESSION, context);
   }
   return Ok(IRFor {
     value,

@@ -31,7 +31,7 @@ export function genIf(
     if (negative.type === IRNodeTypes.BLOCK) {
       negativeArg = genBlock(negative, context)
     } else {
-      negativeArg = ['() => ', ...genIf(negative!, context, true)]
+      negativeArg = ['() => ', ...genIf(negative as IfIRNode, context, true)]
     }
   }
 

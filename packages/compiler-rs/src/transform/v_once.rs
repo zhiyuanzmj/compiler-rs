@@ -1,18 +1,25 @@
-use napi::{Either, Env, Result, bindgen_prelude::Object};
+use std::rc::Rc;
 
-use crate::utils::utils::find_prop;
+use napi::{Either, Result, bindgen_prelude::Object};
 
-pub fn transform_v_once(
-  _: Env,
+use crate::{
+  ir::index::{BlockIRNode, IRDynamicInfo},
+  transform::TransformContext,
+  utils::utils::find_prop,
+};
+
+pub fn transform_v_once<'a>(
   node: Object<'static>,
-  mut context: Object<'static>,
-) -> Result<Option<Box<dyn FnOnce() -> Result<()>>>> {
+  context: &'a Rc<TransformContext>,
+  _: &'a mut BlockIRNode,
+  _: &'a mut IRDynamicInfo,
+) -> Result<Option<Box<dyn FnOnce() -> Result<()> + 'a>>> {
   if node
     .get::<String>("type")
     .is_ok_and(|x| x.is_some_and(|i| i.eq("JSXElement")))
-    && find_prop(node, Either::A(String::from("v-once"))).is_some()
+    && find_prop(&node, Either::A(String::from("v-once"))).is_some()
   {
-    context.set("inVOnce", true)?;
+    *context.in_v_once.borrow_mut() = true;
   }
   Ok(None)
 }

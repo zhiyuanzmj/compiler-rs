@@ -102,11 +102,7 @@ pub fn _get_text_like_value(node: &Object, exclude_number: Option<bool>) -> Opti
   None
 }
 
-#[napi(ts_return_type = "import('oxc-parser').JSXAttribute | null")]
-pub fn find_prop(
-  #[napi(ts_arg_type = "import('oxc-parser').Expression")] node: Object,
-  key: Either<String, Vec<String>>,
-) -> Option<Object> {
+pub fn find_prop<'a>(node: &'a Object, key: Either<String, Vec<String>>) -> Option<Object<'a>> {
   if node
     .get_named_property::<String>("type")
     .is_ok_and(|t| t.eq("JSXElement"))

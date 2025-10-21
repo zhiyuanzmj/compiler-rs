@@ -8,7 +8,7 @@ use napi_derive::napi;
 
 use crate::{
   ir::index::{
-    DynamicFlag, IRDynamicInfo, IREffect, IRFor, IRNodeTypes, Modifiers, OperationNode,
+    BlockIRNode, IRDynamicInfo, IREffect, IRFor, IRNodeTypes, Modifiers, OperationNode,
     SimpleExpressionNode,
   },
   utils::my_box::MyBox,
@@ -65,34 +65,6 @@ pub struct IRPropsDynamicAttribute {
 pub type IRProps = Either3<IRPropsStatic, IRPropsDynamicAttribute, IRPropsDynamicExpression>;
 
 // slots
-#[napi(object, js_name = "SlotBlockIRNode")]
-pub struct SlotBlockIRNode {
-  #[napi(ts_type = "IRNodeTypes.BLOCK")]
-  pub _type: IRNodeTypes,
-  #[napi(ts_type = "import('oxc-parser').Node")]
-  pub node: Object<'static>,
-  pub dynamic: IRDynamicInfo,
-  pub temp_id: i32,
-  pub effect: Vec<IREffect>,
-  pub operation: Vec<OperationNode>,
-  pub returns: Vec<i32>,
-  pub props: Option<SimpleExpressionNode>,
-}
-impl SlotBlockIRNode {
-  pub fn new(node: Object<'static>, props: Option<SimpleExpressionNode>) -> Self {
-    SlotBlockIRNode {
-      _type: IRNodeTypes::BLOCK,
-      node,
-      dynamic: IRDynamicInfo::new(),
-      effect: Vec::new(),
-      operation: Vec::new(),
-      returns: Vec::new(),
-      temp_id: 0,
-      props,
-    }
-  }
-}
-
 #[napi]
 pub enum IRSlotType {
   STATIC,
@@ -106,7 +78,7 @@ pub enum IRSlotType {
 pub struct IRSlotsStatic {
   #[napi(ts_type = "IRSlotType.STATIC")]
   pub slot_type: IRSlotType,
-  pub slots: HashMap<String, SlotBlockIRNode>,
+  pub slots: HashMap<String, BlockIRNode>,
 }
 
 #[napi(object, js_name = "IRSlotDynamicBasic")]
@@ -114,8 +86,7 @@ pub struct IRSlotDynamicBasic {
   #[napi(ts_type = "IRSlotType.DYNAMIC")]
   pub slot_type: IRSlotType,
   pub name: SimpleExpressionNode,
-  #[napi(ts_type = "SlotBlockIRNode")]
-  pub _fn: Object<'static>,
+  pub _fn: BlockIRNode,
   // should removed
   pub _loop: Option<IRFor>,
 }
@@ -125,8 +96,7 @@ pub struct IRSlotDynamicLoop {
   #[napi(ts_type = "IRSlotType.LOOP")]
   pub slot_type: IRSlotType,
   pub name: SimpleExpressionNode,
-  #[napi(ts_type = "SlotBlockIRNode")]
-  pub _fn: Object<'static>,
+  pub _fn: BlockIRNode,
   pub _loop: IRFor,
 }
 

@@ -1,13 +1,13 @@
+use std::rc::Rc;
+
 use napi::{
-  Env, Result,
+  Result,
   bindgen_prelude::{Either18, JsObjectValue, Object},
 };
 
 use crate::{
-  ir::index::{GetTextChildIRNode, IRNodeTypes, SetTextIRNode},
-  transform::{
-    DirectiveTransformResult, is_operation, reference, register_effect, register_operation,
-  },
+  ir::index::{BlockIRNode, GetTextChildIRNode, IRNodeTypes, SetTextIRNode},
+  transform::{DirectiveTransformResult, TransformContext},
   utils::{
     check::is_void_tag,
     error::{ErrorCodes, on_error},
@@ -17,15 +17,15 @@ use crate::{
 };
 
 pub fn transform_v_text(
-  env: Env,
   dir: Object,
   node: Object,
-  mut context: Object,
+  context: &Rc<TransformContext>,
+  context_block: &mut BlockIRNode,
 ) -> Result<Option<DirectiveTransformResult>> {
   let exp = if let Ok(value) = dir.get_named_property::<Object>("value") {
     resolve_expression(value, context)
   } else {
-    on_error(env, ErrorCodes::X_V_TEXT_NO_EXPRESSION, context);
+    on_error(ErrorCodes::X_V_TEXT_NO_EXPRESSION, context);
     EMPTY_EXPRESSION
   };
 
@@ -33,12 +33,8 @@ pub fn transform_v_text(
     .get_named_property::<Vec<Object>>("children")?
     .is_empty()
   {
-    on_error(env, ErrorCodes::X_V_TEXT_WITH_CHILDREN, context);
-    unsafe {
-      context
-        .get_named_property::<Vec<String>>("childrenTemplate")?
-        .set_len(0);
-    }
+    on_error(ErrorCodes::X_V_TEXT_WITH_CHILDREN, context);
+    context.children_template.borrow_mut().clear();
   };
 
   // v-text on void tags do nothing
@@ -53,24 +49,26 @@ pub fn transform_v_text(
 
   let literal = _get_literal_expression_value(&exp);
   if let Some(literal) = literal {
-    context.set("childrenTemplate", vec![literal])?
+    *context.children_template.borrow_mut() = vec![literal];
   } else {
-    context.set("childrenTemplate", [" "])?;
-    register_operation(
-      &context,
+    *context.children_template.borrow_mut() = vec![" ".to_string()];
+    let parent = context.reference(&mut context_block.dynamic)?;
+    context.register_operation(
+      context_block,
       Either18::R(GetTextChildIRNode {
         _type: IRNodeTypes::GET_TEXT_CHILD,
-        parent: reference(context)?,
+        parent,
       }),
       None,
     )?;
-    register_effect(
-      &context,
-      is_operation(vec![&exp], &context),
+    let element = context.reference(&mut context_block.dynamic)?;
+    context.register_effect(
+      context_block,
+      context.is_operation(vec![&exp]),
       Either18::C(SetTextIRNode {
         _type: IRNodeTypes::SET_TEXT,
-        element: reference(context)?,
         values: vec![exp],
+        element,
         generated: Some(true),
       }),
       None,

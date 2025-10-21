@@ -56,16 +56,14 @@ const {
   },
 })
 export default __napiModule.exports
+export const _DynamicFlag = __napiModule.exports._DynamicFlag
 export const camelize = __napiModule.exports.camelize
 export const createCompilerError = __napiModule.exports.createCompilerError
 export const createSimpleExpression = __napiModule.exports.createSimpleExpression
-export const DynamicFlag = __napiModule.exports.DynamicFlag
 export const EMPTY_EXPRESSION = __napiModule.exports.EMPTY_EXPRESSION
 export const ErrorCodes = __napiModule.exports.ErrorCodes
-export const findProp = __napiModule.exports.findProp
 export const getExpression = __napiModule.exports.getExpression
 export const getLiteralExpressionValue = __napiModule.exports.getLiteralExpressionValue
-export const getText = __napiModule.exports.getText
 export const getTextLikeValue = __napiModule.exports.getTextLikeValue
 export const IRDynamicPropsKind = __napiModule.exports.IRDynamicPropsKind
 export const IRNodeTypes = __napiModule.exports.IRNodeTypes
@@ -75,23 +73,13 @@ export const isBlockOperation = __napiModule.exports.isBlockOperation
 export const isConstantExpression = __napiModule.exports.isConstantExpression
 export const isConstantNode = __napiModule.exports.isConstantNode
 export const isEmptyText = __napiModule.exports.isEmptyText
-export const isFragmentNode = __napiModule.exports.isFragmentNode
 export const isJSXComponent = __napiModule.exports.isJSXComponent
 export const isMemberExpression = __napiModule.exports.isMemberExpression
 export const isNumericLiteral = __napiModule.exports.isNumericLiteral
 export const isStringLiteral = __napiModule.exports.isStringLiteral
-export const isTemplate = __napiModule.exports.isTemplate
 export const locStub = __napiModule.exports.locStub
 export const LOC_STUB = __napiModule.exports.LOC_STUB
-export const newBlock = __napiModule.exports.newBlock
-export const pushTemplate = __napiModule.exports.pushTemplate
-export const reference = __napiModule.exports.reference
-export const registerTemplate = __napiModule.exports.registerTemplate
-export const resolveDirective = __napiModule.exports.resolveDirective
-export const resolveExpression = __napiModule.exports.resolveExpression
 export const resolveJSXText = __napiModule.exports.resolveJSXText
-export const transformComponentElement = __napiModule.exports.transformComponentElement
-export const transformNode = __napiModule.exports.transformNode
+export const transform = __napiModule.exports.transform
 export const TS_NODE_TYPES = __napiModule.exports.TS_NODE_TYPES
 export const unwrapTSNode = __napiModule.exports.unwrapTSNode
-export const wrapFragment = __napiModule.exports.wrapFragment

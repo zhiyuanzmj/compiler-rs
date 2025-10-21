@@ -1,8 +1,8 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::LazyLock};
+use std::{cell::RefCell, rc::Rc, sync::LazyLock};
 
 use napi::{
-  Either, Env, Result,
-  bindgen_prelude::{Either3, Either18, FnArgs, Function, JsObjectValue, Object},
+  Either, Result,
+  bindgen_prelude::{Either3, Either18, JsObjectValue, Object},
 };
 use napi_derive::napi;
 
@@ -10,16 +10,15 @@ use crate::{
   ir::{
     component::{
       IRDynamicPropsKind, IRProp, IRProps, IRPropsDynamicAttribute, IRPropsDynamicExpression,
-      IRPropsStatic, IRSlots,
+      IRPropsStatic,
     },
     index::{
-      CreateComponentIRNode, DirectiveIRNode, DynamicFlag, IRNodeTypes, SetDynamicEventsIRNode,
-      SetDynamicPropsIRNode, SetPropIRNode, SimpleExpressionNode,
+      BlockIRNode, CreateComponentIRNode, DirectiveIRNode, DynamicFlag, IRDynamicInfo, IRNodeTypes,
+      SetDynamicEventsIRNode, SetDynamicPropsIRNode, SetPropIRNode, SimpleExpressionNode,
     },
   },
   transform::{
-    DirectiveTransformResult, is_operation, push_template, reference, register_effect,
-    register_operation, v_bind::transform_v_bind, v_html::transform_v_html, v_if::transform_v_if,
+    DirectiveTransformResult, TransformContext, v_bind::transform_v_bind, v_html::transform_v_html,
     v_model::transform_v_model, v_on::transform_v_on, v_show::transform_v_show,
     v_slots::transform_v_slots, v_text::transform_v_text,
   },
@@ -29,6 +28,7 @@ use crate::{
     dom::is_valid_html_nesting,
     error::{ErrorCodes, on_error},
     expression::{create_simple_expression, resolve_expression},
+    my_box::MyBox,
     text::{camelize, get_text},
     utils::get_text_like_value,
   },
@@ -45,27 +45,26 @@ static IS_EVENT_REGEX: LazyLock<regex::Regex> =
 static IS_DIRECTIVE_REGEX: LazyLock<regex::Regex> =
   LazyLock::new(|| regex::Regex::new(r"^v-[a-z]").unwrap());
 
-pub fn transform_element(
-  env: Env,
-  _: Object<'static>,
-  context: Object<'static>,
-) -> Result<Option<Box<dyn FnOnce() -> Result<()>>>> {
-  let block = context.get_named_property::<Object>("block")?;
-  let mut effect_index = block.get_named_property::<Vec<Object>>("effect")?.len() as i32;
+pub fn transform_element<'a>(
+  node: Object<'static>,
+  context: &'a Rc<TransformContext>,
+  context_block: &'a mut BlockIRNode,
+  _: &'a mut IRDynamicInfo,
+) -> Result<Option<Box<dyn FnOnce() -> Result<()> + 'a>>> {
+  let mut effect_index = context_block.effect.len() as i32;
   let get_effect_index = Rc::new(RefCell::new(Box::new(move || {
     let current = effect_index;
     effect_index += 1;
     current
   }) as Box<dyn FnMut() -> i32>));
-  let mut operation_index = block.get_named_property::<Vec<Object>>("operation")?.len() as i32;
+  let mut operation_index = context_block.operation.len() as i32;
   let get_operation_index = Rc::new(RefCell::new(Box::new(move || {
     let current = operation_index;
     operation_index += 1;
     current
   }) as Box<dyn FnMut() -> i32>));
   Ok(Some(Box::new(move || {
-    let node = context.get_named_property::<Object>("node")?;
-    if !node.get_named_property::<String>("type")?.eq("JSXElement") || is_template(Some(node)) {
+    if !node.get_named_property::<String>("type")?.eq("JSXElement") || is_template(&node) {
       return Ok(());
     }
 
@@ -75,28 +74,31 @@ pub fn transform_element(
     let tag = get_text(name, context);
     let is_component = is_jsx_component(node);
     let props_result = build_props(
-      env,
       node,
       context,
+      context_block,
       is_component,
       Rc::clone(&get_effect_index),
       Rc::clone(&get_operation_index),
     )?;
-    let mut parent = context.get_named_property::<Object>("parent");
-    while let Ok(_parent) = parent
-      && _parent
-        .get_named_property::<Object>("node")?
-        .get_named_property::<String>("type")?
-        .eq("JSXElement")
-      && is_template(_parent.get_named_property::<Object>("node").ok())
-      && let Ok(_parent) = _parent.get_named_property::<Object>("parent")
-    {
-      parent = Ok(_parent)
+    let mut parent = context.parent.borrow_mut().upgrade();
+    while let Some(ref _parent) = parent {
+      if _parent.node.borrow().get_named_property::<String>("type")? != "JSXElement"
+        || !is_template(&_parent.node.borrow())
+      {
+        break;
+      }
+      let next_parent = _parent.parent.borrow().upgrade();
+      if next_parent.is_none() {
+        break;
+      }
+      parent = next_parent;
     }
-    let single_root = if let Ok(parent) = parent
-      && env.strict_equals(context.get_named_property::<Object>("root")?, parent)?
+    let single_root = if let Some(parent) = parent
+      && Rc::ptr_eq(&context.root.borrow().upgrade().unwrap(), &parent)
       && !parent
-        .get_named_property::<Object>("node")?
+        .node
+        .borrow()
         .get_named_property::<String>("type")?
         .eq("JSXFragment")
     {
@@ -106,13 +108,14 @@ pub fn transform_element(
     };
 
     if is_component {
-      transform_component_element(env, tag, props_result, single_root, context)?;
+      transform_component_element(tag, props_result, single_root, context, context_block)?;
     } else {
       transform_native_element(
         tag,
         props_result,
         single_root,
         context,
+        context_block,
         Rc::clone(&get_effect_index),
         Rc::clone(&get_operation_index),
       )?;
@@ -126,9 +129,10 @@ pub fn transform_native_element<'a>(
   tag: String,
   props_result: PropsResult,
   single_root: bool,
-  mut context: Object,
-  get_effect_index: Rc<RefCell<Box<dyn FnMut() -> i32>>>,
-  get_operation_index: Rc<RefCell<Box<dyn FnMut() -> i32>>>,
+  context: &'a Rc<TransformContext>,
+  context_block: &'a mut BlockIRNode,
+  get_effect_index: Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>,
+  get_operation_index: Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>,
 ) -> Result<()> {
   let mut template = format!("<{tag}");
 
@@ -136,14 +140,15 @@ pub fn transform_native_element<'a>(
 
   match props_result.props {
     Either::A(props) => {
+      let element = context.reference(&mut context_block.dynamic)?;
       /* dynamic props */
-      register_effect(
-        &context,
+      context.register_effect(
+        context_block,
         false,
         Either18::E(SetDynamicPropsIRNode {
           _type: IRNodeTypes::SET_DYNAMIC_PROPS,
-          element: reference(context)?,
           props,
+          element,
           root: single_root,
         }),
         Some(get_effect_index),
@@ -162,16 +167,14 @@ pub fn transform_native_element<'a>(
         } else {
           dynamic_props.push(key.content.clone());
 
-          register_effect(
-            &context,
-            is_operation(
-              values.iter().collect::<Vec<&SimpleExpressionNode>>(),
-              &context,
-            ),
+          let element = context.reference(&mut context_block.dynamic)?;
+          context.register_effect(
+            context_block,
+            context.is_operation(values.iter().collect::<Vec<&SimpleExpressionNode>>()),
             Either18::D(SetPropIRNode {
               _type: IRNodeTypes::SET_PROP,
-              element: reference(context)?,
               prop,
+              element,
               tag: tag.clone(),
               root: single_root,
             }),
@@ -183,28 +186,20 @@ pub fn transform_native_element<'a>(
     }
   }
 
-  template += &format!(
-    ">{}",
-    context
-      .get_named_property::<Vec<String>>("childrenTemplate")?
-      .join("")
-  );
+  template += &format!(">{}", context.children_template.borrow().join(""));
   // TODO remove unnecessary close tag, e.g. if it's the last element of the template
   if !is_void_tag(&tag) {
     template += &format!("</{}>", tag)
   }
 
   if single_root {
-    let mut ir = context.get_named_property::<Object>("ir")?;
-    ir.set(
-      "rootTemplateIndex",
-      ir.get_named_property::<Vec<String>>("templates")?.len() as i32,
-    )?;
+    let ir = &mut context.ir.borrow_mut();
+    ir.root_template_index = Some(ir.templates.len() as i32)
   }
 
-  let parent = context.get_named_property::<Object>("parent");
-  if let Ok(parent) = parent
-    && let Ok(node) = parent.get_named_property::<Object>("node")
+  let parent = context.parent.borrow().upgrade();
+  if let Some(parent) = parent
+    && let node = parent.node.borrow()
     && node.get_named_property::<String>("type")?.eq("JSXElement")
     && let Ok(name) = node
       .get_named_property::<Object>("openingElement")?
@@ -214,41 +209,24 @@ pub fn transform_native_element<'a>(
       .eq("JSXIdentifier")
     && !is_valid_html_nesting(&name.get_named_property::<String>("name")?, &tag)
   {
-    reference(context)?;
-    let mut dynamic = context
-      .get_named_property::<Object>("block")?
-      .get_named_property::<Object>("dynamic")?;
-    dynamic.set("template", push_template(context, template)?)?;
-    dynamic.set(
-      "flags",
-      dynamic.get_named_property::<i32>("flags")?
-        | DynamicFlag::NON_TEMPLATE as i32
-        | DynamicFlag::INSERT as i32,
-    )?;
+    let dynamic = &mut context_block.dynamic;
+    context.reference(dynamic)?;
+    dynamic.template = Some(context.push_template(template)?);
+    dynamic.flags = dynamic.flags | DynamicFlag::NON_TEMPLATE as i32 | DynamicFlag::INSERT as i32;
   } else {
-    context.set(
-      "template",
-      format!(
-        "{}{}",
-        context.get_named_property::<String>("template")?,
-        template
-      ),
-    )?
+    *context.template.borrow_mut() = format!("{}{}", context.template.borrow(), template);
   }
   Ok(())
 }
 
-#[napi]
 pub fn transform_component_element(
-  env: Env,
   mut tag: String,
   props_result: PropsResult,
   single_root: bool,
-  mut context: Object,
+  context: &Rc<TransformContext>,
+  context_block: &mut BlockIRNode,
 ) -> Result<()> {
-  let mut asset = context
-    .get_named_property::<Object>("options")?
-    .get_named_property::<bool>("withFallback")?;
+  let mut asset = context.options.with_fallback;
 
   if let Some(dot_index) = tag.find('.') {
     let ns = tag[0..dot_index].to_string();
@@ -262,45 +240,29 @@ pub fn transform_component_element(
   }
 
   if asset {
-    let component = context
-      .get_named_property::<Object>("ir")?
-      .get_named_property::<Object>("component")?;
-    component
-      .get_named_property::<Function<String, Object>>("add")?
-      .apply(component, tag.clone())?;
+    let component = &mut context.ir.borrow_mut().component;
+    component.insert(tag.clone());
   }
 
-  let mut dynamic = context
-    .get_named_property::<Object>("block")?
-    .get_named_property::<Object>("dynamic")?;
-  dynamic.set(
-    "flags",
-    dynamic.get_named_property::<i32>("flags")?
-      | DynamicFlag::NON_TEMPLATE as i32
-      | DynamicFlag::INSERT as i32,
-  )?;
+  let dynamic = &mut context_block.dynamic;
+  dynamic.flags = dynamic.flags | DynamicFlag::NON_TEMPLATE as i32 | DynamicFlag::INSERT as i32;
 
-  dynamic.set(
-    "operation",
-    CreateComponentIRNode {
-      _type: IRNodeTypes::CREATE_COMPONENT_NODE,
-      id: reference(context)?,
-      tag,
-      props: match props_result.props {
-        Either::A(props) => props,
-        Either::B(props) => vec![Either3::A(props)],
-      },
-      asset,
-      root: single_root && context.get_named_property::<i32>("inVFor")? == 0,
-      slots: context.get_named_property::<Vec<IRSlots>>("slots")?,
-      once: context.get_named_property::<bool>("inVOnce")?,
-      parent: None,
-      anchor: None,
-      dynamic: None,
+  dynamic.operation = Some(MyBox(Box::new(Either18::O(CreateComponentIRNode {
+    _type: IRNodeTypes::CREATE_COMPONENT_NODE,
+    id: context.reference(dynamic)?,
+    tag,
+    props: match props_result.props {
+      Either::A(props) => props,
+      Either::B(props) => vec![Either3::A(props)],
     },
-  )?;
-
-  context.set("slots", env.create_array(0))?;
+    asset,
+    root: single_root && *context.in_v_for.borrow() == 0,
+    slots: context.slots.take(),
+    once: *context.in_v_once.borrow(),
+    parent: None,
+    anchor: None,
+    dynamic: None,
+  }))));
 
   Ok(())
 }
@@ -311,13 +273,13 @@ pub struct PropsResult {
   pub props: Either<Vec<IRProps>, IRPropsStatic>,
 }
 
-pub fn build_props(
-  env: Env,
+pub fn build_props<'a>(
   node: Object,
-  context: Object,
+  context: &'a Rc<TransformContext>,
+  context_block: &mut BlockIRNode,
   is_component: bool,
-  get_effect_index: Rc<RefCell<Box<dyn FnMut() -> i32>>>,
-  get_operation_index: Rc<RefCell<Box<dyn FnMut() -> i32>>>,
+  get_effect_index: Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>,
+  get_operation_index: Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>,
 ) -> Result<PropsResult> {
   let props = node
     .get_named_property::<Object>("openingElement")?
@@ -367,12 +329,13 @@ pub fn build_props(
             handler: Some(true),
           }))
         } else {
-          register_effect(
-            &context,
-            is_operation(vec![&value], &context),
+          let element = context.reference(&mut context_block.dynamic)?;
+          context.register_effect(
+            context_block,
+            context.is_operation(vec![&value]),
             Either18::F(SetDynamicEventsIRNode {
               _type: IRNodeTypes::SET_DYNAMIC_EVENTS,
-              element: reference(context)?,
+              element,
               value,
             }),
             Some(Rc::clone(&get_effect_index)),
@@ -380,17 +343,17 @@ pub fn build_props(
           )?;
         }
       } else {
-        on_error(env, ErrorCodes::X_V_ON_NO_EXPRESSION, context);
+        on_error(ErrorCodes::X_V_ON_NO_EXPRESSION, context);
       }
       continue;
     }
 
     if let Some(prop) = transform_prop(
-      env,
       prop,
       node,
       is_component,
       context,
+      context_block,
       Rc::clone(&get_operation_index),
     )? {
       if is_component && !prop.key.is_static {
@@ -435,13 +398,13 @@ pub fn build_props(
   })
 }
 
-pub fn transform_prop(
-  env: Env,
+pub fn transform_prop<'a>(
   prop: Object,
   node: Object,
   is_component: bool,
-  context: Object,
-  get_operation_index: Rc<RefCell<Box<dyn FnMut() -> i32>>>,
+  context: &'a Rc<TransformContext>,
+  context_block: &mut BlockIRNode,
+  get_operation_index: Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>,
 ) -> Result<Option<DirectiveTransformResult>> {
   let prop_type = prop.get_named_property::<String>("type")?;
   if prop_type == "JSXSpreadAttribute" {
@@ -489,48 +452,33 @@ pub fn transform_prop(
   } else {
     "bind".to_string()
   };
-  let options = context.get_named_property::<Object>("options")?;
-  let directive_transforms =
-    options.get_named_property::<HashMap<
-      String,
-      Function<FnArgs<(Object, Object, Object)>, Option<DirectiveTransformResult>>,
-    >>("directiveTransforms");
 
   match name.as_str() {
-    "bind" => return transform_v_bind(prop, node, context),
-    "on" => return transform_v_on(env, prop, node, context),
-    "model" => return transform_v_model(env, prop, node, context),
-    "show" => return transform_v_show(env, prop, node, context),
-    "html" => return transform_v_html(env, prop, node, context),
-    "text" => return transform_v_text(env, prop, node, context),
-    "slots" => return transform_v_slots(env, prop, node, context),
+    "bind" => return transform_v_bind(prop, node, context, context_block),
+    "on" => return transform_v_on(prop, node, context, context_block),
+    "model" => return transform_v_model(prop, node, context, context_block),
+    "show" => return transform_v_show(prop, node, context, context_block),
+    "html" => return transform_v_html(prop, node, context, context_block),
+    "text" => return transform_v_text(prop, node, context, context_block),
+    "slots" => return transform_v_slots(prop, node, context, context_block),
     _ => (),
   };
 
-  if let Ok(directive_transforms) = directive_transforms
-    && let Some(directive_transform) = directive_transforms.get(&name)
-  {
-    return Ok(directive_transform.call(FnArgs::from((prop, node, context)))?);
-  }
-
   if !is_build_in_directive(&name) {
-    let with_fallback = options.get_named_property::<bool>("withFallback")?;
+    let with_fallback = context.options.with_fallback;
     if with_fallback {
-      let directive = context
-        .get_named_property::<Object>("ir")?
-        .get_named_property::<Object>("directive")?;
-      directive
-        .get_named_property::<Function<String, Object>>("add")?
-        .apply(directive, name.clone())?;
+      let directive = &mut context.ir.borrow_mut().directive;
+      directive.insert(name.clone());
     } else {
       name = camelize(format!("v-{name}"))
     };
 
-    register_operation(
-      &context,
+    let element = context.reference(&mut context_block.dynamic)?;
+    context.register_operation(
+      context_block,
       Either18::N(DirectiveIRNode {
         _type: IRNodeTypes::DIRECTIVE,
-        element: reference(context)?,
+        element,
         dir: resolve_directive(prop, context)?,
         name,
         asset: Some(with_fallback),

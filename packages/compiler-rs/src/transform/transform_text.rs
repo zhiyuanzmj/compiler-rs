@@ -1,49 +1,44 @@
-use std::collections::HashSet;
+use std::rc::Rc;
 
 use napi::{
-  Either, Env,
-  bindgen_prelude::{Either18, Function, JsObjectValue, Object, Result},
+  Either,
+  bindgen_prelude::{Either18, JsObjectValue, Object, Result},
 };
 
 use crate::{
   ir::index::{
-    CreateNodesIRNode, DynamicFlag, GetTextChildIRNode, IRNodeTypes, IfIRNode, SetNodesIRNode,
-    SimpleExpressionNode,
+    BlockIRNode, CreateNodesIRNode, DynamicFlag, GetTextChildIRNode, IRDynamicInfo, IRNodeTypes,
+    IfIRNode, SetNodesIRNode, SimpleExpressionNode,
   },
-  transform::{reference, register_operation, transform_node},
+  transform::TransformContext,
   utils::{
     check::{_is_constant_node, is_fragment_node, is_jsx_component, is_template},
     expression::{_get_literal_expression_value, resolve_expression},
+    my_box::MyBox,
     text::{is_empty_text, resolve_jsx_text},
-    transform::create_block,
     utils::{_get_expression, find_prop, get_expression},
   },
 };
 
-pub fn transform_text(
-  env: Env,
+pub fn transform_text<'a>(
   node: Object<'static>,
-  mut context: Object<'static>,
-) -> Result<Option<Box<dyn FnOnce() -> Result<()>>>> {
-  let mut dynamic = context
-    .get_named_property::<Object>("block")?
-    .get_named_property::<Object>("dynamic")?;
+  context: &'a Rc<TransformContext>,
+  context_block: &'a mut BlockIRNode,
+  parent_dynamic: &'a mut IRDynamicInfo,
+) -> Result<Option<Box<dyn FnOnce() -> Result<()> + 'a>>> {
+  let dynamic = &mut context_block.dynamic;
   if let Ok(start) = node.get_named_property::<i32>("start") {
-    let seen = context.get_named_property::<HashSet<i32>>("seen")?;
+    let seen = &mut context.seen.borrow_mut();
     if seen.contains(&start) {
-      dynamic.set(
-        "flags",
-        dynamic.get_named_property::<i32>("flags")? | DynamicFlag::NON_TEMPLATE as i32,
-      )?;
+      dynamic.flags |= DynamicFlag::NON_TEMPLATE as i32;
       return Ok(None);
     }
   }
 
   let children = node.get_named_property::<Vec<Object<'static>>>("children");
-  let is_fragment = is_fragment_node(node);
+  let is_fragment = is_fragment_node(&node);
   let node_type = node.get_named_property::<String>("type")?;
-  if ((node_type.eq("JSXElement") && !is_template(Some(node)) && !is_jsx_component(node))
-    || is_fragment)
+  if ((node_type.eq("JSXElement") && !is_template(&node) && !is_jsx_component(node)) || is_fragment)
     && let Ok(children) = children
     && children.len() > 0
   {
@@ -63,7 +58,7 @@ pub fn transform_text(
 
     // all text like with interpolation
     if !is_fragment && is_all_text_like && has_interp {
-      process_text_container(children, context)?
+      process_text_container(children, context, context_block)?
     } else if has_interp {
       // check if there's any text before interpolation, it needs to be merged
       let mut i = 0;
@@ -86,36 +81,46 @@ pub fn transform_text(
     let expression_type = expression.get_named_property::<String>("type")?;
     if expression_type.eq("ConditionalExpression") {
       return Ok(Some(process_conditional_expression(
-        env, expression, context,
+        expression,
+        context,
+        context_block,
+        parent_dynamic,
       )?));
     } else if expression_type.eq("LogicalExpression") {
-      return Ok(Some(process_logical_expression(env, expression, context)?));
+      return Ok(Some(process_logical_expression(
+        expression,
+        context,
+        context_block,
+        parent_dynamic,
+      )?));
     } else {
-      precess_interpolation(context)?;
+      process_interpolation(context, context_block)?;
     }
   } else if node_type == "JSXText" {
     let value = resolve_jsx_text(node);
     if !value.is_empty() {
-      context.set(
-        "template",
-        context.get_named_property::<String>("template")? + &value,
-      )?;
+      let mut template = context.template.borrow_mut();
+      *template = template.to_string() + &value;
     } else {
-      dynamic.set(
-        "flags",
-        dynamic.get_named_property::<i32>("flags")? | DynamicFlag::NON_TEMPLATE as i32,
-      )?;
+      dynamic.flags |= DynamicFlag::NON_TEMPLATE as i32;
     }
   }
   Ok(None)
 }
 
-fn precess_interpolation(mut context: Object) -> Result<()> {
-  let parent = context
-    .get_named_property::<Object>("parent")?
-    .get_named_property::<Object>("node")?;
-  let children = parent.get_named_property::<Vec<Object>>("children")?;
-  let index = context.get_named_property::<i32>("index")? as usize;
+fn process_interpolation(
+  context: &Rc<TransformContext>,
+  context_block: &mut BlockIRNode,
+) -> Result<()> {
+  let children = context
+    .parent
+    .borrow()
+    .upgrade()
+    .unwrap()
+    .node
+    .borrow()
+    .get_named_property::<Vec<Object>>("children")?;
+  let index = context.index as usize;
   let nexts = children[index..].to_vec();
   let idx = nexts.iter().position(|n| !is_text_like(n).unwrap_or(false));
   let mut nodes = if let Some(idx) = idx {
@@ -136,23 +141,24 @@ fn precess_interpolation(mut context: Object) -> Result<()> {
     nodes.insert(0, *prev);
   }
 
-  let values = precess_text_like_expressions(nodes, context)?;
+  let values = process_text_like_expressions(nodes, context)?;
+  let dynamic = &mut context_block.dynamic;
   if values.is_empty() {
-    let mut dynamic = context
-      .get_named_property::<Object>("block")?
-      .get_named_property::<Object>("dynamic")?;
-    dynamic.set(
-      "flags",
-      dynamic.get_named_property::<i32>("flags")? | DynamicFlag::NON_TEMPLATE as i32,
-    )?;
+    dynamic.flags |= DynamicFlag::NON_TEMPLATE as i32;
     return Ok(());
   }
 
-  let id = reference(context)?;
-  let once = context.get_named_property::<bool>("inVOnce")?;
-  if is_fragment_node(parent) || find_prop(parent, Either::A(String::from("v-slot"))).is_some() {
-    register_operation(
-      &context,
+  let id = context.reference(dynamic)?;
+  let once = *context.in_v_once.borrow();
+  if is_fragment_node(&context.parent.borrow().upgrade().unwrap().node.borrow())
+    || find_prop(
+      &context.parent.borrow().upgrade().unwrap().node.borrow(),
+      Either::A(String::from("v-slot")),
+    )
+    .is_some()
+  {
+    context.register_operation(
+      context_block,
       Either18::K(CreateNodesIRNode {
         _type: IRNodeTypes::CREATE_NODES,
         id,
@@ -162,12 +168,10 @@ fn precess_interpolation(mut context: Object) -> Result<()> {
       None,
     )?;
   } else {
-    context.set(
-      "template",
-      context.get_named_property::<String>("template")? + " ",
-    )?;
-    register_operation(
-      &context,
+    let mut template = context.template.borrow_mut();
+    *template = template.to_string() + " ";
+    context.register_operation(
+      context_block,
       Either18::G(SetNodesIRNode {
         _type: IRNodeTypes::SET_NODES,
         element: id,
@@ -181,38 +185,42 @@ fn precess_interpolation(mut context: Object) -> Result<()> {
   Ok(())
 }
 
-fn mark_non_template(node: Object, context: Object) -> Result<()> {
-  let seen = context.get_named_property::<Object>("seen")?;
-  seen
-    .get_named_property::<Function<i32>>("add")?
-    .apply(seen, node.get_named_property::<i32>("start")?)?;
+fn mark_non_template(node: Object, context: &Rc<TransformContext>) -> Result<()> {
+  let seen = &mut context.seen.borrow_mut();
+  seen.insert(node.get_named_property::<i32>("start")?);
   Ok(())
 }
 
-fn process_text_container(children: Vec<Object<'static>>, mut context: Object) -> Result<()> {
-  let values = precess_text_like_expressions(children, context)?;
+fn process_text_container(
+  children: Vec<Object<'static>>,
+  context: &Rc<TransformContext>,
+  context_block: &mut BlockIRNode,
+) -> Result<()> {
+  let values = process_text_like_expressions(children, context)?;
   let literals = values
     .iter()
     .map(_get_literal_expression_value)
     .collect::<Vec<Option<String>>>();
   if literals.iter().all(|l| l.is_some()) {
-    context.set("childrenTemplate", literals)?;
+    *context.children_template.borrow_mut() = literals.into_iter().filter_map(|i| i).collect();
   } else {
-    context.set("childrenTemplate", vec![" ".to_string()])?;
-    register_operation(
-      &context,
+    *context.children_template.borrow_mut() = vec![" ".to_string()];
+    let parent = context.reference(&mut context_block.dynamic)?;
+    context.register_operation(
+      context_block,
       Either18::R(GetTextChildIRNode {
         _type: IRNodeTypes::GET_TEXT_CHILD,
-        parent: reference(context)?,
+        parent,
       }),
       None,
     )?;
-    register_operation(
-      &context,
+    let element = context.reference(&mut context_block.dynamic)?;
+    context.register_operation(
+      context_block,
       Either18::G(SetNodesIRNode {
         _type: IRNodeTypes::SET_NODES,
-        element: reference(context)?,
-        once: context.get_named_property::<bool>("inVOnce")?,
+        element,
+        once: *context.in_v_once.borrow(),
         values,
         // indicates this node is generated, so prefix should be "x" instead of "n"
         generated: Some(true),
@@ -223,9 +231,9 @@ fn process_text_container(children: Vec<Object<'static>>, mut context: Object) -
   Ok(())
 }
 
-fn precess_text_like_expressions(
+fn process_text_like_expressions(
   nodes: Vec<Object<'static>>,
-  context: Object,
+  context: &Rc<TransformContext>,
 ) -> Result<Vec<SimpleExpressionNode>> {
   let mut values = vec![];
   for node in nodes {
@@ -248,192 +256,171 @@ fn is_text_like(node: &Object) -> Result<bool> {
   })
 }
 
-pub fn process_conditional_expression(
-  env: Env,
+pub fn process_conditional_expression<'a>(
   node: Object<'static>,
-  context: Object<'static>,
-) -> Result<Box<dyn FnOnce() -> Result<()>>> {
-  let mut dynamic = context
-    .get_named_property::<Object>("block")?
-    .get_named_property::<Object>("dynamic")?;
-  dynamic.set(
-    "flags",
-    dynamic.get_named_property::<i32>("flags")?
-      | DynamicFlag::NON_TEMPLATE as i32
-      | DynamicFlag::INSERT as i32,
-  )?;
-  let id = reference(context)?;
-  let (block, exit_block) = create_block(
-    env,
+  context: &'a Rc<TransformContext>,
+  context_block: &'a mut BlockIRNode,
+  parent_dynamic: &'a mut IRDynamicInfo,
+) -> Result<Box<dyn FnOnce() -> Result<()> + 'a>> {
+  let dynamic = &mut context_block.dynamic;
+  dynamic.flags = dynamic.flags | DynamicFlag::NON_TEMPLATE as i32 | DynamicFlag::INSERT as i32;
+  let id = context.reference(dynamic)?;
+  let block = context_block as *mut BlockIRNode;
+  let exit_block = context.create_block(
+    unsafe { &mut *block },
     node.get_named_property::<Object>("consequent")?,
-    context,
     None,
   )?;
 
   Ok(Box::new(move || {
-    exit_block()?;
+    let block = exit_block()?;
     let test = node.get_named_property::<Object>("test")?;
     let alternate = node.get_named_property::<Object>("alternate")?;
 
-    let mut dynamic = context
-      .get_named_property::<Object>("block")?
-      .get_named_property::<Object>("dynamic")?;
-    dynamic.set(
-      "operation",
-      IfIRNode {
-        _type: IRNodeTypes::IF,
-        id,
-        positive: block,
-        once: Some(
-          context
-            .get_named_property::<bool>("inVOnce")
-            .unwrap_or(false)
-            || _is_constant_node(&Some(test)),
-        ),
-        condition: resolve_expression(test, context),
-        negative: None,
-        parent: None,
-        anchor: None,
-      },
-    )?;
-
+    let mut operation = IfIRNode {
+      _type: IRNodeTypes::IF,
+      id,
+      positive: block,
+      once: Some(*context.in_v_once.borrow() || _is_constant_node(&Some(test))),
+      condition: resolve_expression(test, context),
+      negative: None,
+      parent: None,
+      anchor: None,
+    };
     set_negative(
-      env,
       alternate,
-      dynamic.get_named_property::<Object>("operation")?,
+      &mut operation,
       context,
+      context_block,
+      parent_dynamic,
     )?;
+    let dynamic = &mut context_block.dynamic;
+    dynamic.operation = Some(MyBox(Box::new(Either18::A(operation))));
 
     Ok(())
   }))
 }
 
-pub fn process_logical_expression(
-  env: Env,
+fn process_logical_expression<'a>(
   node: Object<'static>,
-  context: Object<'static>,
-) -> Result<Box<dyn FnOnce() -> Result<()>>> {
+  context: &'a Rc<TransformContext>,
+  context_block: &'a mut BlockIRNode,
+  parent_dynamic: &'a mut IRDynamicInfo,
+) -> Result<Box<dyn FnOnce() -> Result<()> + 'a>> {
   let left = node.get_named_property::<Object>("left")?;
   let right = node.get_named_property::<Object>("right")?;
   let operator = node.get_named_property::<String>("operator")?;
 
-  let mut dynamic = context
-    .get_named_property::<Object>("block")?
-    .get_named_property::<Object>("dynamic")?;
-  dynamic.set(
-    "flags",
-    dynamic.get_named_property::<i32>("flags")?
-      | DynamicFlag::NON_TEMPLATE as i32
-      | DynamicFlag::INSERT as i32,
-  )?;
-  let id = reference(context)?;
-  let (block, exit_block) = create_block(
-    env,
+  let dynamic = &mut context_block.dynamic;
+  dynamic.flags = dynamic.flags | DynamicFlag::NON_TEMPLATE as i32 | DynamicFlag::INSERT as i32;
+  let id = context.reference(dynamic)?;
+  let block = context_block as *mut BlockIRNode;
+  let exit_block = context.create_block(
+    unsafe { &mut *block },
     if operator == "&&" { right } else { left },
-    context,
     None,
   )?;
   Ok(Box::new(move || {
-    exit_block()?;
+    let block = exit_block()?;
     let left = node.get_named_property::<Object>("left")?;
     let right = node.get_named_property::<Object>("right")?;
     let operator = node.get_named_property::<String>("operator")?;
 
-    let operation = IfIRNode {
+    let mut operation = IfIRNode {
       _type: IRNodeTypes::IF,
       id,
       condition: resolve_expression(left, context),
       positive: block,
-      once: Some(context.get_named_property::<bool>("inVOnce")? || _is_constant_node(&Some(left))),
+      once: Some(*context.in_v_once.borrow() || _is_constant_node(&Some(left))),
       negative: None,
       anchor: None,
       parent: None,
     };
-    context
-      .get_named_property::<Object>("block")?
-      .get_named_property::<Object>("dynamic")?
-      .set("operation", operation)?;
     set_negative(
-      env,
       if operator == "&&" { left } else { right },
-      context
-        .get_named_property::<Object>("block")?
-        .get_named_property::<Object>("dynamic")?
-        .get_named_property::<Object>("operation")?,
+      &mut operation,
       context,
+      context_block,
+      parent_dynamic,
     )?;
+    let dynamic = &mut context_block.dynamic;
+    dynamic.operation = Some(MyBox(Box::new(Either18::A(operation))));
     Ok(())
   }))
 }
 
-pub fn set_negative(
-  env: Env,
+fn set_negative(
   node: Object<'static>,
-  mut operation: Object,
-  context: Object<'static>,
+  operation: &mut IfIRNode,
+  context: &Rc<TransformContext>,
+  context_block: &mut BlockIRNode,
+  parent_dynamic: &mut IRDynamicInfo,
 ) -> Result<()> {
   let node_type = node.get_named_property::<String>("type")?;
   if node_type == "ConditionalExpression" {
-    let (branch, on_exit) = create_block(
-      env,
+    let block = context_block as *mut BlockIRNode;
+    let exit_block = context.create_block(
+      unsafe { &mut *block },
       node.get_named_property::<Object>("consequent")?,
-      context,
       None,
     )?;
     let test = node.get_named_property::<Object>("test")?;
-    let negative = IfIRNode {
+    context.transform_node(context_block, parent_dynamic)?;
+    let block = exit_block()?;
+    let mut negative = IfIRNode {
       _type: IRNodeTypes::IF,
       id: -1,
       condition: resolve_expression(test, context),
-      positive: branch,
-      once: Some(context.get_named_property::<bool>("inVOnce")? || _is_constant_node(&Some(test))),
+      positive: block,
+      once: Some(*context.in_v_once.borrow() || _is_constant_node(&Some(test))),
       negative: None,
       anchor: None,
       parent: None,
     };
-    operation.set("negative", negative)?;
-    transform_node(env, context)?;
     set_negative(
-      env,
       node.get_named_property::<Object>("alternate")?,
-      operation.get_named_property::<Object>("negative")?,
+      &mut negative,
       context,
+      context_block,
+      parent_dynamic,
     )?;
-    on_exit()?;
+    operation.negative = Some(MyBox(Box::new(Either::B(negative))));
   } else if node_type == "LogicalExpression" {
     let left = node.get_named_property::<Object>("left")?;
     let right = node.get_named_property::<Object>("right")?;
     let operator = node.get_named_property::<String>("operator")?;
-    let (branch, on_exit) = create_block(
-      env,
+    let block = context_block as *mut BlockIRNode;
+    let exit_block = context.create_block(
+      unsafe { &mut *block },
       if operator.eq("&&") { right } else { left },
-      context,
       None,
     )?;
-    let negative = IfIRNode {
+    context.transform_node(context_block, parent_dynamic)?;
+    let block = exit_block()?;
+    let mut negative = IfIRNode {
       _type: IRNodeTypes::IF,
       id: -1,
       condition: resolve_expression(left, context),
-      positive: branch,
-      once: Some(context.get_named_property::<bool>("inVOnce")? || _is_constant_node(&Some(left))),
+      positive: block,
+      once: Some(*context.in_v_once.borrow() || _is_constant_node(&Some(left))),
       negative: None,
       anchor: None,
       parent: None,
     };
-    operation.set("negative", negative)?;
-    transform_node(env, context)?;
     set_negative(
-      env,
       if operator.eq("&&") { left } else { right },
-      operation.get_named_property::<Object>("negative")?,
+      &mut negative,
       context,
+      context_block,
+      parent_dynamic,
     )?;
-    on_exit()?;
+    operation.negative = Some(MyBox(Box::new(Either::B(negative))));
   } else {
-    let (branch, on_exit) = create_block(env, node, context, None)?;
-    operation.set("negative", branch)?;
-    transform_node(env, context)?;
-    on_exit()?;
+    let block = context_block as *mut BlockIRNode;
+    let exit_block = context.create_block(unsafe { &mut *block }, node, None)?;
+    context.transform_node(context_block, parent_dynamic)?;
+    let block = exit_block()?;
+    operation.negative = Some(MyBox(Box::new(Either::A(block))));
   }
   Ok(())
 }

@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest'
-import { compile } from '../src'
+import { makeCompile } from './transforms/_utils'
+
+const compile = makeCompile()
 
 describe('compile', () => {
   test('static template', () => {

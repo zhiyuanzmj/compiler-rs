@@ -1,11 +1,13 @@
 use napi_derive::napi;
-use std::sync::LazyLock;
+use std::{rc::Rc, sync::LazyLock};
 
 use napi::{
   JsValue,
   bindgen_prelude::{JsObjectValue, Object},
 };
 use regex::{Captures, Regex};
+
+use crate::transform::TransformContext;
 
 static EMPTY_TEXT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"^[\t\v\f \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]*[\n\r]\s*$")
@@ -70,25 +72,10 @@ pub fn is_empty_text(node: Object) -> bool {
         }))
 }
 
-#[napi]
-pub fn get_text(node: Object, context: Object) -> String {
-  _get_text(node, &context)
-}
-pub fn _get_text(node: Object, context: &Object) -> String {
-  context
-    .get::<Object>("ir")
-    .ok()
-    .flatten()
-    .map_or(String::new(), |ir| {
-      ir.get::<String>("source")
-        .ok()
-        .flatten()
-        .map_or(String::new(), |source| {
-          let start = node.get::<i32>("start").ok().flatten().unwrap() as usize;
-          let end = node.get::<i32>("end").ok().flatten().unwrap() as usize;
-          source[start..end].to_owned()
-        })
-    })
+pub fn get_text(node: Object, context: &Rc<TransformContext>) -> String {
+  let start = node.get::<i32>("start").ok().flatten().unwrap() as usize;
+  let end = node.get::<i32>("end").ok().flatten().unwrap() as usize;
+  context.ir.borrow().source[start..end].to_string()
 }
 
 static CAMELIZE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"-(\w)").unwrap());

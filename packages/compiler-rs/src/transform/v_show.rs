@@ -1,11 +1,13 @@
+use std::rc::Rc;
+
 use napi::{
-  Env, Result,
+  Result,
   bindgen_prelude::{Either18, Object},
 };
 
 use crate::{
-  ir::index::{DirectiveIRNode, IRNodeTypes},
-  transform::{DirectiveTransformResult, reference, register_operation},
+  ir::index::{BlockIRNode, DirectiveIRNode, IRNodeTypes},
+  transform::{DirectiveTransformResult, TransformContext},
   utils::{
     directive::resolve_directive,
     error::{ErrorCodes, on_error},
@@ -14,22 +16,23 @@ use crate::{
 };
 
 pub fn transform_v_show(
-  env: Env,
   _dir: Object,
   _: Object,
-  context: Object,
+  context: &Rc<TransformContext>,
+  context_block: &mut BlockIRNode,
 ) -> Result<Option<DirectiveTransformResult>> {
   let mut dir = resolve_directive(_dir, context)?;
   if dir.exp.is_none() {
-    on_error(env, ErrorCodes::X_V_SHOW_NO_EXPRESSION, context);
+    on_error(ErrorCodes::X_V_SHOW_NO_EXPRESSION, context);
     dir.exp = Some(EMPTY_EXPRESSION)
   }
 
-  register_operation(
-    &context,
+  let element = context.reference(&mut context_block.dynamic)?;
+  context.register_operation(
+    context_block,
     Either18::N(DirectiveIRNode {
       _type: IRNodeTypes::DIRECTIVE,
-      element: reference(context)?,
+      element,
       dir,
       name: String::from("show"),
       builtin: Some(true),

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::LazyLock};
+use std::{collections::HashMap, rc::Rc, sync::LazyLock};
 
 use napi::{
   Env, Error, Result,
@@ -6,7 +6,7 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::ir::index::SourceLocation;
+use crate::{ir::index::SourceLocation, transform::TransformContext};
 
 #[napi]
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -137,16 +137,7 @@ pub fn create_compiler_error<'a>(
   Ok(error)
 }
 
-pub fn on_error(env: Env, code: ErrorCodes, context: Object) {
-  context
-    .get_named_property::<Object>("options")
-    .ok()
-    .unwrap()
-    .get_named_property::<FunctionRef<Object, ()>>("onError")
-    .ok()
-    .unwrap()
-    .borrow_back(&env)
-    .unwrap()
-    .call(create_compiler_error(&env, code, None).unwrap())
-    .unwrap();
+pub fn on_error(code: ErrorCodes, context: &Rc<TransformContext>) {
+  let compiler_error = create_compiler_error(&context.env, code, None).unwrap();
+  context.options.on_error.call(compiler_error).unwrap();
 }

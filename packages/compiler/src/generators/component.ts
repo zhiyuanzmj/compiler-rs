@@ -2,6 +2,7 @@ import { camelize, isArray } from '@vue/shared'
 import {
   IRDynamicPropsKind,
   IRSlotType,
+  type BlockIRNode,
   type CreateComponentIRNode,
   type IRProp,
   type IRProps,
@@ -12,7 +13,6 @@ import {
   type IRSlotDynamicLoop,
   type IRSlots,
   type IRSlotsStatic,
-  type SlotBlockIRNode,
 } from '../ir'
 import {
   createSimpleExpression,
@@ -330,13 +330,13 @@ function genConditionalSlot(
   ]
 }
 
-function genSlotBlockWithProps(oper: SlotBlockIRNode, context: CodegenContext) {
+function genSlotBlockWithProps(oper: BlockIRNode, context: CodegenContext) {
   let isDestructureAssignment = false
   let rawProps: string | undefined
   let propsName: string | undefined
   let exitScope: (() => void) | undefined
   let depth: number | undefined
-  const { props } = oper
+  const props = oper.props!
   const idsOfProps = new Set<string>()
 
   if (props) {

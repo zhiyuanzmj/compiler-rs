@@ -8,7 +8,7 @@ use napi_derive::napi;
 
 use crate::{
   ir::index::SimpleExpressionNode,
-  utils::{expression::is_globally_allowed, utils::unwrap_ts_node},
+  utils::{expression::is_globally_allowed, text::get_text, utils::unwrap_ts_node},
 };
 
 #[napi]
@@ -58,9 +58,7 @@ def_literal_checker!(
   "node is import('oxc-parser').NumericLiteral"
 );
 
-#[napi(ts_args_type = "node?: import('oxc-parser').Node | undefined | null")]
-pub fn is_template(node: Option<Object>) -> bool {
-  let Some(node) = node else { return false };
+pub fn is_template(node: &Object) -> bool {
   if !matches!(node.get::<String>("type"), Ok(Some(type_value)) if type_value.eq("JSXElement")) {
     return false;
   };
@@ -398,13 +396,9 @@ pub fn is_jsx_component(node: Object) -> bool {
   }
 }
 
-#[napi(
-  ts_args_type = "node: import('oxc-parser').Node",
-  ts_return_type = "node is import('oxc-parser').JSXElement | import('oxc-parser').JSXFragment"
-)]
-pub fn is_fragment_node(node: Object) -> bool {
+pub fn is_fragment_node(node: &Object) -> bool {
   if let Ok(node_type) = node.get_named_property::<String>("type") {
-    return node_type == "JSXFragment" || node_type == "ROOT" || is_template(Some(node));
+    return node_type == "JSXFragment" || node_type == "ROOT" || is_template(&node);
   }
   return false;
 }

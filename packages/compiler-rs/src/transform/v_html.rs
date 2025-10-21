@@ -1,12 +1,13 @@
+use std::rc::Rc;
+
 use napi::{
-  Env, Result,
+  Result,
   bindgen_prelude::{Either18, JsObjectValue, Object},
 };
-use napi_derive::napi;
 
 use crate::{
-  ir::index::{IRNodeTypes, SetHtmlIRNode},
-  transform::{DirectiveTransformResult, is_operation, reference, register_effect},
+  ir::index::{BlockIRNode, IRNodeTypes, SetHtmlIRNode},
+  transform::{DirectiveTransformResult, TransformContext},
   utils::{
     error::{ErrorCodes, on_error},
     expression::{EMPTY_EXPRESSION, get_value, resolve_expression},
@@ -14,35 +15,32 @@ use crate::{
 };
 
 pub fn transform_v_html(
-  env: Env,
   dir: Object,
   node: Object,
-  context: Object,
+  context: &Rc<TransformContext>,
+  context_block: &mut BlockIRNode,
 ) -> Result<Option<DirectiveTransformResult>> {
   let exp = if let Some(value) = get_value::<Object>(dir) {
     resolve_expression(value, context)
   } else {
-    on_error(env, ErrorCodes::X_V_HTML_NO_EXPRESSION, context);
+    on_error(ErrorCodes::X_V_HTML_NO_EXPRESSION, context);
     EMPTY_EXPRESSION
   };
 
   if let Some(children) = node.get_named_property::<Vec<Object>>("children").ok() {
     if children.len() != 0 {
-      on_error(env, ErrorCodes::X_V_HTML_WITH_CHILDREN, context);
+      on_error(ErrorCodes::X_V_HTML_WITH_CHILDREN, context);
     }
-    unsafe {
-      context
-        .get_named_property::<Vec<String>>("childrenTemplate")?
-        .set_len(0);
-    }
+    context.children_template.borrow_mut().clear();
   }
 
-  register_effect(
-    &context,
-    is_operation(vec![&exp], &context),
+  let element = context.reference(&mut context_block.dynamic)?;
+  context.register_effect(
+    context_block,
+    context.is_operation(vec![&exp]),
     Either18::I(SetHtmlIRNode {
       _type: IRNodeTypes::SET_HTML,
-      element: reference(context)?,
+      element,
       value: exp,
     }),
     None,

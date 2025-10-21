@@ -1,13 +1,14 @@
-use std::{collections::HashSet, sync::LazyLock};
+use std::{collections::HashSet, rc::Rc, sync::LazyLock};
 
 use napi::{JsValue, ValueType, bindgen_prelude::Object};
 use napi_derive::napi;
 
 use crate::{
   ir::index::{SimpleExpressionNode, SourceLocation},
+  transform::TransformContext,
   utils::{
     check::is_string_literal,
-    text::{_get_text, resolve_jsx_text},
+    text::{get_text, resolve_jsx_text},
     utils::{get_expression, get_text_like_value, unwrap_ts_node},
   },
 };
@@ -55,14 +56,10 @@ pub fn get_value<T: JsValue<'static>>(obj: Object) -> Option<T> {
   }
 }
 
-#[napi]
 pub fn resolve_expression(
-  #[napi(ts_arg_type = "import('oxc-parser').Node")] node: Object<'static>,
-  context: Object,
+  node: Object<'static>,
+  context: &Rc<TransformContext>,
 ) -> SimpleExpressionNode {
-  _resolve_expression(node, &context)
-}
-pub fn _resolve_expression(node: Object<'static>, context: &Object) -> SimpleExpressionNode {
   let node = unwrap_ts_node(get_expression(node));
   let node_type = &node
     .get::<String>("type")
@@ -94,7 +91,7 @@ pub fn _resolve_expression(node: Object<'static>, context: &Object) -> SimpleExp
       .flatten()
       .unwrap_or(String::new())
   } else {
-    _get_text(node, context)
+    get_text(node, context)
   };
   SimpleExpressionNode {
     content,

@@ -1,5 +1,4 @@
 export {
-  findProp,
   getExpression,
   getTextLikeValue,
   TS_NODE_TYPES,

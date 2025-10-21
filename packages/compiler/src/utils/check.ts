@@ -13,12 +13,10 @@ import type {
 export {
   isBigIntLiteral,
   isConstantNode,
-  isFragmentNode,
   isJSXComponent,
   isMemberExpression,
   isNumericLiteral,
   isStringLiteral,
-  isTemplate,
 } from '@vue-jsx-vapor/compiler-rs'
 
 const nonIdentifierRE = /^$|^\d|[^$\w\u00A0-\uFFFF]/

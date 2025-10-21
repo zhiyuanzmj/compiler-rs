@@ -18,6 +18,14 @@ export function makeCompile(options: CompilerOptions = {}) {
     const ir = transform(ast, {
       filename: 'index.tsx',
       source,
+      templates: [],
+      withFallback: false,
+      isTs: true,
+      sourceMap: false,
+      isCustomElement: () => false,
+      onError: (e: any) => {
+        throw e
+      },
       ...options,
       ...overrideOptions,
     }) as any

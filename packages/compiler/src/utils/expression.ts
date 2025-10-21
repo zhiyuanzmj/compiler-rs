@@ -5,7 +5,6 @@ export {
   getLiteralExpressionValue,
   isConstantExpression,
   locStub,
-  resolveExpression,
 } from '@vue-jsx-vapor/compiler-rs'
 
 export function parseExpression(filename: string, source: string) {

@@ -1,11 +1,13 @@
+use std::rc::Rc;
+
 use napi::{
-  Either, Env, Result,
-  bindgen_prelude::{Either18, Function, JsObjectValue, Object},
+  Either, Result,
+  bindgen_prelude::{Either18, JsObjectValue, Object},
 };
 
 use crate::{
-  ir::index::{DirectiveIRNode, IRNodeTypes},
-  transform::{DirectiveTransformResult, reference, register_operation},
+  ir::index::{BlockIRNode, DirectiveIRNode, IRNodeTypes},
+  transform::{DirectiveTransformResult, TransformContext},
   utils::{
     check::{is_jsx_component, is_member_expression, is_string_literal},
     directive::resolve_directive,
@@ -17,21 +19,21 @@ use crate::{
 };
 
 pub fn transform_v_model(
-  env: Env,
   _dir: Object,
   node: Object,
-  context: Object,
+  context: &Rc<TransformContext>,
+  context_block: &mut BlockIRNode,
 ) -> Result<Option<DirectiveTransformResult>> {
   let dir = resolve_directive(_dir, context)?;
 
   let Some(exp) = &dir.exp else {
-    on_error(env, ErrorCodes::X_V_MODEL_NO_EXPRESSION, context);
+    on_error(ErrorCodes::X_V_MODEL_NO_EXPRESSION, context);
     return Ok(None);
   };
 
   let exp_string = &exp.content;
   if exp_string.trim().is_empty() || !is_member_expression(exp) {
-    on_error(env, ErrorCodes::X_V_MODEL_MALFORMED_EXPRESSION, context);
+    on_error(ErrorCodes::X_V_MODEL_MALFORMED_EXPRESSION, context);
     return Ok(None);
   }
 
@@ -60,7 +62,7 @@ pub fn transform_v_model(
   }
 
   if dir.arg.is_some() {
-    on_error(env, ErrorCodes::X_V_MODEL_ARG_ON_ELEMENT, context);
+    on_error(ErrorCodes::X_V_MODEL_ARG_ON_ELEMENT, context);
   }
 
   let tag = get_text(
@@ -69,15 +71,12 @@ pub fn transform_v_model(
       .get_named_property::<Object>("name")?,
     context,
   );
-  let is_custom_element = context
-    .get_named_property::<Object>("options")?
-    .get_named_property::<Function<String, bool>>("isCustomElement")?
-    .call(tag.clone())?;
+  let is_custom_element = context.options.is_custom_element.call(tag.clone())?;
   let mut model_type = "text";
   // TODO let runtimeDirective: VaporHelper | undefined = 'vModelText'
   if matches!(tag.as_str(), "input" | "textarea" | "select") || is_custom_element {
     if tag == "input" || is_custom_element {
-      let _type = find_prop(node, Either::A("type".to_string()));
+      let _type = find_prop(&node, Either::A("type".to_string()));
       if let Some(_type) = _type {
         let value = _type.get_named_property::<Object>("value")?;
         if value
@@ -93,10 +92,10 @@ pub fn transform_v_model(
             "checkbox" => model_type = "checkbox",
             "file" => {
               model_type = "";
-              on_error(env, ErrorCodes::X_V_MODEL_ON_FILE_INPUT_ELEMENT, context);
+              on_error(ErrorCodes::X_V_MODEL_ON_FILE_INPUT_ELEMENT, context);
             }
             // text type
-            _ => check_duplicated_value(env, node, context),
+            _ => check_duplicated_value(node, context),
           }
         }
       } else if has_dynamic_key_v_bind(node)? {
@@ -104,24 +103,25 @@ pub fn transform_v_model(
         model_type = "dynamic";
       } else {
         // text type
-        check_duplicated_value(env, node, context)
+        check_duplicated_value(node, context)
       }
     } else if tag == "select" {
       model_type = "select"
     } else {
       // textarea
-      check_duplicated_value(env, node, context)
+      check_duplicated_value(node, context)
     }
   } else {
-    on_error(env, ErrorCodes::X_V_MODEL_ON_INVALID_ELEMENT, context)
+    on_error(ErrorCodes::X_V_MODEL_ON_INVALID_ELEMENT, context)
   }
 
   if !model_type.is_empty() {
-    register_operation(
-      &context,
+    let element = context.reference(&mut context_block.dynamic)?;
+    context.register_operation(
+      context_block,
       Either18::N(DirectiveIRNode {
         _type: IRNodeTypes::DIRECTIVE,
-        element: reference(context)?,
+        element,
         dir,
         name: "model".to_string(),
         model_type: Some(model_type.to_string()),
@@ -135,12 +135,12 @@ pub fn transform_v_model(
   Ok(None)
 }
 
-fn check_duplicated_value(env: Env, node: Object, context: Object) {
-  let value = find_prop(node, Either::A("value".to_string()));
+fn check_duplicated_value(node: Object, context: &Rc<TransformContext>) {
+  let value = find_prop(&node, Either::A("value".to_string()));
   if let Some(value) = value
     && !is_string_literal(value.get_named_property::<Object>("value").ok())
   {
-    on_error(env, ErrorCodes::X_V_MODEL_UNNECESSARY_VALUE, context);
+    on_error(ErrorCodes::X_V_MODEL_UNNECESSARY_VALUE, context);
   }
 }
 

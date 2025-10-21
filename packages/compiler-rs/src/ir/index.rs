@@ -52,18 +52,17 @@ pub struct BaseIRNode {
 
 #[napi(object, js_name = "BlockIRNode")]
 pub struct BlockIRNode {
-  #[napi(ts_type = "IRNodeTypes.BLOCK")]
   pub _type: IRNodeTypes,
-  #[napi(ts_type = "import('oxc-parser').Node")]
-  pub node: Object<'static>,
+  pub node: Option<Object<'static>>,
   pub dynamic: IRDynamicInfo,
   pub temp_id: i32,
   pub effect: Vec<IREffect>,
   pub operation: Vec<OperationNode>,
   pub returns: Vec<i32>,
+  pub props: Option<SimpleExpressionNode>,
 }
 impl BlockIRNode {
-  pub fn new(node: Object<'static>) -> Self {
+  pub fn new(node: Option<Object<'static>>) -> Self {
     BlockIRNode {
       _type: IRNodeTypes::BLOCK,
       node,
@@ -72,33 +71,17 @@ impl BlockIRNode {
       effect: Vec::new(),
       operation: Vec::new(),
       returns: Vec::new(),
+      props: None,
     }
   }
 }
-
-pub struct _BlockIRNode {
-  pub _type: IRNodeTypes,
-  pub node: Object<'static>,
-  pub dynamic: _IRDynamicInfo,
-  pub temp_id: i32,
-  pub effect: Vec<IREffect>,
-  pub operation: Vec<OperationNode>,
-  pub returns: Vec<i32>,
-}
-impl _BlockIRNode {
-  pub fn new(node: Object<'static>) -> Self {
-    _BlockIRNode {
-      _type: IRNodeTypes::BLOCK,
-      node,
-      dynamic: _IRDynamicInfo::new(),
-      temp_id: 0,
-      effect: Vec::new(),
-      operation: Vec::new(),
-      returns: Vec::new(),
-    }
+impl Default for BlockIRNode {
+  fn default() -> Self {
+    BlockIRNode::new(None)
   }
 }
 
+#[napi(object, js_name = "RootIRNode")]
 pub struct RootIRNode {
   pub _type: IRNodeTypes,
   pub node: Object<'static>,
@@ -107,13 +90,11 @@ pub struct RootIRNode {
   pub root_template_index: Option<i32>,
   pub component: HashSet<String>,
   pub directive: HashSet<String>,
-  pub block: RefCell<Weak<RefCell<_BlockIRNode>>>,
+  pub block: BlockIRNode,
   pub has_template_ref: bool,
 }
-
 impl RootIRNode {
   pub fn new(node: Object<'static>, source: String, templates: Vec<String>) -> Self {
-    let block = Rc::new(RefCell::new(_BlockIRNode::new(node)));
     let root = RootIRNode {
       _type: IRNodeTypes::ROOT,
       node,
@@ -121,11 +102,10 @@ impl RootIRNode {
       templates,
       component: HashSet::new(),
       directive: HashSet::new(),
-      block: RefCell::new(Weak::new()),
+      block: BlockIRNode::new(Some(node)),
       has_template_ref: false,
       root_template_index: None,
     };
-    *root.block.borrow_mut() = Rc::downgrade(&block);
     root
   }
 }
@@ -136,8 +116,7 @@ pub struct IfIRNode {
   pub _type: IRNodeTypes,
   pub id: i32,
   pub condition: SimpleExpressionNode,
-  #[napi(ts_type = "BlockIRNode")]
-  pub positive: Object<'static>,
+  pub positive: BlockIRNode,
   #[napi(ts_type = "BlockIRNode | IfIRNode")]
   pub negative: Option<MyBox<Either<BlockIRNode, IfIRNode>>>,
   pub once: Option<bool>,
@@ -164,7 +143,7 @@ pub struct ForIRNode {
   pub _type: IRNodeTypes,
   pub id: i32,
   pub key_prop: Option<SimpleExpressionNode>,
-  pub render: Object<'static>,
+  pub render: BlockIRNode,
   pub once: bool,
   pub component: bool,
   pub only_child: bool,
@@ -361,36 +340,44 @@ pub type OperationNode = Either18<
 pub type IRNode = Either<OperationNode, RootIRNode>;
 
 #[napi]
+pub enum _DynamicFlag {
+  NONE = 0,
+  REFERENCED = 1,
+  NON_TEMPLATE = 2,
+  INSERT = 4,
+}
+
 pub enum DynamicFlag {
   NONE = 0,
   // This node is referenced and needs to be saved as a variable.
-  REFERENCED = 1,
+  REFERENCED = 1 << 0,
   // This node is not generated from template, but is generated dynamically.
-  NON_TEMPLATE = 2,
-  A = 3,
+  NON_TEMPLATE = 1 << 1,
+  // const REFERENCED_AND_NON_TEMPLATE = 3;
   // This node needs to be inserted back into the template.
-  INSERT = 4,
-  B = 5,
-  C = 6,
-  D = 7,
+  INSERT = 1 << 2,
+  // REFERENCED_AND_INSERT = 5,
+  // NONE_TEMPLAET_AND_INSERT = 6,
+  // REFERENCED_AND_NON_TEMPLATE_AND_INSERT = 7,
 }
 
 #[napi(object, js_name = "IRDynamicInfo")]
 pub struct IRDynamicInfo {
   pub id: Option<i32>,
-  pub flags: DynamicFlag,
+  pub flags: i32,
   pub anchor: Option<i32>,
   pub children: Vec<IRDynamicInfo>,
   pub template: Option<i32>,
   pub has_dynamic_child: Option<bool>,
-  #[napi(ts_type = "OperationNode")]
   pub operation: Option<MyBox<OperationNode>>,
+  // pub parent: RefCell<Weak<IRDynamicInfo>>,
 }
 impl IRDynamicInfo {
   pub fn new() -> Self {
     IRDynamicInfo {
-      flags: DynamicFlag::REFERENCED,
+      flags: DynamicFlag::REFERENCED as i32,
       children: Vec::new(),
+      // parent: RefCell::new(Weak::new()),
       template: None,
       has_dynamic_child: None,
       operation: None,
@@ -399,29 +386,9 @@ impl IRDynamicInfo {
     }
   }
 }
-
-pub struct _IRDynamicInfo {
-  pub id: Option<i32>,
-  pub flags: DynamicFlag,
-  pub anchor: Option<i32>,
-  pub children: Vec<_IRDynamicInfo>,
-  pub template: Option<i32>,
-  pub has_dynamic_child: Option<bool>,
-  pub operation: Option<MyBox<OperationNode>>,
-  pub parent: RefCell<Weak<IRDynamicInfo>>,
-}
-impl _IRDynamicInfo {
-  pub fn new() -> Self {
-    _IRDynamicInfo {
-      flags: DynamicFlag::REFERENCED,
-      children: Vec::new(),
-      parent: RefCell::new(Weak::new()),
-      template: None,
-      has_dynamic_child: None,
-      operation: None,
-      id: None,
-      anchor: None,
-    }
+impl Default for IRDynamicInfo {
+  fn default() -> Self {
+    Self::new()
   }
 }
 
@@ -457,12 +424,21 @@ pub struct DirectiveNode {
 pub type InsertionStateTypes = Either3<IfIRNode, ForIRNode, CreateComponentIRNode>;
 
 #[napi[ts_return_type = "op is InsertionStateTypes"]]
-pub fn is_block_operation(#[napi(ts_arg_type = "OperationNode")] op: Object) -> bool {
+pub fn _is_block_operation(#[napi(ts_arg_type = "OperationNode")] op: Object) -> bool {
   let _type = op.get::<IRNodeTypes>("type").ok().flatten();
   match _type {
     Some(IRNodeTypes::CREATE_COMPONENT_NODE) => true,
     Some(IRNodeTypes::IF) => true,
     Some(IRNodeTypes::FOR) => true,
+    _ => false,
+  }
+}
+
+pub fn is_block_operation(op: &OperationNode) -> bool {
+  match op {
+    Either18::A(_) => true,
+    Either18::B(_) => true,
+    Either18::O(_) => true,
     _ => false,
   }
 }

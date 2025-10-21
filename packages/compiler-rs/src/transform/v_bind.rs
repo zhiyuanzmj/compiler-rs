@@ -1,10 +1,13 @@
+use std::rc::Rc;
+
 use napi::{
-  Env, Result,
+  Result,
   bindgen_prelude::{JsObjectValue, Object},
 };
 
 use crate::{
-  transform::DirectiveTransformResult,
+  ir::index::BlockIRNode,
+  transform::{DirectiveTransformResult, TransformContext},
   utils::{
     check::is_reserved_prop,
     expression::{create_simple_expression, resolve_expression},
@@ -15,7 +18,8 @@ use crate::{
 pub fn transform_v_bind(
   dir: Object,
   _: Object,
-  context: Object,
+  context: &Rc<TransformContext>,
+  _: &mut BlockIRNode,
 ) -> Result<Option<DirectiveTransformResult>> {
   let name = dir.get_named_property::<Object>("name")?;
   let value = dir.get_named_property::<Object>("value");

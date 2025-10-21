@@ -46,7 +46,7 @@ describe('v-html', () => {
     expect(helpers).contains('setHtml')
 
     // children should have been removed
-    expect(ir.templates).toEqual(['<div>hello</div>'])
+    expect(ir.templates).toEqual(['<div></div>'])
 
     expect(ir.block.operation).toMatchObject([])
     expect(ir.block.effect).toMatchObject([
@@ -70,7 +70,7 @@ describe('v-html', () => {
     ])
 
     // children should have been removed
-    expect(templates).includes('_template("<div>hello</div>", true)')
+    expect(templates).includes('_template("<div></div>", true)')
   })
 
   test('should raise error if has no expression', () => {
