@@ -49,7 +49,7 @@
   },
   "scripts": {
     "artifacts": "napi artifacts",
-    "bench": "node --import @oxc-node/core/register benchmark/bench.ts",
+    "bench": "node benchmark/bench.js",
     "build": "napi build --platform --release",
     "dev": "nodemon -w src -e rs -x 'napi build --platform'",
     "format": "run-p format:prettier format:rs format:toml",

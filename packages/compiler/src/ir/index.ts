@@ -1,12 +1,11 @@
 export {
-  CreateNodesIRNode,
   _DynamicFlag as DynamicFlag,
-  IRNode,
   IRNodeTypes,
   isBlockOperation,
   type BaseIRNode,
   type BlockIRNode,
   type CreateComponentIRNode,
+  type CreateNodesIRNode,
   type DeclareOldRefIRNode,
   type DirectiveIRNode,
   type DirectiveNode,

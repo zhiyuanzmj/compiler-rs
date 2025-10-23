@@ -20,7 +20,7 @@ export function makeCompile(options: CompilerOptions = {}) {
       source,
       templates: [],
       withFallback: false,
-      isTs: true,
+      isTS: true,
       sourceMap: false,
       isCustomElement: () => false,
       onError: (e: any) => {

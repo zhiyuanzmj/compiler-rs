@@ -30,7 +30,6 @@ pub fn is_member_expression(exp: &SimpleExpressionNode) -> bool {
 
 macro_rules! def_literal_checker {
   ($name:ident, $type:ty, $ts_return_type: literal) => {
-    #[napi(ts_args_type = "node?: import('oxc-parser').Node | undefined | null", ts_return_type = $ts_return_type)]
     pub fn $name(node: Option<Object>) -> bool {
       let Some(node) = node else { return false };
       if let Ok(Some(type_value)) = node.get::<String>("type") {

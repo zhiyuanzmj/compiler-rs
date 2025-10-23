@@ -59,6 +59,7 @@ pub struct TransformOptions {
   /**
    * Indicates that transforms and codegen should try to output valid TS code
    */
+  #[napi(js_name = "isTS")]
   pub is_ts: bool,
   /**
    * Separate option for end users to extend the native elements list

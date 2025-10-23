@@ -337,9 +337,6 @@ pub type OperationNode = Either18<
 >;
 
 #[napi]
-pub type IRNode = Either<OperationNode, RootIRNode>;
-
-#[napi]
 pub enum _DynamicFlag {
   NONE = 0,
   REFERENCED = 1,

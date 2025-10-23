@@ -199,9 +199,6 @@ export interface IRFor {
   index?: SimpleExpressionNode
 }
 
-export type IRNode =
-  OperationNode | RootIRNode
-
 export declare const enum IRNodeTypes {
   ROOT = 'ROOT',
   BLOCK = 'BLOCK',
@@ -305,8 +302,6 @@ export declare const enum IRSlotType {
   EXPRESSION = 4
 }
 
-export declare function isBigIntLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').BigIntLiteral
-
 export declare function isBlockOperation(op: OperationNode): op is InsertionStateTypes
 
 export declare function isConstantExpression(exp: SimpleExpressionNode): boolean
@@ -318,10 +313,6 @@ export declare function isEmptyText(node: object): boolean
 export declare function isJSXComponent(node: import('oxc-parser').Node): boolean
 
 export declare function isMemberExpression(exp: SimpleExpressionNode): boolean
-
-export declare function isNumericLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').NumericLiteral
-
-export declare function isStringLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').StringLiteral
 
 export const locStub: SourceLocation
 
@@ -445,7 +436,7 @@ export interface TransformOptions {
   withFallback: boolean
   /** * Indicates that transforms and codegen should try to output valid TS code
    */
-  isTs: boolean
+  isTS: boolean
   /** * Separate option for end users to extend the native elements list
    */
   isCustomElement: (arg: string) => boolean

@@ -1,7 +1,3 @@
-import {
-  CompilerError,
-  createCompilerError,
-  ErrorCodes,
-} from '@vue-jsx-vapor/compiler-rs'
+import { CompilerError, ErrorCodes } from '@vue-jsx-vapor/compiler-rs'
 
-export { CompilerError, createCompilerError, ErrorCodes }
+export { CompilerError, ErrorCodes }

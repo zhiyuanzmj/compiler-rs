@@ -1,6 +1,5 @@
 export {
   IRDynamicPropsKind,
-  IRSlotsExpression,
   IRSlotType,
   type IRProp,
   type IRProps,
@@ -12,5 +11,6 @@ export {
   type IRSlotDynamicConditional,
   type IRSlotDynamicLoop,
   type IRSlots,
+  type IRSlotsExpression,
   type IRSlotsStatic,
 } from '@vue-jsx-vapor/compiler-rs'

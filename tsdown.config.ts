@@ -6,7 +6,7 @@ export const config = (options: Options = {}) =>
   defineConfig({
     entry: ['./src/*.ts', '!./**.d.ts'],
     clean: true,
-    format: ['cjs', 'esm'],
+    format: 'esm',
     watch: !!process.env.DEV,
     dts: !process.env.DEV,
     external: ['vue'],

@@ -1,6 +1,7 @@
 import type { SimpleExpressionNode } from '../ir'
 import { unwrapTSNode } from './utils'
 import type {
+  BigIntLiteral,
   Expression,
   ForInStatement,
   ForOfStatement,
@@ -9,15 +10,28 @@ import type {
   IdentifierName,
   Node,
   ObjectProperty,
+  StringLiteral,
 } from 'oxc-parser'
 export {
-  isBigIntLiteral,
+  // isBigIntLiteral,
   isConstantNode,
   isJSXComponent,
   isMemberExpression,
-  isNumericLiteral,
-  isStringLiteral,
+  // isNumericLiteral,
+  // isStringLiteral,
 } from '@vue-jsx-vapor/compiler-rs'
+
+export const isStringLiteral = (node: Node): node is StringLiteral => {
+  return node.type === 'Literal' && typeof node.value === 'string'
+}
+
+export const isBigIntLiteral = (node: Node): node is BigIntLiteral => {
+  return node.type === 'Literal' && typeof node.value === 'bigint'
+}
+
+export const isNumberLiteral = (node: Node) => {
+  return node.type === 'Literal' && typeof node.value === 'number'
+}
 
 const nonIdentifierRE = /^$|^\d|[^$\w\u00A0-\uFFFF]/
 export const isSimpleIdentifier = (name: string): boolean =>
