@@ -110,7 +110,6 @@ const { instance: __napiInstance, module: __wasiModule, napiModule: __napiModule
 module.exports = __napiModule.exports
 module.exports._DynamicFlag = __napiModule.exports._DynamicFlag
 module.exports.camelize = __napiModule.exports.camelize
-module.exports.createCompilerError = __napiModule.exports.createCompilerError
 module.exports.createSimpleExpression = __napiModule.exports.createSimpleExpression
 module.exports.EMPTY_EXPRESSION = __napiModule.exports.EMPTY_EXPRESSION
 module.exports.ErrorCodes = __napiModule.exports.ErrorCodes

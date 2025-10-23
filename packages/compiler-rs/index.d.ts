@@ -42,8 +42,6 @@ export interface CompilerError extends SyntaxError {
   loc?: SourceLocation
 }
 
-export declare function createCompilerError(code: ErrorCodes, loc?: SourceLocation | undefined | null): CompilerError
-
 export interface CreateComponentIRNode {
   type: IRNodeTypes.CREATE_COMPONENT_NODE
   id: number

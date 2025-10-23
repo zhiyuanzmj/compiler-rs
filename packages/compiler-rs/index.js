@@ -559,7 +559,6 @@ if (!nativeBinding) {
 module.exports = nativeBinding
 module.exports._DynamicFlag = nativeBinding._DynamicFlag
 module.exports.camelize = nativeBinding.camelize
-module.exports.createCompilerError = nativeBinding.createCompilerError
 module.exports.createSimpleExpression = nativeBinding.createSimpleExpression
 module.exports.EMPTY_EXPRESSION = nativeBinding.EMPTY_EXPRESSION
 module.exports.ErrorCodes = nativeBinding.ErrorCodes

@@ -64,7 +64,7 @@ pub struct TransformOptions {
    * Separate option for end users to extend the native elements list
    */
   pub is_custom_element: Function<'static, String, bool>,
-  pub on_error: Function<'static, CompilerError, ()>,
+  pub on_error: Function<'static, Object<'static>, ()>,
   /**
    * Generate source map?
    * @default false

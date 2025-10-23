@@ -124,7 +124,6 @@ pub struct CompilerError {
   pub loc: Option<SourceLocation>,
 }
 
-#[napi(ts_return_type = "CompilerError")]
 pub fn create_compiler_error<'a>(
   env: &'a Env,
   code: ErrorCodes,

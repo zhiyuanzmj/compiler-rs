@@ -58,7 +58,6 @@ const {
 export default __napiModule.exports
 export const _DynamicFlag = __napiModule.exports._DynamicFlag
 export const camelize = __napiModule.exports.camelize
-export const createCompilerError = __napiModule.exports.createCompilerError
 export const createSimpleExpression = __napiModule.exports.createSimpleExpression
 export const EMPTY_EXPRESSION = __napiModule.exports.EMPTY_EXPRESSION
 export const ErrorCodes = __napiModule.exports.ErrorCodes
