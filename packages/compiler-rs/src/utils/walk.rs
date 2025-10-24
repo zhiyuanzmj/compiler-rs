@@ -187,15 +187,3 @@ pub fn walk(ast: Object<'static>, enter: SyncHandler, leave: SyncHandler) {
   let mut i = SyncWalker::new(Box::new(enter), Box::new(leave));
   i.visit(ast, None, None, None).unwrap();
 }
-
-
-/**
- * Modified from https://github.com/vuejs/core/blob/main/packages/compiler-core/src/babelUtils.ts
- * To support browser environments and JSX.
- *
- * https://github.com/vuejs/core/blob/main/LICENSE
- */
-
-/**
- * Return value indicates whether the AST walked can be a constant
- */
