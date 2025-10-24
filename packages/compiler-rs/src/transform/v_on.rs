@@ -17,6 +17,8 @@ use crate::{
   },
 };
 
+static EVENT_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^on([A-Z])").unwrap());
+
 pub fn transform_v_on(
   dir: Object,
   node: Object,
@@ -28,8 +30,7 @@ pub fn transform_v_on(
   };
   let is_component = is_jsx_component(node);
 
-  let regex = Regex::new(r"^on([A-Z])").unwrap();
-  let replaced = regex.replace(&get_text(name, context), |caps: &regex::Captures| {
+  let replaced = EVENT_REGEX.replace(&get_text(name, context), |caps: &regex::Captures| {
     format!("on{}", caps[1].to_lowercase())
   })[2..]
     .to_string();

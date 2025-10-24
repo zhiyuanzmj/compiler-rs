@@ -131,7 +131,7 @@ export function genEffects(
   }
 
   if (genExtraFrag) {
-    push(...context.withId(genExtraFrag, {}))
+    push(...genExtraFrag())
   }
 
   return frag

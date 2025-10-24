@@ -1,7 +1,12 @@
-use std::{collections::HashSet, rc::Rc, sync::LazyLock};
+use std::{collections::HashSet, path::Path, rc::Rc, sync::LazyLock};
 
-use napi::{JsValue, ValueType, bindgen_prelude::Object};
+use napi::{JsValue, Result, ValueType, bindgen_prelude::Object};
 use napi_derive::napi;
+
+use oxc_allocator::Allocator;
+use oxc_ast::ast::{Expression, Statement};
+use oxc_parser::{ParseOptions, Parser};
+use oxc_span::SourceType;
 
 use crate::{
   ir::index::{SimpleExpressionNode, SourceLocation},
@@ -166,4 +171,26 @@ pub fn _get_literal_expression_value(exp: &SimpleExpressionNode) -> Option<Strin
   } else {
     None
   }
+}
+
+fn parse_expression<'a>(source: &'a str, filename: &str, allocator: &'a Allocator) -> Result<()> {
+  let source_type = SourceType::from_path(Path::new(&filename)).unwrap();
+  let allocator = Allocator::default();
+  let root = Parser::new(&allocator, &source, source_type)
+    .with_options(ParseOptions {
+      parse_regular_expression: true,
+      ..ParseOptions::default()
+    })
+    .parse();
+  let Statement::ExpressionStatement(stmt) = root.program.body.get(0).unwrap() else {
+    panic!("Expected ExpressionStatement");
+  };
+  let children = match &stmt.expression {
+    Expression::JSXFragment(j) => &j.children,
+    Expression::JSXElement(j) => &j.children,
+    _ => {
+      panic!("Expected ExpressionStatement")
+    }
+  };
+  Ok(())
 }

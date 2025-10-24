@@ -140,6 +140,15 @@ export interface ForIRNode {
   anchor?: number
 }
 
+export type Fragment =
+  [string, NewlineType | undefined | null, SourceLocation | undefined | null, string | undefined | null]
+
+export declare const enum FragmentSymbol {
+  Newline = 0,
+  IndentStart = 1,
+  IndentEnd = 2
+}
+
 export declare function getExpression(node: import('oxc-parser').Node): import('oxc-parser').Node
 
 export declare function getLiteralExpressionValue(exp: SimpleExpressionNode): string | null
@@ -322,6 +331,20 @@ export interface Modifiers {
   nonKeys: Array<string>
 }
 
+export declare const enum NewlineType {
+  /** Start with `
+  `  */
+  Start = 0,
+  /** Ends with `
+  `  */
+  End = -1,
+  /** No `
+  ` included  */
+  None = -2,
+  /** Don't know, calc it  */
+  Unknown = -3
+}
+
 export type OperationNode =
   IfIRNode | ForIRNode | SetTextIRNode | SetPropIRNode | SetDynamicPropsIRNode | SetDynamicEventsIRNode | SetNodesIRNode | SetEventIRNode | SetHtmlIRNode | SetTemplateRefIRNode | CreateNodesIRNode | InsertNodeIRNode | PrependNodeIRNode | DirectiveIRNode | CreateComponentIRNode | DeclareOldRefIRNode | SlotOutletIRNode | GetTextChildIRNode
 
@@ -424,6 +447,8 @@ export interface SlotOutletIRNode {
 
 export type SourceLocation =
   [number, number]
+
+export declare function toValidAssetId(name: string, type: string): string
 
 export declare function transform(node: object, options: TransformOptions): RootIRNode
 

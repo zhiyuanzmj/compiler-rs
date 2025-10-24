@@ -1,23 +1,17 @@
+import { FragmentSymbol, NewlineType } from '@vue-jsx-vapor/compiler-rs'
 import { isArray, isString } from '@vue/shared'
 import { SourceMapGenerator } from 'source-map-js'
 import type { CodegenContext } from '../generate'
 import type { SourceLocation } from '../ir'
 import { locStub } from './expression'
 
-export const NEWLINE: unique symbol = Symbol(`newline`)
-export const INDENT_START: unique symbol = Symbol(`indent start`)
-export const INDENT_END: unique symbol = Symbol(`indent end`)
+export { toValidAssetId } from '@vue-jsx-vapor/compiler-rs'
 
-export enum NewlineType {
-  /** Start with `\n` */
-  Start = 0,
-  /** Ends with `\n` */
-  End = -1,
-  /** No `\n` included */
-  None = -2,
-  /** Don't know, calc it */
-  Unknown = -3,
-}
+export { FragmentSymbol, NewlineType }
+
+export const NEWLINE = 1 as const
+export const INDENT_START = 2 as const
+export const INDENT_END = 3 as const
 
 interface CodegenSourceMapGenerator {
   setSourceContent: (sourceFile: string, sourceContent: string) => void
@@ -69,13 +63,12 @@ export type CodeFragment =
   | FalsyValue
 export type CodeFragments = Exclude<CodeFragment, any[]> | CodeFragment[]
 
-export function buildCodeFragment(
-  ...frag: CodeFragment[]
-): [
+export function buildCodeFragment(): [
   CodeFragment[],
   (...items: CodeFragment[]) => number,
   (...items: CodeFragment[]) => number,
 ] {
+  const frag: CodeFragment[] = []
   const push = frag.push.bind(frag)
   const unshift = frag.unshift.bind(frag)
   return [frag, push, unshift]

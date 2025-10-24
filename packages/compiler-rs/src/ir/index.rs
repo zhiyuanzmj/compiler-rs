@@ -9,6 +9,7 @@ use napi::{
   bindgen_prelude::{Either3, Either5, Either18, Object},
 };
 use napi_derive::napi;
+use oxc_ast::ast::JSXChild;
 
 use crate::{
   ir::component::{IRProp, IRProps, IRSlots},
@@ -48,6 +49,11 @@ pub enum IRNodeTypes {
 #[napi(object, js_name = "BaseIRNode")]
 pub struct BaseIRNode {
   pub _type: IRNodeTypes,
+}
+
+pub struct RootNode<'a> {
+  pub _type: IRNodeTypes,
+  pub children: &'a oxc_allocator::Vec<'a, JSXChild<'a>>,
 }
 
 #[napi(object, js_name = "BlockIRNode")]
@@ -405,6 +411,17 @@ pub struct SimpleExpressionNode {
   pub loc: Option<SourceLocation>,
   #[napi(ts_type = "import('oxc-parser').Node")]
   pub ast: Option<Object<'static>>,
+}
+
+impl Default for SimpleExpressionNode {
+  fn default() -> Self {
+    Self {
+      content: String::new(),
+      is_static: true,
+      loc: None,
+      ast: None,
+    }
+  }
 }
 
 #[napi(object)]

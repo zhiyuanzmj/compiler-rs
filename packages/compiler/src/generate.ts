@@ -1,3 +1,4 @@
+import { CodegenOptions } from '@vue-jsx-vapor/compiler-rs'
 import { extend, remove } from '@vue/shared'
 import { genBlockContent } from './generators/block'
 import { genTemplates } from './generators/template'
@@ -10,7 +11,6 @@ import {
   NEWLINE,
 } from './utils/generate'
 import type { BlockIRNode, RootIRNode, SimpleExpressionNode } from './ir'
-import type { CodegenOptions } from '@vue-jsx-vapor/compiler-rs'
 
 import type { RawSourceMap } from 'source-map-js'
 
@@ -100,7 +100,7 @@ export function generate(
       `const ${setTemplateRefIdent} = ${context.helper('createTemplateRefSetter')}()`,
     )
   }
-  push(...genBlockContent(ir.block, context, true))
+  push(...genBlockContent(context.block, context, true))
   push(INDENT_END, NEWLINE)
 
   if (context.delegates.size) {
