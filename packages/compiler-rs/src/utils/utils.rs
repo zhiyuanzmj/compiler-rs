@@ -1,6 +1,6 @@
 use napi::{
-  Either, Result,
-  bindgen_prelude::{Array, JsObjectValue, Object},
+  Either,
+  bindgen_prelude::{JsObjectValue, Object},
 };
 use napi_derive::napi;
 

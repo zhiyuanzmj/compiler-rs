@@ -28,14 +28,7 @@ bench.add('Native', () => {
 })
 
 bench.add('JavaScript', () => {
-  jsCompile(
-    `<Comp v-test>
-    <div v-if="true">
-      <Bar v-hello_world />
-    </div>
-  </Comp>`,
-    options,
-  )
+  jsCompile(source, options)
 })
 
 await bench.run()

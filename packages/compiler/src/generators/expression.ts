@@ -37,17 +37,11 @@ export function genExpression(
   }
 
   const ids: IdentifierName[] = []
-  const parentStackMap = new Map<IdentifierName, Node[]>()
-  const parentStack: Node[] = []
-  walkIdentifiers(
-    ast!,
-    (id) => {
-      ids.push(id)
-      parentStackMap.set(id, parentStack.slice())
-    },
-    false,
-    parentStack,
-  )
+  const parentMap = new Map<IdentifierName, Node>()
+  walkIdentifiers(ast!, (id, parent) => {
+    ids.push(id)
+    parentMap.set(id, parent)
+  })
 
   let hasMemberExpression = false
   if (ids.length) {
@@ -71,8 +65,7 @@ export function genExpression(
         }
 
         const source = content.slice(start, end)
-        const parentStack = parentStackMap.get(id)!
-        const parent = parentStack.at(-1)
+        const parent = parentMap.get(id)!
 
         hasMemberExpression ||= !!parent && parent.type === 'MemberExpression'
 

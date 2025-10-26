@@ -49,7 +49,6 @@
   },
   "scripts": {
     "artifacts": "napi artifacts",
-    "bench": "node benchmark/bench.js",
     "build": "napi build --platform --release",
     "dev": "nodemon -w src -e rs -x 'napi build --platform'",
     "format": "run-p format:prettier format:rs format:toml",

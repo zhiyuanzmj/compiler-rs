@@ -316,4 +316,25 @@ describe('compiler: v-for', () => {
       (ir.block.dynamic.children[0].operation as ForIRNode).component,
     ).toBe(true)
   })
+
+  test('v-for identifiers', () => {
+    const { code } = compileWithVFor(
+      `<div v-for={(item, index) in items} id={index}>
+        { ((item) => {
+          let index = 1
+          return [item, index]
+        })(item) }
+        { (() => {
+          switch (item) {
+            case index: {
+              let item = ''
+              return \`\${[item, index]}\`;
+            }
+          }
+        })() }
+      </div>`,
+    )
+
+    expect(code).toMatchSnapshot()
+  })
 })

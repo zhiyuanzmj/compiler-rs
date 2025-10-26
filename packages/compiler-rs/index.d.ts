@@ -124,6 +124,8 @@ export declare const enum ErrorCodes {
   X_V_SHOW_NO_EXPRESSION = 61
 }
 
+export declare function extractIdentifiers(node: object, identifiers: Array<object>): Array<object>
+
 export interface ForIRNode {
   source: SimpleExpressionNode
   value?: SimpleExpressionNode
@@ -188,7 +190,7 @@ export interface IRDynamicInfo {
   children: Array<IRDynamicInfo>
   template?: number
   hasDynamicChild?: boolean
-  operation?: MyBox<OperationNode>
+  operation?: OperationNode | null
 }
 
 export declare const enum IRDynamicPropsKind {
@@ -311,6 +313,8 @@ export declare const enum IRSlotType {
   EXPRESSION = 4
 }
 
+export declare function isBigIntLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').BigIntLiteral
+
 export declare function isBlockOperation(op: OperationNode): op is InsertionStateTypes
 
 export declare function isConstantExpression(exp: SimpleExpressionNode): boolean
@@ -319,9 +323,36 @@ export declare function isConstantNode(node?: object | undefined | null): boolea
 
 export declare function isEmptyText(node: object): boolean
 
+export declare function isFnExpression(exp: SimpleExpressionNode): boolean
+
+export declare function isForStatement(node: object): boolean
+
+/** * Checks if the given node is a function type.
+ *
+ * @param node - The node to check.
+ * @returns True if the node is a function type, false otherwise.
+ */
+export declare function isFunctionType(node: object): boolean
+
+export declare function isIdentifier(node: object): boolean
+
+export declare function isInDestructureAssignment(parent: object | undefined | null, parentStack: Array<object>): boolean
+
 export declare function isJSXComponent(node: import('oxc-parser').Node): boolean
 
 export declare function isMemberExpression(exp: SimpleExpressionNode): boolean
+
+export declare function isNumericLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').NumericLiteral
+
+export declare function isReferenced(node: object, parent: object, grandparent?: object | undefined | null): boolean
+
+export declare function isReferencedIdentifier(id: object, parent: object | undefined | null, parentStack: Array<object>): boolean
+
+export declare function isSimpleIdentifier(name: string): boolean
+
+export declare function isStaticProperty(node?: object | undefined | null): boolean
+
+export declare function isStringLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').StringLiteral
 
 export const locStub: SourceLocation
 
@@ -448,6 +479,9 @@ export interface SlotOutletIRNode {
 export type SourceLocation =
   [number, number]
 
+export type SyncHandler<T = object> =
+  (arg0: T, arg1?: T | undefined | null, arg2?: string | undefined | null, arg3?: number | undefined | null) => boolean | object | null
+
 export declare function toValidAssetId(name: string, type: string): string
 
 export declare function transform(node: object, options: TransformOptions): RootIRNode
@@ -480,3 +514,19 @@ export interface TransformOptions {
 export const TS_NODE_TYPES: string[]
 
 export declare function unwrapTSNode(node: import('oxc-parser').Node): import('oxc-parser').Node
+
+export declare function walk(ast: object, options: WalkOptions): object | null
+
+/** * Modified from https://github.com/vuejs/core/blob/main/packages/compiler-core/src/babelUtils.ts
+ * To support browser environments and JSX.
+ *
+ * https://github.com/vuejs/core/blob/main/LICENSE
+ *
+ * Return value indicates whether the AST walked can be a constant
+ */
+export declare function walkIdentifiers(root: object, onIdentifier: any, includeAll?: boolean | undefined | null, parentStack?: Array<object> | undefined | null, knownIds?: Record<string, number> | undefined | null): void
+
+export interface WalkOptions {
+  enter?: SyncHandler<object>
+  leave?: SyncHandler<object>
+}

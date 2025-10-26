@@ -1,3 +1,4 @@
+import { walk } from '@vue-jsx-vapor/compiler-rs'
 import { extend, isGloballyAllowed } from '@vue/shared'
 import {
   IRNodeTypes,
@@ -398,7 +399,7 @@ function matchSelectorPattern(
     if (typeof ast === 'object') {
       const matcheds: [key: Expression, selector: Expression][] = []
 
-      walkAST(ast, {
+      walk(ast, {
         enter(node: Node) {
           if (
             typeof node === 'object' &&
@@ -531,11 +532,10 @@ function analyzeVariableScopes(
 
 function isKeyOnlyBinding(expr: Node, key: string, source: string) {
   let only = true
-  walkAST(expr, {
+  walk(expr, {
     enter(node) {
       if (source.slice(node.start, node.end) === key) {
-        this.skip()
-        return
+        return true
       }
       if (node.type === 'Identifier') {
         only = false

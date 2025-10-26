@@ -3,6 +3,7 @@ pub mod directive;
 pub mod dom;
 pub mod error;
 pub mod expression;
+pub mod extract;
 pub mod my_box;
 pub mod text;
 pub mod utils;

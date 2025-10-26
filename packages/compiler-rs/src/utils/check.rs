@@ -1,14 +1,18 @@
-use std::{collections::HashSet, sync::LazyLock};
+use std::{
+  collections::{HashMap, HashSet},
+  sync::LazyLock,
+};
 
 use napi::{
-  JsValue, ValueType,
-  bindgen_prelude::{BigInt, JsObjectValue, Object},
+  Env, JsValue, Result, ValueType,
+  bindgen_prelude::{BigInt, FnArgs, Function, JsObjectValue, JsValuesTuple, Object},
 };
 use napi_derive::napi;
+use regex::Regex;
 
 use crate::{
   ir::index::SimpleExpressionNode,
-  utils::{expression::is_globally_allowed, text::get_text, utils::unwrap_ts_node},
+  utils::{expression::is_globally_allowed, utils::unwrap_ts_node},
 };
 
 #[napi]
@@ -30,6 +34,7 @@ pub fn is_member_expression(exp: &SimpleExpressionNode) -> bool {
 
 macro_rules! def_literal_checker {
   ($name:ident, $type:ty, $ts_return_type: literal) => {
+    #[napi(ts_args_type = "node?: import('oxc-parser').Node | undefined | null", ts_return_type = $ts_return_type)]
     pub fn $name(node: Option<Object>) -> bool {
       let Some(node) = node else { return false };
       if let Ok(Some(type_value)) = node.get::<String>("type") {
@@ -423,4 +428,319 @@ static BUILD_IN_DIRECTIVE: [&str; 15] = [
 ];
 pub fn is_build_in_directive(prop_name: &str) -> bool {
   BUILD_IN_DIRECTIVE.contains(&prop_name)
+}
+
+static NON_IDENTIFIER_RE: LazyLock<Regex> =
+  LazyLock::new(|| Regex::new(r"^$|^\d|[^$\w\x{00A0}-\x{FFFF}]").unwrap());
+#[napi]
+pub fn is_simple_identifier(name: String) -> bool {
+  !NON_IDENTIFIER_RE.is_match(&name)
+}
+
+#[napi]
+pub fn is_fn_expression(exp: SimpleExpressionNode) -> bool {
+  let Some(mut ast) = exp.ast else {
+    return false;
+  };
+  ast = unwrap_ts_node(ast);
+  let Ok(_type) = ast.get_named_property::<String>("type") else {
+    return false;
+  };
+  _type.eq("FunctionExpression") || _type.eq("ArrowFunctionExpression")
+}
+
+static FUNCTION_TYPE_RE: LazyLock<Regex> =
+  LazyLock::new(|| Regex::new(r"Function(?:Expression|Declaration)$|Method$").unwrap());
+/**
+ * Checks if the given node is a function type.
+ *
+ * @param node - The node to check.
+ * @returns True if the node is a function type, false otherwise.
+ */
+#[napi]
+pub fn is_function_type(node: Object) -> bool {
+  let Ok(node_type) = node.get_named_property::<String>("type") else {
+    return false;
+  };
+  !node_type.starts_with("TS") && FUNCTION_TYPE_RE.is_match(&node_type)
+}
+
+#[napi]
+pub fn is_identifier(node: Object) -> bool {
+  let Ok(node_type) = node.get_named_property::<String>("type") else {
+    return false;
+  };
+  node_type == "Identifier" || node_type == "JSXIdentifier"
+}
+
+#[napi]
+pub fn is_static_property(node: Option<Object>) -> bool {
+  let Some(node) = node else {
+    return false;
+  };
+  let Ok(node_type) = node.get_named_property::<String>("type") else {
+    return false;
+  };
+  node_type == "Property" && !node.get_named_property::<bool>("computed").unwrap_or(true)
+}
+
+#[napi]
+pub fn is_for_statement(node: Object) -> bool {
+  let Ok(node_type) = node.get_named_property::<String>("type") else {
+    return false;
+  };
+  node_type == "ForOfStatement" || node_type == "ForInStatement" || node_type == "ForStatement"
+}
+
+// Checks if the input `node` is a reference to a bound variable.
+//
+// Copied from https://github.com/babel/babel/blob/main/packages/babel-types/src/validators/isReferenced.ts
+//
+// @param node - The node to check.
+// @param parent - The parent node of the input `node`.
+// @param grandparent - The grandparent node of the input `node`.
+// @returns True if the input `node` is a reference to a bound variable, false otherwise.
+#[napi]
+pub fn is_referenced(
+  env: Env,
+  node: Object,
+  parent: Object,
+  grandparent: Option<Object>,
+) -> Result<bool> {
+  let parent_type = parent.get_named_property::<String>("type")?;
+  Ok(match parent_type.as_str() {
+    // yes: PARENT[NODE]
+    // yes: NODE.child
+    // no: parent.NODE
+    "MemberExpression" => {
+      if env.strict_equals(parent.get_named_property::<Object>("property")?, node)? {
+        parent.get_named_property::<bool>("computed")?
+      } else {
+        env.strict_equals(parent.get_named_property::<Object>("object")?, node)?
+      }
+    }
+
+    "JSXMemberExpression" => {
+      env.strict_equals(parent.get_named_property::<Object>("object")?, node)?
+    }
+
+    // no: let NODE = init;
+    // yes: let id = NODE;
+    "VariableDeclarator" => {
+      env.strict_equals(parent.get_named_property::<Object>("init")?, node)?
+    }
+
+    // yes: () => NODE
+    // no: (NODE) => {}
+    "ArrowFunctionExpression" => {
+      env.strict_equals(parent.get_named_property::<Object>("body")?, node)?
+    }
+
+    // no: class { #NODE; }
+    // no: class { get #NODE() {} }
+    // no: class { #NODE() {} }
+    // no: class { fn() { return this.#NODE; } }
+    "PrivateIdentifier" => false,
+
+    // no: class { NODE() {} }
+    // yes: class { [NODE]() {} }
+    // no: class { foo(NODE) {} }
+    "MethodDefinition" => {
+      if env.strict_equals(parent.get_named_property::<Object>("key")?, node)? {
+        parent.get_named_property::<bool>("computed")?
+      } else {
+        false
+      }
+    }
+
+    // yes: { [NODE]: "" }
+    // no: { NODE: "" }
+    // depends: { NODE }
+    // depends: { key: NODE }
+    //
+    // no: class { NODE = value; }
+    // yes: class { [NODE] = value; }
+    // yes: class { key = NODE; }
+    "Property" | "AccessorProperty" => {
+      let key = parent.get_named_property::<Object>("key")?;
+      if key
+        .get_named_property::<String>("type")?
+        .eq("PrivateIdentifier")
+      {
+        !env.strict_equals(parent.get_named_property::<Object>("key")?, node)?
+      } else if env.strict_equals(key, node)? {
+        parent.get_named_property::<bool>("computed")?
+      }
+      // parent.value === node
+      else if let Some(grandparent) = grandparent {
+        !grandparent
+          .get_named_property::<String>("type")?
+          .eq("ObjectPattern")
+      } else {
+        true
+      }
+    }
+
+    // no: class NODE {}
+    // yes: class Foo extends NODE {}
+    "ClassDeclaration" | "ClassExpression" => {
+      if let Ok(super_class) = parent.get_named_property::<Object>("superClass") {
+        env.strict_equals(super_class, parent)?
+      } else {
+        false
+      }
+    }
+
+    // yes: left = NODE;
+    // no: NODE = right;
+    //
+    // no: [NODE = foo] = [];
+    // yes: [foo = NODE] = [];
+    "AssignmentExpression" | "AssignmentPattern" => {
+      env.strict_equals(parent.get_named_property::<Object>("right")?, node)?
+    }
+
+    // no: NODE: for (;;) {}
+    "LabeledStatement" => false,
+
+    // no: try {} catch (NODE) {}
+    "CatchClause" => false,
+
+    // no: function foo(...NODE) {}
+    "RestElement" => false,
+    "BreakStatement" | "ContinueStatement" => false,
+
+    // no: function NODE() {}
+    // no: function foo(NODE) {}
+    "FunctionDeclaration" | "FunctionExpression" => false,
+
+    // no: export NODE from "foo";
+    // no: export * as NODE from "foo";
+    //
+    // don't support in oxc
+    // case 'ExportDefaultSpecifier':
+    "ExportAllDeclaration" => false,
+
+    // no: export { foo as NODE };
+    // yes: export { NODE as foo };
+    // no: export { NODE as foo } from "foo";
+    "ExportSpecifier" => {
+      if let Some(grandparent) = grandparent
+        && grandparent
+          .get_named_property::<String>("type")?
+          .eq("ExportNamedDeclaration")
+        && grandparent.get_named_property::<Object>("source").is_ok()
+      {
+        false
+      } else {
+        env.strict_equals(parent.get_named_property::<Object>("local")?, node)?
+      }
+    }
+
+    // no: import NODE from "foo";
+    // no: import * as NODE from "foo";
+    // no: import { NODE as foo } from "foo";
+    // no: import { foo as NODE } from "foo";
+    // no: import NODE from "bar";
+    "ImportDefaultSpecifier" | "ImportNamespaceSpecifier" | "ImportSpecifier" => false,
+
+    // no: import "foo" assert { NODE: "json" }
+    "ImportAttribute" => false,
+
+    // no: <div NODE="foo" />
+    // no: <div foo:NODE="foo" />
+    "JSXAttribute" | "JSXNamespacedName" => false,
+
+    // no: [NODE] = [];
+    // no: ({ NODE }) = [];
+    "ObjectPattern" | "ArrayPattern" => false,
+
+    // no: new.NODE
+    // no: NODE.target
+    "MetaProperty" => false,
+
+    // yes: enum X { Foo = NODE }
+    // no: enum X { NODE }
+    "TSEnumMember" => !env.strict_equals(parent.get_named_property::<Object>("id")?, node)?,
+
+    // yes: { [NODE]: value }
+    // no: { NODE: value }
+    "TSPropertySignature" => {
+      if env.strict_equals(parent.get_named_property::<Object>("key")?, node)? {
+        parent.get_named_property::<bool>("computed")?
+      } else {
+        true
+      }
+    }
+    _ => true,
+  })
+}
+
+#[napi]
+pub fn is_referenced_identifier(
+  env: Env,
+  id: Object,
+  parent: Option<Object>,
+  parent_stack: Vec<Object>,
+) -> Result<bool> {
+  let Some(parent) = parent else {
+    return Ok(true);
+  };
+
+  // is a special keyword but parsed as identifier
+  if id.get_named_property::<String>("name")?.eq("arguments") {
+    return Ok(false);
+  }
+
+  if is_referenced(
+    env,
+    id,
+    parent,
+    if parent_stack.len() > 1 {
+      Some(parent_stack[parent_stack.len() - 2])
+    } else {
+      None
+    },
+  )? {
+    return Ok(true);
+  }
+
+  // babel's isReferenced check returns false for ids being assigned to, so we
+  // need to cover those cases here
+  Ok(
+    match parent.get_named_property::<String>("type")?.as_str() {
+      "AssignmentExpression" | "AssignmentPattern" => true,
+      "Property" => {
+        !env.strict_equals(parent.get_named_property::<Object>("key")?, id)?
+          && is_in_destructure_assignment(Some(parent), parent_stack)
+      }
+      "ArrayPattern" => is_in_destructure_assignment(Some(parent), parent_stack),
+      _ => false,
+    },
+  )
+}
+
+#[napi]
+pub fn is_in_destructure_assignment(parent: Option<Object>, parent_stack: Vec<Object>) -> bool {
+  let Some(parent) = parent else {
+    return false;
+  };
+  let Ok(parent_type) = parent.get_named_property::<String>("type") else {
+    return false;
+  };
+  if parent_type == "Property" || parent_type == "ArrayPattern" {
+    let mut i = parent_stack.len();
+    while i > 0 {
+      i -= 1;
+      let Ok(_type) = parent_stack[i].get_named_property::<String>("type") else {
+        return false;
+      };
+      if _type == "AssignmentExpression" {
+        return true;
+      } else if _type != "Property" && !_type.ends_with("Pattern") {
+        break;
+      }
+    }
+  }
+  return false;
 }

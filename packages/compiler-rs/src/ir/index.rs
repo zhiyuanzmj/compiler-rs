@@ -372,6 +372,7 @@ pub struct IRDynamicInfo {
   pub children: Vec<IRDynamicInfo>,
   pub template: Option<i32>,
   pub has_dynamic_child: Option<bool>,
+  #[napi(ts_type = "OperationNode | null")]
   pub operation: Option<MyBox<OperationNode>>,
   // pub parent: RefCell<Weak<IRDynamicInfo>>,
 }

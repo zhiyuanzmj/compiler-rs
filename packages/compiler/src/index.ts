@@ -8,3 +8,5 @@ export {
 } from './generate'
 
 export * from './ir'
+
+export { walk } from './utils'
