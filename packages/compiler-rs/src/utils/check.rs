@@ -474,10 +474,7 @@ pub fn is_identifier(node: Object) -> bool {
 }
 
 #[napi]
-pub fn is_static_property(node: Option<Object>) -> bool {
-  let Some(node) = node else {
-    return false;
-  };
+pub fn is_static_property(node: Object) -> bool {
   let Ok(node_type) = node.get_named_property::<String>("type") else {
     return false;
   };

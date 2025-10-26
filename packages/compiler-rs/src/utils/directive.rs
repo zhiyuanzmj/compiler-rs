@@ -1,7 +1,6 @@
 use std::{rc::Rc, sync::LazyLock};
 
 use napi::{Result, bindgen_prelude::Object};
-use napi_derive::napi;
 use regex::Regex;
 
 use crate::{
@@ -107,7 +106,11 @@ pub fn resolve_directive(node: Object, context: &Rc<TransformContext>) -> Result
       Some(create_simple_expression(
         arg_string,
         Some(is_static),
-        name.get::<Object>("name").ok().flatten(),
+        if is_static {
+          name.get::<Object>("name").ok().flatten()
+        } else {
+          None
+        },
         None,
       ))
     } else {

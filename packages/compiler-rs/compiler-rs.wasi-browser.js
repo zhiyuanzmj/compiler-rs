@@ -63,6 +63,7 @@ export const EMPTY_EXPRESSION = __napiModule.exports.EMPTY_EXPRESSION
 export const ErrorCodes = __napiModule.exports.ErrorCodes
 export const extractIdentifiers = __napiModule.exports.extractIdentifiers
 export const FragmentSymbol = __napiModule.exports.FragmentSymbol
+export const genExpression = __napiModule.exports.genExpression
 export const getExpression = __napiModule.exports.getExpression
 export const getLiteralExpressionValue = __napiModule.exports.getLiteralExpressionValue
 export const getTextLikeValue = __napiModule.exports.getTextLikeValue

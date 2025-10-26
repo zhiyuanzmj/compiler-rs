@@ -564,6 +564,7 @@ module.exports.EMPTY_EXPRESSION = nativeBinding.EMPTY_EXPRESSION
 module.exports.ErrorCodes = nativeBinding.ErrorCodes
 module.exports.extractIdentifiers = nativeBinding.extractIdentifiers
 module.exports.FragmentSymbol = nativeBinding.FragmentSymbol
+module.exports.genExpression = nativeBinding.genExpression
 module.exports.getExpression = nativeBinding.getExpression
 module.exports.getLiteralExpressionValue = nativeBinding.getLiteralExpressionValue
 module.exports.getTextLikeValue = nativeBinding.getTextLikeValue

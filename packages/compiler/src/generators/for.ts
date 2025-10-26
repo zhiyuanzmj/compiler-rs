@@ -8,7 +8,6 @@ import {
   type SimpleExpressionNode,
 } from '../ir'
 import {
-  createSimpleExpression,
   genCall,
   genMulti,
   INDENT_END,
@@ -16,8 +15,6 @@ import {
   isConstantNode,
   isStringLiteral,
   NEWLINE,
-  parseExpression,
-  walkAST,
   walkIdentifiers,
   type CodeFragment,
 } from '../utils'
@@ -77,21 +74,17 @@ export function genFor(
   const idMap: Record<string, string | SimpleExpressionNode | null> = {}
 
   const itemVar = `_for_item${depth}`
-  idMap[itemVar] = null
+  idMap[itemVar] = ''
 
   idToPathMap.forEach((pathInfo, id) => {
     let path = `${itemVar}.value${pathInfo ? pathInfo.path : ''}`
     if (pathInfo) {
       if (pathInfo.helper) {
-        idMap[pathInfo.helper] = null
+        idMap[pathInfo.helper] = ''
         path = `${pathInfo.helper}(${path}, ${pathInfo.helperArgs})`
       }
-      if (pathInfo.dynamic) {
-        const node = (idMap[id] = createSimpleExpression(path))
-        node.ast = parseExpression(context.options.filename, `(${path})`)
-      } else {
-        idMap[id] = path
-      }
+
+      idMap[id] = path
     } else {
       idMap[id] = path
     }
@@ -102,13 +95,13 @@ export function genFor(
     const keyVar = `_for_key${depth}`
     args.push(`, ${keyVar}`)
     idMap[rawKey] = `${keyVar}.value`
-    idMap[keyVar] = null
+    idMap[keyVar] = ''
   }
   if (rawIndex) {
     const indexVar = `_for_index${depth}`
     args.push(`, ${indexVar}`)
     idMap[rawIndex] = `${indexVar}.value`
-    idMap[indexVar] = null
+    idMap[indexVar] = ''
   }
 
   const { selectorPatterns, keyOnlyBindingPatterns } = matchPatterns(
@@ -209,7 +202,6 @@ export function genFor(
       string,
       {
         path: string
-        dynamic: boolean
         helper?: string
         helperArgs?: string
       } | null
@@ -222,7 +214,6 @@ export function genFor(
           (id, _, parentStack, isReference, isLocal) => {
             if (isReference && !isLocal) {
               let path = ''
-              let isDynamic = false
               let helper
               let helperArgs
               for (let i = 0; i < parentStack.length; i++) {
@@ -232,12 +223,6 @@ export function genFor(
                 if (parent.type === 'Property' && parent.value === child) {
                   if (isStringLiteral(parent.key)) {
                     path += `[${JSON.stringify(parent.key.value)}]`
-                  } else if (parent.computed) {
-                    isDynamic = true
-                    path += `[${value.content.slice(
-                      parent.key.start! - 1,
-                      parent.key.end! - 1,
-                    )}]`
                   } else {
                     // non-computed, can only be identifier
                     path += `.${(parent.key as IdentifierName).name}`
@@ -259,12 +244,6 @@ export function genFor(
                     .map((p) => {
                       if (isStringLiteral(p.key)) {
                         return JSON.stringify(p.key.value)
-                      } else if (p.computed) {
-                        isDynamic = true
-                        return value.content.slice(
-                          p.key.start! - 1,
-                          p.key.end! - 1,
-                        )
                       } else {
                         return JSON.stringify((p.key as IdentifierName).name)
                       }
@@ -272,7 +251,7 @@ export function genFor(
                     .join(', ')}]`
                 }
               }
-              map.set(id.name, { path, dynamic: isDynamic, helper, helperArgs })
+              map.set(id.name, { path, helper, helperArgs })
             }
           },
           true,
@@ -304,10 +283,10 @@ export function genFor(
   }
 
   function genSimpleIdMap() {
-    const idMap: Record<string, null> = {}
-    if (rawKey) idMap[rawKey] = null
-    if (rawIndex) idMap[rawIndex] = null
-    idToPathMap.forEach((_, id) => (idMap[id] = null))
+    const idMap: Record<string, string> = {}
+    if (rawKey) idMap[rawKey] = ''
+    if (rawIndex) idMap[rawIndex] = ''
+    idToPathMap.forEach((_, id) => (idMap[id] = ''))
     return idMap
   }
 }

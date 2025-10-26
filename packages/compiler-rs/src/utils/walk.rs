@@ -251,15 +251,48 @@ pub fn walk(ast: Object<'static>, options: WalkOptions) -> Result<Option<Object<
  *
  * Return value indicates whether the AST walked can be a constant
  */
-pub fn walk_identifiers<'a>(
+pub fn walk_identifiers(
   env: Env,
   root: Object<'static>,
-  on_identifier: Function<FnArgs<(Object, Option<Object>, Vec<Object>, bool, bool)>>,
+  on_identifier: Function<
+    FnArgs<(
+      Object<'static>,
+      Option<Object<'static>>,
+      Vec<Object<'static>>,
+      bool,
+      bool,
+    )>,
+  >,
   include_all: Option<bool>,
   parent_stack: Option<Vec<Object<'static>>>,
   known_ids: Option<HashMap<String, u32>>,
 ) -> Result<()> {
-  let include_all = include_all.unwrap_or(false);
+  _walk_identifiers(
+    env,
+    root,
+    |node, parent, parent_stack, is_refed, is_local| {
+      on_identifier.call((node, parent, parent_stack, is_refed, is_local).into());
+      Ok(())
+    },
+    include_all.unwrap_or(false),
+    parent_stack,
+    known_ids,
+  )
+}
+pub fn _walk_identifiers(
+  env: Env,
+  root: Object<'static>,
+  mut on_identifier: impl FnMut(
+    Object<'static>,
+    Option<Object<'static>>,
+    Vec<Object<'static>>,
+    bool,
+    bool,
+  ) -> Result<()>,
+  include_all: bool,
+  parent_stack: Option<Vec<Object<'static>>>,
+  known_ids: Option<HashMap<String, u32>>,
+) -> Result<()> {
   let parent_stack = if let Some(parent_stack) = parent_stack {
     parent_stack
   } else {
@@ -294,7 +327,7 @@ pub fn walk_identifiers<'a>(
         let is_local = known_ids.contains_key(&node.get_named_property::<String>("name")?);
         let is_refed = is_referenced_identifier(env, node, parent, parent_stack.clone())?;
         if include_all || (is_refed && !is_local) {
-          on_identifier.call((node, parent, parent_stack.clone(), is_refed, is_local).into())?;
+          on_identifier(node, parent, parent_stack.clone(), is_refed, is_local)?;
         }
       } else if node_type == "Property" && parent_type == "ObjectPattern" {
         // mark property in destructure pattern

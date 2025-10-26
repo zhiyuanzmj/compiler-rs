@@ -24,6 +24,13 @@ export interface BlockIRNode {
 
 export declare function camelize(str: string): string
 
+export type CodeFragment =
+  | { type: 'Newline', field0: FragmentSymbol }
+  | { type: 'IndentStart', field0: FragmentSymbol }
+  | { type: 'IndentEnd', field0: FragmentSymbol }
+  | { type: 'String', field0: string }
+  | { type: 'Fragment', field0: Fragment }
+
 export interface CodegenOptions {
   /** * Generate source map?
    * @default false
@@ -143,13 +150,15 @@ export interface ForIRNode {
 }
 
 export type Fragment =
-  [string, NewlineType | undefined | null, SourceLocation | undefined | null, string | undefined | null]
+  [string, NewlineType, SourceLocation | undefined | null, string | undefined | null]
 
 export declare const enum FragmentSymbol {
   Newline = 0,
   IndentStart = 1,
   IndentEnd = 2
 }
+
+export declare function genExpression(node: SimpleExpressionNode, context: object, assignment?: string | undefined | null, needWrap?: boolean | undefined | null): Array<Fragment>
 
 export declare function getExpression(node: import('oxc-parser').Node): import('oxc-parser').Node
 
@@ -350,7 +359,7 @@ export declare function isReferencedIdentifier(id: object, parent: object | unde
 
 export declare function isSimpleIdentifier(name: string): boolean
 
-export declare function isStaticProperty(node?: object | undefined | null): boolean
+export declare function isStaticProperty(node: object): boolean
 
 export declare function isStringLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').StringLiteral
 

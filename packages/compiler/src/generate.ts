@@ -28,14 +28,10 @@ export class CodegenContext {
 
   delegates: Set<string> = new Set<string>()
 
-  identifiers: Record<string, (string | SimpleExpressionNode)[]> =
-    Object.create(null)
+  identifiers: Record<string, string[]> = Object.create(null)
 
   block: BlockIRNode
-  withId<T>(
-    fn: () => T,
-    map: Record<string, string | SimpleExpressionNode | null>,
-  ): T {
+  withId<T>(fn: () => T, map: Record<string, string>): T {
     const { identifiers } = this
     const ids = Object.keys(map)
 

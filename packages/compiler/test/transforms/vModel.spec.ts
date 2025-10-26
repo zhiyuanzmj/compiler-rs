@@ -176,7 +176,7 @@ describe('compiler: vModel transform', () => {
     })
   })
 
-  test('1should support member expression', () => {
+  test('should support member expression', () => {
     const { code } = compileWithVModel('<input v-model={setupRef.child} />')
 
     expect(code).toMatchSnapshot()

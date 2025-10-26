@@ -56,7 +56,7 @@ export type CodeFragment =
   | string
   | [
       code: string,
-      newlineIndex?: number,
+      newlineIndex: number,
       loc?: SourceLocation | null,
       name?: string,
     ]
@@ -168,7 +168,7 @@ export function codeFragmentToString(
 
     if (isString(frag)) frag = [frag]
 
-    let [code, newlineIndex = NewlineType.None, loc, name] = frag
+    let [code, newlineIndex, loc, name] = frag
     codegen += code
 
     if (map) {

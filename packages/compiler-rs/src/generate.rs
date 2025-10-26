@@ -1,3 +1,4 @@
+pub mod expression;
 pub mod utils;
 
 use std::{
@@ -6,12 +7,12 @@ use std::{
 };
 
 use napi::{
-  Either, Result,
-  bindgen_prelude::{Either3, Function, Object},
+  Result,
+  bindgen_prelude::{Function, Object},
 };
 use napi_derive::napi;
 
-use crate::ir::index::{BlockIRNode, RootIRNode, SimpleExpressionNode};
+use crate::ir::index::{BlockIRNode, RootIRNode};
 
 #[napi(object)]
 pub struct CodegenOptions {
@@ -33,7 +34,7 @@ pub struct CodegenContext {
   pub options: CodegenOptions,
   pub helpers: HashSet<String>,
   pub delegates: HashSet<String>,
-  pub identifiers: HashMap<String, Vec<Either<String, SimpleExpressionNode>>>,
+  pub identifiers: HashMap<String, Vec<String>>,
   pub ir: RootIRNode,
   pub block: BlockIRNode,
   pub scope_level: i32,
@@ -61,7 +62,7 @@ impl CodegenContext {
   pub fn with_id(
     &mut self,
     _fn: Function<(), Object<'static>>,
-    mut map: HashMap<String, Either3<String, SimpleExpressionNode, ()>>,
+    mut map: HashMap<String, String>,
   ) -> Result<Object<'static>> {
     let ids = self.identifiers.keys().cloned().collect::<Vec<_>>();
     for ref id in ids {
@@ -70,14 +71,10 @@ impl CodegenContext {
       }
       self.identifiers.get_mut(id).unwrap().insert(
         0,
-        if let Some(i) = map.get_mut(id) {
-          match i {
-            Either3::A(id) => Either::A(id.clone()),
-            Either3::B(expr) => Either::B(mem::take(expr)),
-            _ => Either::A(id.clone()),
-          }
+        if let Some(id) = map.get_mut(id) {
+          id.clone()
         } else {
-          Either::A(id.clone())
+          id.clone()
         },
       );
     }

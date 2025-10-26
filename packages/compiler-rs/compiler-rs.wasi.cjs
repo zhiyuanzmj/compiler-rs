@@ -115,6 +115,7 @@ module.exports.EMPTY_EXPRESSION = __napiModule.exports.EMPTY_EXPRESSION
 module.exports.ErrorCodes = __napiModule.exports.ErrorCodes
 module.exports.extractIdentifiers = __napiModule.exports.extractIdentifiers
 module.exports.FragmentSymbol = __napiModule.exports.FragmentSymbol
+module.exports.genExpression = __napiModule.exports.genExpression
 module.exports.getExpression = __napiModule.exports.getExpression
 module.exports.getLiteralExpressionValue = __napiModule.exports.getLiteralExpressionValue
 module.exports.getTextLikeValue = __napiModule.exports.getTextLikeValue

@@ -19,12 +19,7 @@ pub enum NewlineType {
 }
 
 #[napi]
-pub type Fragment = (
-  String,
-  Option<NewlineType>,
-  Option<SourceLocation>,
-  Option<String>,
-);
+pub type Fragment = (String, NewlineType, Option<SourceLocation>, Option<String>);
 
 #[napi]
 pub enum FragmentSymbol {
@@ -33,6 +28,7 @@ pub enum FragmentSymbol {
   IndentEnd,
 }
 
+#[napi]
 pub enum CodeFragment {
   Newline(FragmentSymbol),
   IndentStart(FragmentSymbol),
