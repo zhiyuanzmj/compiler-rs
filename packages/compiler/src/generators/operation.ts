@@ -16,7 +16,7 @@ import {
 import type { CodegenContext } from '../generate'
 import { genCreateComponent } from './component'
 import { genBuiltinDirective } from './directive'
-import { genInsertNode, genPrependNode } from './dom'
+import { genInsertNode } from './dom'
 import { genSetDynamicEvents, genSetEvent } from './event'
 import { genFor } from './for'
 import { genSetHtml } from './html'
@@ -74,8 +74,6 @@ export function genOperation(
       return genSetTemplateRef(oper, context)
     case IRNodeTypes.INSERT_NODE:
       return genInsertNode(oper, context)
-    case IRNodeTypes.PREPEND_NODE:
-      return genPrependNode(oper, context)
     case IRNodeTypes.IF:
       return genIf(oper, context)
     case IRNodeTypes.FOR:
@@ -160,14 +158,13 @@ function genInsertionState(
 ): CodeFragment[] {
   return [
     NEWLINE,
-    ...genCall(
-      context.helper('setInsertionState'),
+    ...genCall(context.helper('setInsertionState'), [
       `n${operation.parent}`,
       operation.anchor == null
-        ? undefined
+        ? null
         : operation.anchor === -1 // -1 indicates prepend
           ? `0` // runtime anchor value for prepend
           : `n${operation.anchor}`,
-    ),
+    ]),
   ]
 }

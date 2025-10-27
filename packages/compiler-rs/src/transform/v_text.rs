@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use napi::{
   Result,
-  bindgen_prelude::{Either18, JsObjectValue, Object},
+  bindgen_prelude::{Either16, JsObjectValue, Object},
 };
 
 use crate::{
@@ -55,7 +55,7 @@ pub fn transform_v_text(
     let parent = context.reference(&mut context_block.dynamic)?;
     context.register_operation(
       context_block,
-      Either18::R(GetTextChildIRNode {
+      Either16::P(GetTextChildIRNode {
         _type: IRNodeTypes::GET_TEXT_CHILD,
         parent,
       }),
@@ -65,7 +65,7 @@ pub fn transform_v_text(
     context.register_effect(
       context_block,
       context.is_operation(vec![&exp]),
-      Either18::C(SetTextIRNode {
+      Either16::C(SetTextIRNode {
         _type: IRNodeTypes::SET_TEXT,
         values: vec![exp],
         element,

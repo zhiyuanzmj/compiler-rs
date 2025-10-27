@@ -1,6 +1,6 @@
+import { getDelimitersArray } from '@vue-jsx-vapor/compiler-rs'
 import {
   buildCodeFragment,
-  DELIMITERS_ARRAY,
   genCall,
   genMulti,
   INDENT_END,
@@ -50,12 +50,11 @@ export function genBlockContent(
       push(
         NEWLINE,
         `const ${id} = `,
-        ...genCall(
-          context.helper('resolveComponent'),
+        ...genCall(context.helper('resolveComponent'), [
           JSON.stringify(name),
           // pass additional `maybeSelfReference` flag
-          maybeSelfReference ? 'true' : undefined,
-        ),
+          maybeSelfReference ? 'true' : null,
+        ]),
       )
     }
     genResolveAssets('directive', 'resolveDirective')
@@ -78,7 +77,7 @@ export function genBlockContent(
   const returnNodes = returns.map((n) => `n${n}`)
   const returnsCode: CodeFragment[] =
     returnNodes.length > 1
-      ? genMulti(DELIMITERS_ARRAY, ...returnNodes)
+      ? genMulti(getDelimitersArray(), returnNodes)
       : [returnNodes[0] || 'null']
   push(...returnsCode)
 
@@ -90,7 +89,7 @@ export function genBlockContent(
       push(
         NEWLINE,
         `const ${toValidAssetId(name, kind)} = `,
-        ...genCall(context.helper(helper), JSON.stringify(name)),
+        ...genCall(context.helper(helper), [JSON.stringify(name)]),
       )
     }
   }

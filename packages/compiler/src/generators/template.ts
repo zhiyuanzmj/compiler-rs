@@ -84,19 +84,19 @@ export function genChildren(
 
     if (prev) {
       if (elementIndex - prev[1] === 1) {
-        pushBlock(...genCall(helper('next'), prev[0]))
+        pushBlock(...genCall(helper('next'), [prev[0]]))
       } else {
-        pushBlock(...genCall(helper('nthChild'), from, String(elementIndex)))
+        pushBlock(...genCall(helper('nthChild'), [from, String(elementIndex)]))
       }
     } else if (elementIndex === 0) {
-      pushBlock(...genCall(helper('child'), from))
+      pushBlock(...genCall(helper('child'), [from]))
     } else {
       // check if there's a node that we can reuse from
-      let init = genCall(helper('child'), from)
+      let init = genCall(helper('child'), [from])
       if (elementIndex === 1) {
-        init = genCall(helper('next'), init)
+        init = genCall(helper('next'), [init])
       } else if (elementIndex > 1) {
-        init = genCall(helper('nthChild'), from, String(elementIndex))
+        init = genCall(helper('nthChild'), [from, String(elementIndex)])
       }
       pushBlock(...init)
     }

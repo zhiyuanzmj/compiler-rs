@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use napi::{
   Either,
-  bindgen_prelude::{Either18, JsObjectValue, Object, Result},
+  bindgen_prelude::{Either16, JsObjectValue, Object, Result},
 };
 
 use crate::{
@@ -159,7 +159,7 @@ fn process_interpolation(
   {
     context.register_operation(
       context_block,
-      Either18::K(CreateNodesIRNode {
+      Either16::K(CreateNodesIRNode {
         _type: IRNodeTypes::CREATE_NODES,
         id,
         once,
@@ -172,7 +172,7 @@ fn process_interpolation(
     *template = template.to_string() + " ";
     context.register_operation(
       context_block,
-      Either18::G(SetNodesIRNode {
+      Either16::G(SetNodesIRNode {
         _type: IRNodeTypes::SET_NODES,
         element: id,
         once,
@@ -208,7 +208,7 @@ fn process_text_container(
     let parent = context.reference(&mut context_block.dynamic)?;
     context.register_operation(
       context_block,
-      Either18::R(GetTextChildIRNode {
+      Either16::P(GetTextChildIRNode {
         _type: IRNodeTypes::GET_TEXT_CHILD,
         parent,
       }),
@@ -217,7 +217,7 @@ fn process_text_container(
     let element = context.reference(&mut context_block.dynamic)?;
     context.register_operation(
       context_block,
-      Either18::G(SetNodesIRNode {
+      Either16::G(SetNodesIRNode {
         _type: IRNodeTypes::SET_NODES,
         element,
         once: *context.in_v_once.borrow(),
@@ -295,7 +295,7 @@ pub fn process_conditional_expression<'a>(
       parent_dynamic,
     )?;
     let dynamic = &mut context_block.dynamic;
-    dynamic.operation = Some(MyBox(Box::new(Either18::A(operation))));
+    dynamic.operation = Some(MyBox(Box::new(Either16::A(operation))));
 
     Ok(())
   }))
@@ -344,7 +344,7 @@ fn process_logical_expression<'a>(
       parent_dynamic,
     )?;
     let dynamic = &mut context_block.dynamic;
-    dynamic.operation = Some(MyBox(Box::new(Either18::A(operation))));
+    dynamic.operation = Some(MyBox(Box::new(Either16::A(operation))));
     Ok(())
   }))
 }

@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use napi::{
   Either, Result,
-  bindgen_prelude::{Either18, JsObjectValue, Object},
+  bindgen_prelude::{Either16, JsObjectValue, Object},
 };
 
 use crate::{
@@ -119,7 +119,7 @@ pub fn transform_v_model(
     let element = context.reference(&mut context_block.dynamic)?;
     context.register_operation(
       context_block,
-      Either18::N(DirectiveIRNode {
+      Either16::M(DirectiveIRNode {
         _type: IRNodeTypes::DIRECTIVE,
         element,
         dir,

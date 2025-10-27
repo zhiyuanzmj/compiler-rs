@@ -1,17 +1,21 @@
-import { FragmentSymbol, NewlineType } from '@vue-jsx-vapor/compiler-rs'
-import { isArray, isString } from '@vue/shared'
+import {
+  FragmentSymbol,
+  NewlineType,
+  type CodeFragment,
+  type CodeFragments,
+} from '@vue-jsx-vapor/compiler-rs'
+import { isString } from '@vue/shared'
 import { SourceMapGenerator } from 'source-map-js'
 import type { CodegenContext } from '../generate'
-import type { SourceLocation } from '../ir'
 import { locStub } from './expression'
 
-export { toValidAssetId } from '@vue-jsx-vapor/compiler-rs'
+export { genCall, genMulti, toValidAssetId } from '@vue-jsx-vapor/compiler-rs'
 
-export { FragmentSymbol, NewlineType }
+export { CodeFragment, CodeFragments, FragmentSymbol, NewlineType }
 
-export const NEWLINE = 1 as const
-export const INDENT_START = 2 as const
-export const INDENT_END = 3 as const
+export const NEWLINE = FragmentSymbol.Newline
+export const INDENT_START = FragmentSymbol.IndentStart
+export const INDENT_END = FragmentSymbol.IndentEnd
 
 interface CodegenSourceMapGenerator {
   setSourceContent: (sourceFile: string, sourceContent: string) => void
@@ -48,21 +52,6 @@ interface Position {
   index: number
 }
 
-type FalsyValue = false | null | undefined
-export type CodeFragment =
-  | typeof NEWLINE
-  | typeof INDENT_START
-  | typeof INDENT_END
-  | string
-  | [
-      code: string,
-      newlineIndex: number,
-      loc?: SourceLocation | null,
-      name?: string,
-    ]
-  | FalsyValue
-export type CodeFragments = Exclude<CodeFragment, any[]> | CodeFragment[]
-
 export function buildCodeFragment(): [
   CodeFragment[],
   (...items: CodeFragment[]) => number,
@@ -72,65 +61,6 @@ export function buildCodeFragment(): [
   const push = frag.push.bind(frag)
   const unshift = frag.unshift.bind(frag)
   return [frag, push, unshift]
-}
-
-export type CodeFragmentDelimiters = [
-  left: CodeFragments,
-  right: CodeFragments,
-  delimiter: CodeFragments,
-  placeholder?: CodeFragments,
-]
-
-export function genMulti(
-  [left, right, seg, placeholder]: CodeFragmentDelimiters,
-  ...frags: CodeFragments[]
-): CodeFragment[] {
-  if (placeholder) {
-    while (frags.length > 0 && !frags.at(-1)) {
-      frags.pop()
-    }
-    frags = frags.map((frag) => frag || placeholder)
-  } else {
-    frags = frags.filter(Boolean)
-  }
-
-  const frag: CodeFragment[] = []
-  push(left)
-  for (const [i, fn] of (
-    frags as Array<Exclude<CodeFragments, FalsyValue>>
-  ).entries()) {
-    push(fn)
-    if (i < frags.length - 1) push(seg)
-  }
-  push(right)
-  return frag
-
-  function push(fn: CodeFragments) {
-    if (!isArray(fn)) fn = [fn]
-    frag.push(...fn)
-  }
-}
-export const DELIMITERS_ARRAY: CodeFragmentDelimiters = ['[', ']', ', ']
-export const DELIMITERS_ARRAY_NEWLINE: CodeFragmentDelimiters = [
-  ['[', INDENT_START, NEWLINE],
-  [INDENT_END, NEWLINE, ']'],
-  [',', NEWLINE],
-]
-export const DELIMITERS_OBJECT: CodeFragmentDelimiters = ['{ ', ' }', ', ']
-export const DELIMITERS_OBJECT_NEWLINE: CodeFragmentDelimiters = [
-  ['{', INDENT_START, NEWLINE],
-  [INDENT_END, NEWLINE, '}'],
-  [',', NEWLINE],
-]
-
-export function genCall(
-  name: string | [name: string, placeholder?: CodeFragments],
-  ...frags: CodeFragments[]
-): CodeFragment[] {
-  const hasPlaceholder = isArray(name)
-  const fnName = hasPlaceholder ? name[0] : name
-  const placeholder = hasPlaceholder ? name[1] : 'null'
-  return [fnName, ...genMulti(['(', ')', ', ', placeholder], ...frags)]
 }
 
 export function codeFragmentToString(

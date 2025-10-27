@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use napi::{
   Either, Result,
-  bindgen_prelude::{Either18, JsObjectValue, Object},
+  bindgen_prelude::{Either16, JsObjectValue, Object},
 };
 
 use crate::{
@@ -70,7 +70,7 @@ pub fn transform_v_if<'a>(
     return Ok(Some(Box::new(move || {
       let block = exit_block()?;
 
-      context_block.dynamic.operation = Some(MyBox(Box::new(Either18::A(IfIRNode {
+      context_block.dynamic.operation = Some(MyBox(Box::new(Either16::A(IfIRNode {
         _type: IRNodeTypes::IF,
         id,
         positive: block,
@@ -96,7 +96,7 @@ pub fn transform_v_if<'a>(
       i = i - 1;
       let sibling = siblings.get_mut(i).unwrap() as *mut IRDynamicInfo;
       if let Some(MyBox(operation)) = (unsafe { &mut *sibling }).operation.as_mut()
-        && let Either18::A(operation) = operation.as_mut()
+        && let Either16::A(operation) = operation.as_mut()
       {
         last_if_node = Some(operation);
         break;

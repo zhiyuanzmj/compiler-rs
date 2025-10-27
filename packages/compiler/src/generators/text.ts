@@ -24,7 +24,10 @@ export function genSetText(
   const texts = combineValues(values, context, true, true)
   return [
     NEWLINE,
-    ...genCall(helper('setText'), `${generated ? 'x' : 'n'}${element}`, texts),
+    ...genCall(helper('setText'), [
+      `${generated ? 'x' : 'n'}${element}`,
+      texts,
+    ]),
   ]
 }
 
@@ -46,11 +49,10 @@ export function genSetNodes(
   const { element, values, generated, once } = oper
   return [
     NEWLINE,
-    ...genCall(
-      helper('setNodes'),
+    ...genCall(helper('setNodes'), [
       `${generated ? 'x' : 'n'}${element}`,
       combineValues(values, context, once),
-    ),
+    ]),
   ]
 }
 
@@ -65,7 +67,7 @@ export function genCreateNodes(
     `const n${id} = `,
     ...genCall(
       helper('createNodes'),
-      values && combineValues(values, context, once),
+      values.length ? [combineValues(values, context, once)] : [],
     ),
   ]
 }
@@ -91,7 +93,7 @@ function combineValues(
     )
     if (setText && getLiteralExpressionValue(value) == null) {
       // dynamic, wrap with toDisplayString
-      exp = genCall(context.helper('toDisplayString'), exp)
+      exp = genCall(context.helper('toDisplayString'), [exp])
     }
     if (i > 0) {
       exp.unshift(setText ? ' + ' : ', ')

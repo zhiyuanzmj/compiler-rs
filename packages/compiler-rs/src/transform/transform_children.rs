@@ -2,7 +2,7 @@ use std::{mem, rc::Rc};
 
 use napi::{
   Result,
-  bindgen_prelude::{Either18, JsObjectValue, Object},
+  bindgen_prelude::{Either16, JsObjectValue, Object},
 };
 
 use crate::{
@@ -145,7 +145,7 @@ pub fn register_insertion(
       // template node due to invalid nesting - generate actual insertion
       context.register_operation(
         context_block,
-        Either18::L(InsertNodeIRNode {
+        Either16::L(InsertNodeIRNode {
           _type: IRNodeTypes::INSERT_NODE,
           elements: ids.clone(),
           parent,
@@ -159,15 +159,15 @@ pub fn register_insertion(
       // block types
       let parent = context.reference(&mut context_block.dynamic)?;
       match operation.as_mut() {
-        Either18::A(a) => {
+        Either16::A(a) => {
           a.parent = Some(parent);
           a.anchor = anchor;
         }
-        Either18::B(b) => {
+        Either16::B(b) => {
           b.parent = Some(parent);
           b.anchor = anchor;
         }
-        Either18::O(c) => {
+        Either16::N(c) => {
           c.parent = Some(parent);
           c.anchor = anchor;
         }

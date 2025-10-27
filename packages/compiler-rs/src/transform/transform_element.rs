@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc, sync::LazyLock};
 
 use napi::{
   Either, Result,
-  bindgen_prelude::{Either3, Either18, JsObjectValue, Object},
+  bindgen_prelude::{Either3, Either16, JsObjectValue, Object},
 };
 use napi_derive::napi;
 
@@ -145,7 +145,7 @@ pub fn transform_native_element<'a>(
       context.register_effect(
         context_block,
         false,
-        Either18::E(SetDynamicPropsIRNode {
+        Either16::E(SetDynamicPropsIRNode {
           _type: IRNodeTypes::SET_DYNAMIC_PROPS,
           props,
           element,
@@ -171,7 +171,7 @@ pub fn transform_native_element<'a>(
           context.register_effect(
             context_block,
             context.is_operation(values.iter().collect::<Vec<&SimpleExpressionNode>>()),
-            Either18::D(SetPropIRNode {
+            Either16::D(SetPropIRNode {
               _type: IRNodeTypes::SET_PROP,
               prop,
               element,
@@ -247,7 +247,7 @@ pub fn transform_component_element(
   let dynamic = &mut context_block.dynamic;
   dynamic.flags = dynamic.flags | DynamicFlag::NON_TEMPLATE as i32 | DynamicFlag::INSERT as i32;
 
-  dynamic.operation = Some(MyBox(Box::new(Either18::O(CreateComponentIRNode {
+  dynamic.operation = Some(MyBox(Box::new(Either16::N(CreateComponentIRNode {
     _type: IRNodeTypes::CREATE_COMPONENT_NODE,
     id: context.reference(dynamic)?,
     tag,
@@ -333,7 +333,7 @@ pub fn build_props<'a>(
           context.register_effect(
             context_block,
             context.is_operation(vec![&value]),
-            Either18::F(SetDynamicEventsIRNode {
+            Either16::F(SetDynamicEventsIRNode {
               _type: IRNodeTypes::SET_DYNAMIC_EVENTS,
               element,
               value,
@@ -476,7 +476,7 @@ pub fn transform_prop<'a>(
     let element = context.reference(&mut context_block.dynamic)?;
     context.register_operation(
       context_block,
-      Either18::N(DirectiveIRNode {
+      Either16::M(DirectiveIRNode {
         _type: IRNodeTypes::DIRECTIVE,
         element,
         dir: resolve_directive(prop, context)?,

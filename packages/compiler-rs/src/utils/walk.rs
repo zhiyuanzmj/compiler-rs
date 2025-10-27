@@ -271,7 +271,7 @@ pub fn walk_identifiers(
     env,
     root,
     |node, parent, parent_stack, is_refed, is_local| {
-      on_identifier.call((node, parent, parent_stack, is_refed, is_local).into());
+      on_identifier.call((node, parent, parent_stack, is_refed, is_local).into())?;
       Ok(())
     },
     include_all.unwrap_or(false),

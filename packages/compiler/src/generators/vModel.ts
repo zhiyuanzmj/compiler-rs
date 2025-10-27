@@ -24,8 +24,7 @@ export function genVModel(
 
   return [
     NEWLINE,
-    ...genCall(
-      context.helper(helperMap[modelType!]),
+    ...genCall(context.helper(helperMap[modelType!]), [
       `n${element}`,
       // getter
       [`() => (`, ...genExpression(exp!, context), `)`],
@@ -34,8 +33,8 @@ export function genVModel(
       // modifiers
       modifiers.length
         ? `{ ${modifiers.map((e) => `${e.content}: true`).join(',')} }`
-        : undefined,
-    ),
+        : null,
+    ]),
   ]
 }
 

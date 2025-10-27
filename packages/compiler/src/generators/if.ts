@@ -25,7 +25,7 @@ export function genIf(
   ]
 
   const positiveArg = genBlock(positive, context)
-  let negativeArg: false | CodeFragment[] = false
+  let negativeArg: CodeFragment[] = null
 
   if (negative) {
     if (negative.type === IRNodeTypes.BLOCK) {
@@ -37,13 +37,12 @@ export function genIf(
 
   if (!isNested) push(NEWLINE, `const n${oper.id} = `)
   push(
-    ...genCall(
-      helper('createIf'),
+    ...genCall(helper('createIf'), [
       conditionExpr,
       positiveArg,
       negativeArg,
-      once && 'true',
-    ),
+      once ? 'true' : null,
+    ]),
   )
 
   return frag

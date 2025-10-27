@@ -18,7 +18,6 @@ export {
   type IREffect,
   type IRFor,
   type OperationNode,
-  type PrependNodeIRNode,
   type RootIRNode,
   type SetDynamicEventsIRNode,
   type SetDynamicPropsIRNode,

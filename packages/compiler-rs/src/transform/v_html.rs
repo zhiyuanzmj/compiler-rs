@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use napi::{
   Result,
-  bindgen_prelude::{Either18, JsObjectValue, Object},
+  bindgen_prelude::{Either16, JsObjectValue, Object},
 };
 
 use crate::{
@@ -38,7 +38,7 @@ pub fn transform_v_html(
   context.register_effect(
     context_block,
     context.is_operation(vec![&exp]),
-    Either18::I(SetHtmlIRNode {
+    Either16::I(SetHtmlIRNode {
       _type: IRNodeTypes::SET_HTML,
       element,
       value: exp,

@@ -1,14 +1,13 @@
+import { getDelimitersArray } from '@vue-jsx-vapor/compiler-rs'
 import { IRNodeTypes, type DirectiveIRNode, type OperationNode } from '../ir'
 import {
   createSimpleExpression,
-  DELIMITERS_ARRAY,
   genCall,
   genMulti,
   isSimpleIdentifier,
   NEWLINE,
   toValidAssetId,
   type CodeFragment,
-  type CodeFragmentDelimiters,
 } from '../utils'
 import type { CodegenContext } from '../generate'
 import { genExpression } from './expression'
@@ -50,11 +49,11 @@ function genCustomDirectives(
 
   const element = `n${opers[0].element}`
   const directiveItems = opers.map(genDirectiveItem)
-  const directives = genMulti(DELIMITERS_ARRAY, ...directiveItems)
+  const directives = genMulti(getDelimitersArray(), directiveItems)
 
   return [
     NEWLINE,
-    ...genCall(helper('withVaporDirectives'), element, directives),
+    ...genCall(helper('withVaporDirectives'), [element, directives]),
   ]
 
   function genDirectiveItem({
@@ -67,18 +66,13 @@ function genCustomDirectives(
       : genExpression(createSimpleExpression(name), context)
     const value = dir.exp && ['() => ', ...genExpression(dir.exp, context)]
     const argument = dir.arg && genExpression(dir.arg, context)
-    const modifiers = !!dir.modifiers.length && [
-      '{ ',
-      genDirectiveModifiers(dir.modifiers.map((m) => m.content)),
-      ' }',
-    ]
+    const modifiers = dir.modifiers.length
+      ? ['{ ', genDirectiveModifiers(dir.modifiers.map((m) => m.content)), ' }']
+      : null
 
     return genMulti(
-      DELIMITERS_ARRAY.concat('void 0') as CodeFragmentDelimiters,
-      directiveVar,
-      value,
-      argument,
-      modifiers,
+      ['[', ']', ', ', 'void 0'],
+      [directiveVar, value, argument, modifiers],
     )
   }
 }

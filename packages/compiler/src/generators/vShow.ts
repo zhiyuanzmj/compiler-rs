@@ -9,10 +9,9 @@ export function genVShow(
 ): CodeFragment[] {
   return [
     NEWLINE,
-    ...genCall(context.helper('applyVShow'), `n${oper.element}`, [
-      `() => (`,
-      ...genExpression(oper.dir.exp!, context),
-      `)`,
+    ...genCall(context.helper('applyVShow'), [
+      `n${oper.element}`,
+      [`() => (`, ...genExpression(oper.dir.exp!, context), `)`],
     ]),
   ]
 }

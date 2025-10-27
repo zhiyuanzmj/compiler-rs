@@ -6,7 +6,7 @@ use std::{
 
 use napi::{
   Either,
-  bindgen_prelude::{Either3, Either5, Either18, Object},
+  bindgen_prelude::{Either3, Either16, Object},
 };
 use napi_derive::napi;
 use oxc_ast::ast::JSXChild;
@@ -30,9 +30,7 @@ pub enum IRNodeTypes {
   SET_TEMPLATE_REF,
 
   INSERT_NODE,
-  PREPEND_NODE,
   CREATE_COMPONENT_NODE,
-  SLOT_OUTLET_NODE,
 
   DIRECTIVE,
   DECLARE_OLD_REF, // consider make it more general
@@ -263,14 +261,6 @@ pub struct InsertNodeIRNode {
   pub anchor: Option<i32>,
 }
 
-#[napi(object, js_name = "PrependNodeIRNode")]
-pub struct PrependNodeIRNode {
-  #[napi(ts_type = "IRNodeTypes.PREPEND_NODE")]
-  pub _type: IRNodeTypes,
-  pub elements: Vec<i32>,
-  pub parent: i32,
-}
-
 #[napi(object, js_name = "DirectiveIRNode")]
 pub struct DirectiveIRNode {
   #[napi(ts_type = "IRNodeTypes.DIRECTIVE")]
@@ -314,14 +304,8 @@ pub struct GetTextChildIRNode {
   pub parent: i32,
 }
 
-#[napi(object, js_name = "SlotOutletIRNode")]
-pub struct SlotOutletIRNode {
-  #[napi(ts_type = "IRNodeTypes.SLOT_OUTLET_NODE")]
-  pub _type: IRNodeTypes,
-}
-
 #[napi]
-pub type OperationNode = Either18<
+pub type OperationNode = Either16<
   IfIRNode,
   ForIRNode,
   SetTextIRNode,
@@ -334,11 +318,9 @@ pub type OperationNode = Either18<
   SetTemplateRefIRNode,
   CreateNodesIRNode,
   InsertNodeIRNode,
-  PrependNodeIRNode,
   DirectiveIRNode,
   CreateComponentIRNode,
   DeclareOldRefIRNode,
-  SlotOutletIRNode,
   GetTextChildIRNode,
 >;
 
@@ -451,9 +433,9 @@ pub fn _is_block_operation(#[napi(ts_arg_type = "OperationNode")] op: Object) ->
 
 pub fn is_block_operation(op: &OperationNode) -> bool {
   match op {
-    Either18::A(_) => true,
-    Either18::B(_) => true,
-    Either18::O(_) => true,
+    Either16::A(_) => true,
+    Either16::B(_) => true,
+    Either16::N(_) => true,
     _ => false,
   }
 }

@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use napi::{
   Either, Result,
-  bindgen_prelude::{Either18, JsObjectValue, Object},
+  bindgen_prelude::{Either16, JsObjectValue, Object},
 };
 
 use crate::{
@@ -93,7 +93,7 @@ pub fn transform_v_for<'a>(
         .len()
         == 1;
 
-    context_block.dynamic.operation = Some(MyBox(Box::new(Either18::B(ForIRNode {
+    context_block.dynamic.operation = Some(MyBox(Box::new(Either16::B(ForIRNode {
       _type: IRNodeTypes::FOR,
       id,
       value,

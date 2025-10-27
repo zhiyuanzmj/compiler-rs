@@ -1,3 +1,8 @@
+import {
+  getDelimitersArrayNewline,
+  getDelimitersObject,
+  getDelimitersObjectNewline,
+} from '@vue-jsx-vapor/compiler-rs'
 import { camelize, isArray } from '@vue/shared'
 import {
   IRDynamicPropsKind,
@@ -16,9 +21,6 @@ import {
 } from '../ir'
 import {
   createSimpleExpression,
-  DELIMITERS_ARRAY_NEWLINE,
-  DELIMITERS_OBJECT,
-  DELIMITERS_OBJECT_NEWLINE,
   genCall,
   genMulti,
   INDENT_END,
@@ -56,11 +58,7 @@ export function genCreateComponent(
         : operation.asset
           ? helper('createComponentWithFallback')
           : helper('createComponent'),
-      tag,
-      rawProps,
-      rawSlots,
-      root ? 'true' : false,
-      once && 'true',
+      [tag, rawProps, rawSlots, root ? 'true' : null, once ? 'true' : null],
     ),
     ...genDirectivesForElement(operation.id, context),
   ]
@@ -68,10 +66,9 @@ export function genCreateComponent(
   function genTag() {
     if (operation.dynamic) {
       if (operation.dynamic.isStatic) {
-        return genCall(
-          helper('resolveDynamicComponent'),
+        return genCall(helper('resolveDynamicComponent'), [
           genExpression(operation.dynamic, context),
-        )
+        ])
       } else {
         return ['() => (', ...genExpression(operation.dynamic, context), ')']
       }
@@ -113,8 +110,8 @@ function genStaticProps(
     args.push([`$: `, ...dynamicProps])
   }
   return genMulti(
-    args.length > 1 ? DELIMITERS_OBJECT_NEWLINE : DELIMITERS_OBJECT,
-    ...args,
+    args.length > 1 ? getDelimitersObjectNewline() : getDelimitersObject(),
+    args,
   )
 }
 
@@ -132,15 +129,15 @@ function genDynamicProps(
       }
       continue
     } else if (p.kind === IRDynamicPropsKind.ATTRIBUTE)
-      expr = genMulti(DELIMITERS_OBJECT, genProp(p, context))
+      expr = genMulti(getDelimitersObject(), [genProp(p, context)])
     else {
       expr = genExpression(p.value, context)
-      if (p.handler) expr = genCall(helper('toHandlers'), expr)
+      if (p.handler) expr = genCall(helper('toHandlers'), [expr])
     }
     frags.push(['() => (', ...expr, ')'])
   }
   if (frags.length) {
-    return genMulti(DELIMITERS_ARRAY_NEWLINE, ...frags)
+    return genMulti(getDelimitersArrayNewline(), frags)
   }
 }
 
@@ -220,7 +217,7 @@ function genStaticSlots(
   if (dynamicSlots) {
     args.push([`$: `, ...genDynamicSlots(dynamicSlots, context)])
   }
-  return genMulti(DELIMITERS_OBJECT_NEWLINE, ...args)
+  return genMulti(getDelimitersObjectNewline(), args)
 }
 
 function genDynamicSlots(
@@ -228,8 +225,8 @@ function genDynamicSlots(
   context: CodegenContext,
 ): CodeFragment[] {
   return genMulti(
-    DELIMITERS_ARRAY_NEWLINE,
-    ...slots.map((slot) =>
+    getDelimitersArrayNewline(),
+    slots.map((slot) =>
       slot.slotType === IRSlotType.STATIC
         ? genStaticSlots(slot, context)
         : slot.slotType === IRSlotType.EXPRESSION
@@ -264,11 +261,10 @@ function genBasicDynamicSlot(
   context: CodegenContext,
 ): CodeFragment[] {
   const { name, fn } = slot
-  return genMulti(
-    DELIMITERS_OBJECT_NEWLINE,
+  return genMulti(getDelimitersObjectNewline(), [
     ['name: ', ...genExpression(name, context)],
     ['fn: ', ...genSlotBlockWithProps(fn, context)],
-  )
+  ])
 }
 
 function genLoopSlot(
@@ -285,30 +281,30 @@ function genLoopSlot(
   if (rawValue) idMap[rawValue] = rawValue
   if (rawKey) idMap[rawKey] = rawKey
   if (rawIndex) idMap[rawIndex] = rawIndex
-  const slotExpr = genMulti(
-    DELIMITERS_OBJECT_NEWLINE,
+  const slotExpr = genMulti(getDelimitersObjectNewline(), [
     ['name: ', ...context.withId(() => genExpression(name, context), idMap)],
     [
       'fn: ',
       ...context.withId(() => genSlotBlockWithProps(fn, context), idMap),
     ],
-  )
+  ])
   return [
-    ...genCall(
-      context.helper('createForSlots'),
+    ...genCall(context.helper('createForSlots'), [
       genExpression(source!, context),
       [
         ...genMulti(
-          ['(', ')', ', '],
-          rawValue ? rawValue : rawKey || rawIndex ? '_' : undefined,
-          rawKey ? rawKey : rawIndex ? '__' : undefined,
-          rawIndex,
+          ['(', ')', ', ', undefined],
+          [
+            rawValue ? rawValue : rawKey || rawIndex ? '_' : null,
+            rawKey ? rawKey : rawIndex ? '__' : null,
+            rawIndex,
+          ],
         ),
         ' => (',
         ...slotExpr,
         ')',
       ],
-    ),
+    ]),
   ]
 }
 

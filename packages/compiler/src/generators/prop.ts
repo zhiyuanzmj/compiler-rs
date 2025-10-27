@@ -1,4 +1,8 @@
 import {
+  getDelimitersArray,
+  getDelimitersObject,
+} from '@vue-jsx-vapor/compiler-rs'
+import {
   canSetValueDirectly,
   capitalize,
   isSVGTag,
@@ -13,8 +17,6 @@ import {
   type SimpleExpressionNode,
 } from '../ir'
 import {
-  DELIMITERS_ARRAY,
-  DELIMITERS_OBJECT,
   genCall,
   genMulti,
   isSimpleIdentifier,
@@ -60,9 +62,11 @@ export function genSetProp(
     NEWLINE,
     ...genCall(
       [helper(resolvedHelper.name), null],
-      `n${oper.element}`,
-      resolvedHelper.needKey ? genExpression(key, context) : false,
-      propValue,
+      [
+        `n${oper.element}`,
+        resolvedHelper.needKey ? genExpression(key, context) : null,
+        propValue,
+      ],
     ),
   ]
 }
@@ -82,12 +86,11 @@ export function genDynamicProps(
   ) // v-bind=""
   return [
     NEWLINE,
-    ...genCall(
-      helper('setDynamicProps'),
+    ...genCall(helper('setDynamicProps'), [
       `n${oper.element}`,
-      genMulti(DELIMITERS_ARRAY, ...values),
-      oper.root && 'true',
-    ),
+      genMulti(getDelimitersArray(), values),
+      oper.root ? 'true' : null,
+    ]),
   ]
 }
 
@@ -96,8 +99,8 @@ function genLiteralObjectProps(
   context: CodegenContext,
 ): CodeFragment[] {
   return genMulti(
-    DELIMITERS_OBJECT,
-    ...props.map((prop) => [
+    getDelimitersObject(),
+    props.map((prop) => [
       ...genPropKey(prop, context),
       `: `,
       ...genPropValue(prop.values, context),
@@ -126,16 +129,17 @@ export function genPropKey(
         isSimpleIdentifier(keyName) ? keyName : JSON.stringify(keyName),
         NewlineType.None,
         node.loc,
+        null,
       ],
     ]
   }
 
   let key = genExpression(node, context)
   if (runtimeCamelize) {
-    key = genCall(helper('camelize'), key)
+    key = genCall(helper('camelize'), [key])
   }
   if (handler) {
-    key = genCall(helper('toHandlerKey'), key)
+    key = genCall(helper('toHandlerKey'), [key])
   }
   return [
     '[',
@@ -143,7 +147,7 @@ export function genPropKey(
     ...key,
     handlerModifierPostfix
       ? ` + ${JSON.stringify(handlerModifierPostfix)}`
-      : undefined,
+      : null,
     ']',
   ]
 }
@@ -156,8 +160,8 @@ export function genPropValue(
     return genExpression(values[0], context)
   }
   return genMulti(
-    DELIMITERS_ARRAY,
-    ...values.map((expr) => genExpression(expr, context)),
+    getDelimitersArray(),
+    values.map((expr) => genExpression(expr, context)),
   )
 }
 

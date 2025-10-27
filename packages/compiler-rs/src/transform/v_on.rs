@@ -2,7 +2,7 @@ use std::{collections::HashSet, rc::Rc, sync::LazyLock};
 
 use napi::{
   Either, Result,
-  bindgen_prelude::{Either18, JsObjectValue, Object},
+  bindgen_prelude::{Either16, JsObjectValue, Object},
 };
 use regex::Regex;
 
@@ -125,7 +125,7 @@ pub fn transform_v_on(
   context.register_effect(
     context_block,
     context.is_operation(vec![&arg]),
-    Either18::H(SetEventIRNode {
+    Either16::H(SetEventIRNode {
       _type: IRNodeTypes::SET_EVENT,
       element,
       value: exp,

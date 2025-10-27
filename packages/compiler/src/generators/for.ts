@@ -123,8 +123,7 @@ export function genFor(
       NEWLINE,
       `${selectorName} = `,
       ...genCall(`createSelector`, [
-        `() => `,
-        ...genExpression(selector, context),
+        [`() => `, ...genExpression(selector, context)],
       ]),
     )
     if (i === selectorPatterns.length - 1) {
@@ -185,13 +184,15 @@ export function genFor(
     ...selectorDeclarations,
     `const n${id} = `,
     ...genCall(
-      [helper('createFor'), 'undefined'],
-      sourceExpr,
-      blockFn,
-      genCallback(keyProp),
-      flags ? String(flags) : undefined,
-      selectorSetup.length ? selectorSetup : undefined,
-      // todo: hydrationNode
+      [helper('createFor'), 'void 0'],
+      [
+        sourceExpr,
+        blockFn,
+        genCallback(keyProp),
+        flags ? String(flags) : null,
+        selectorSetup.length ? selectorSetup : null,
+        // todo: hydrationNode
+      ],
     ),
   ]
 
@@ -264,17 +265,19 @@ export function genFor(
   }
 
   function genCallback(expr: SimpleExpressionNode | undefined) {
-    if (!expr) return false
+    if (!expr) return null
     const res = context.withId(
       () => genExpression(expr, context),
       genSimpleIdMap(),
     )
     return [
       ...genMulti(
-        ['(', ')', ', '],
-        rawValue ? rawValue : rawKey || rawIndex ? '_' : undefined,
-        rawKey ? rawKey : rawIndex ? '__' : undefined,
-        rawIndex,
+        ['(', ')', ', ', undefined],
+        [
+          rawValue ? rawValue : rawKey || rawIndex ? '_' : null,
+          rawKey ? rawKey : rawIndex ? '__' : null,
+          rawIndex,
+        ],
       ),
       ' => (',
       ...res,

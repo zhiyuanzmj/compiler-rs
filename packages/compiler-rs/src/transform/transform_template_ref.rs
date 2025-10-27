@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use napi::{
   Either, Result,
-  bindgen_prelude::{Either18, JsObjectValue, Object},
+  bindgen_prelude::{Either16, JsObjectValue, Object},
 };
 
 use crate::{
@@ -44,7 +44,7 @@ pub fn transform_template_ref<'a>(
     if effect {
       context.register_operation(
         context_block,
-        Either18::P(DeclareOldRefIRNode {
+        Either16::O(DeclareOldRefIRNode {
           _type: IRNodeTypes::DECLARE_OLD_REF,
           id,
         }),
@@ -55,7 +55,7 @@ pub fn transform_template_ref<'a>(
     context.register_effect(
       context_block,
       context.is_operation(vec![&value]),
-      Either18::J(SetTemplateRefIRNode {
+      Either16::J(SetTemplateRefIRNode {
         _type: IRNodeTypes::SET_TEMPLATE_REF,
         element: id,
         value,

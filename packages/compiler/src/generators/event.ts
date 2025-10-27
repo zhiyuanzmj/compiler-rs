@@ -1,3 +1,4 @@
+import { getDelimitersObjectNewline } from '@vue-jsx-vapor/compiler-rs'
 import {
   IRNodeTypes,
   type OperationNode,
@@ -6,7 +7,6 @@ import {
   type SimpleExpressionNode,
 } from '../ir'
 import {
-  DELIMITERS_OBJECT_NEWLINE,
   genCall,
   genMulti,
   isFnExpression,
@@ -41,13 +41,12 @@ export function genSetEvent(
 
   return [
     NEWLINE,
-    ...genCall(
-      helper(delegate ? 'delegate' : 'on'),
+    ...genCall(helper(delegate ? 'delegate' : 'on'), [
       `n${element}`,
       name,
       handler,
       eventOptions,
-    ),
+    ]),
   ]
 
   function genName(): CodeFragment[] {
@@ -67,11 +66,10 @@ export function genSetEvent(
     const { options } = modifiers
     if (!options.length && !effect) return
 
-    return genMulti(
-      DELIMITERS_OBJECT_NEWLINE,
-      effect && ['effect: true'],
+    return genMulti(getDelimitersObjectNewline(), [
+      effect ? ['effect: true'] : null,
       ...options.map((option): CodeFragment[] => [`${option}: true`]),
-    )
+    ])
   }
 
   function isSameDelegateEvent(op: OperationNode) {
@@ -94,11 +92,10 @@ export function genSetDynamicEvents(
   const { helper } = context
   return [
     NEWLINE,
-    ...genCall(
-      helper('setDynamicEvents'),
+    ...genCall(helper('setDynamicEvents'), [
       `n${oper.element}`,
       genExpression(oper.value, context),
-    ),
+    ]),
   ]
 }
 
@@ -155,11 +152,10 @@ function genWithModifiers(
   handler: CodeFragment[],
   nonKeys: string[],
 ): CodeFragment[] {
-  return genCall(
-    context.helper('withModifiers'),
+  return genCall(context.helper('withModifiers'), [
     handler,
     JSON.stringify(nonKeys),
-  )
+  ])
 }
 
 function genWithKeys(
@@ -167,5 +163,5 @@ function genWithKeys(
   handler: CodeFragment[],
   keys: string[],
 ): CodeFragment[] {
-  return genCall(context.helper('withKeys'), handler, JSON.stringify(keys))
+  return genCall(context.helper('withKeys'), [handler, JSON.stringify(keys)])
 }

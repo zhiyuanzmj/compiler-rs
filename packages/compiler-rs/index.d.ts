@@ -25,11 +25,13 @@ export interface BlockIRNode {
 export declare function camelize(str: string): string
 
 export type CodeFragment =
-  | { type: 'Newline', field0: FragmentSymbol }
-  | { type: 'IndentStart', field0: FragmentSymbol }
-  | { type: 'IndentEnd', field0: FragmentSymbol }
-  | { type: 'String', field0: string }
-  | { type: 'Fragment', field0: Fragment }
+  FragmentSymbol | Fragment | string | undefined | null
+
+export type CodeFragmentDelimiters =
+  [CodeFragments, CodeFragments, CodeFragments, string | undefined | null]
+
+export type CodeFragments =
+  FragmentSymbol | Fragment | string | undefined | null | Array<CodeFragment>
 
 export interface CodegenOptions {
   /** * Generate source map?
@@ -153,12 +155,28 @@ export type Fragment =
   [string, NewlineType, SourceLocation | undefined | null, string | undefined | null]
 
 export declare const enum FragmentSymbol {
-  Newline = 0,
-  IndentStart = 1,
-  IndentEnd = 2
+  Newline = 1,
+  IndentStart = 2,
+  IndentEnd = 3
 }
 
-export declare function genExpression(node: SimpleExpressionNode, context: object, assignment?: string | undefined | null, needWrap?: boolean | undefined | null): Array<Fragment>
+export declare function genBlock(oper: BlockIRNode, context: object, args: Array<CodeFragment>, root: boolean): Array<CodeFragment>
+
+export declare function genCall(node: string | [string, CodeFragment | undefined | null], frags: Array<CodeFragments>): Array<CodeFragment>
+
+export declare function genExpression(node: SimpleExpressionNode, context: object, assignment?: string | undefined | null, needWrap?: boolean | undefined | null): Array<CodeFragment>
+
+export declare function genInsertNode(oper: InsertNodeIRNode, context: object): Array<CodeFragment>
+
+export declare function genMulti([left, right, seg, placeholder]: CodeFragmentDelimiters, frags: Array<CodeFragments>): Array<CodeFragment>
+
+export declare function getDelimitersArray(): CodeFragmentDelimiters
+
+export declare function getDelimitersArrayNewline(): CodeFragmentDelimiters
+
+export declare function getDelimitersObject(): CodeFragmentDelimiters
+
+export declare function getDelimitersObjectNewline(): CodeFragmentDelimiters
 
 export declare function getExpression(node: import('oxc-parser').Node): import('oxc-parser').Node
 
@@ -230,9 +248,7 @@ export declare const enum IRNodeTypes {
   SET_HTML = 'SET_HTML',
   SET_TEMPLATE_REF = 'SET_TEMPLATE_REF',
   INSERT_NODE = 'INSERT_NODE',
-  PREPEND_NODE = 'PREPEND_NODE',
   CREATE_COMPONENT_NODE = 'CREATE_COMPONENT_NODE',
-  SLOT_OUTLET_NODE = 'SLOT_OUTLET_NODE',
   DIRECTIVE = 'DIRECTIVE',
   DECLARE_OLD_REF = 'DECLARE_OLD_REF',
   IF = 'IF',
@@ -386,13 +402,7 @@ export declare const enum NewlineType {
 }
 
 export type OperationNode =
-  IfIRNode | ForIRNode | SetTextIRNode | SetPropIRNode | SetDynamicPropsIRNode | SetDynamicEventsIRNode | SetNodesIRNode | SetEventIRNode | SetHtmlIRNode | SetTemplateRefIRNode | CreateNodesIRNode | InsertNodeIRNode | PrependNodeIRNode | DirectiveIRNode | CreateComponentIRNode | DeclareOldRefIRNode | SlotOutletIRNode | GetTextChildIRNode
-
-export interface PrependNodeIRNode {
-  type: IRNodeTypes.PREPEND_NODE
-  elements: Array<number>
-  parent: number
-}
+  IfIRNode | ForIRNode | SetTextIRNode | SetPropIRNode | SetDynamicPropsIRNode | SetDynamicEventsIRNode | SetNodesIRNode | SetEventIRNode | SetHtmlIRNode | SetTemplateRefIRNode | CreateNodesIRNode | InsertNodeIRNode | DirectiveIRNode | CreateComponentIRNode | DeclareOldRefIRNode | GetTextChildIRNode
 
 export interface PropsResult {
   dynamic: boolean
@@ -479,10 +489,6 @@ export interface SimpleExpressionNode {
   isStatic: boolean
   loc?: SourceLocation
   ast?: import('oxc-parser').Node
-}
-
-export interface SlotOutletIRNode {
-  type: IRNodeTypes.SLOT_OUTLET_NODE
 }
 
 export type SourceLocation =

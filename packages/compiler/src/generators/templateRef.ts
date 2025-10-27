@@ -11,13 +11,15 @@ export function genSetTemplateRef(
 ): CodeFragment[] {
   return [
     NEWLINE,
-    oper.effect && `r${oper.element} = `,
+    oper.effect ? `r${oper.element} = ` : null,
     ...genCall(
       setTemplateRefIdent, // will be generated in root scope
-      `n${oper.element}`,
-      genExpression(oper.value, context),
-      oper.effect ? `r${oper.element}` : oper.refFor ? 'void 0' : undefined,
-      oper.refFor && 'true',
+      [
+        `n${oper.element}`,
+        genExpression(oper.value, context),
+        oper.effect ? `r${oper.element}` : oper.refFor ? 'void 0' : null,
+        oper.refFor ? 'true' : null,
+      ],
     ),
   ]
 }

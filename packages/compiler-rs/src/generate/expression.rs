@@ -2,12 +2,12 @@ use std::collections::HashMap;
 
 use napi::{
   Env, Result,
-  bindgen_prelude::{JsObjectValue, Object},
+  bindgen_prelude::{Either3, JsObjectValue, Object},
 };
 use napi_derive::napi;
 
 use crate::{
-  generate::utils::{Fragment, NewlineType},
+  generate::utils::{CodeFragment, NewlineType},
   ir::index::{SimpleExpressionNode, SourceLocation},
   utils::{
     check::is_static_property, expression::_is_constant_expression, utils::TS_NODE_TYPES,
@@ -22,24 +22,24 @@ pub fn gen_expression(
   context: Object,
   assignment: Option<String>,
   need_wrap: Option<bool>,
-) -> Result<Vec<Fragment>> {
+) -> Result<Vec<CodeFragment>> {
   let content = node.content.clone();
   let loc = node.loc.clone();
   let need_wrap = need_wrap.unwrap_or(false);
 
   if node.is_static {
-    return Ok(vec![(
+    return Ok(vec![Either3::B((
       format!("\"{content}\""),
       NewlineType::None,
       loc,
       None,
-    )]);
+    ))]);
   }
 
   if content.is_empty() || _is_constant_expression(&node) {
     return Ok(vec![
-      (content, NewlineType::None, loc, None),
-      (
+      Either3::B((content, NewlineType::None, loc, None)),
+      Either3::B((
         if let Some(assignment) = assignment {
           format!(" = {assignment}")
         } else {
@@ -48,7 +48,7 @@ pub fn gen_expression(
         NewlineType::None,
         None,
         None,
-      ),
+      )),
     ]);
   }
 
@@ -80,7 +80,7 @@ pub fn gen_expression(
   if len > 0 {
     let mut frag = vec![];
     if need_wrap {
-      frag.push(("() => (".to_string(), NewlineType::None, None, None));
+      frag.push(Either3::C(Some("() => (".to_string())));
     }
     let is_ts_node = TS_NODE_TYPES.contains(&ast.get_named_property::<String>("type")?.as_str());
     let offset = ast.get_named_property::<u32>("start")? as usize;
@@ -98,12 +98,12 @@ pub fn gen_expression(
         }..start]
           .to_string();
         if !leading_text.is_empty() {
-          frag.push((
+          frag.push(Either3::B((
             leading_text,
             NewlineType::Unknown,
             None,
             Some(" ".to_string()),
-          ))
+          )))
         }
       }
 
@@ -122,7 +122,7 @@ pub fn gen_expression(
         };
       }
 
-      for fragment in gen_identifier(
+      frag.append(&mut gen_identifier(
         source,
         context,
         None,
@@ -136,12 +136,15 @@ pub fn gen_expression(
           assignment.as_ref()
         },
         parent,
-      )? {
-        frag.push(fragment);
-      }
+      )?);
 
       if i == len - 1 && end < content.len() && !is_ts_node {
-        frag.push((content[end..].to_string(), NewlineType::Unknown, None, None))
+        frag.push(Either3::B((
+          content[end..].to_string(),
+          NewlineType::Unknown,
+          None,
+          None,
+        )))
       }
       i += 1;
     }
@@ -150,15 +153,15 @@ pub fn gen_expression(
       && !assignment.is_empty()
       && has_member_expression
     {
-      frag.push((format!(" = {assignment}"), NewlineType::None, None, None))
+      frag.push(Either3::C(Some(format!(" = {assignment}"))))
     }
 
     if need_wrap {
-      frag.push((")".to_string(), NewlineType::None, None, None))
+      frag.push(Either3::C(Some(")".to_string())))
     }
     Ok(frag)
   } else {
-    Ok(vec![(content, NewlineType::Unknown, loc, None)])
+    Ok(vec![Either3::B((content, NewlineType::Unknown, loc, None))])
   }
 }
 
@@ -168,7 +171,7 @@ pub fn gen_identifier(
   loc: Option<SourceLocation>,
   assignment: Option<&String>,
   parent: Option<&Object>,
-) -> Result<Vec<Fragment>> {
+) -> Result<Vec<CodeFragment>> {
   let identifiers = context.get_named_property::<HashMap<String, Vec<String>>>("identifiers")?;
   if let Some(id_map) = identifiers.get(&name)
     && id_map.len() > 0
@@ -178,19 +181,19 @@ pub fn gen_identifier(
         && parent.get_named_property::<String>("type")?.eq("Property")
         && parent.get_named_property::<bool>("shorthand")?
       {
-        return Ok(vec![(
+        return Ok(vec![Either3::B((
           format!("{name}: {replacement}"),
           NewlineType::None,
           loc,
           None,
-        )]);
+        ))]);
       } else {
-        return Ok(vec![(
+        return Ok(vec![Either3::B((
           replacement.to_string(),
           NewlineType::None,
           loc,
           None,
-        )]);
+        ))]);
       }
     }
   }
@@ -210,7 +213,7 @@ pub fn gen_identifier(
   }
 
   Ok(vec![
-    (prefix, NewlineType::None, None, None),
-    (name.clone(), NewlineType::None, loc, Some(name)),
+    Either3::B((prefix, NewlineType::None, None, None)),
+    Either3::B((name.clone(), NewlineType::None, loc, Some(name))),
   ])
 }

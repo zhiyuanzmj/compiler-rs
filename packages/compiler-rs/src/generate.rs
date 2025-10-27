@@ -1,3 +1,5 @@
+pub mod block;
+pub mod dom;
 pub mod expression;
 pub mod utils;
 
