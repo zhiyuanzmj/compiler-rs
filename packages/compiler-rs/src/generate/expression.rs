@@ -122,7 +122,7 @@ pub fn gen_expression(
         };
       }
 
-      frag.append(&mut gen_identifier(
+      frag.extend(gen_identifier(
         source,
         context,
         None,

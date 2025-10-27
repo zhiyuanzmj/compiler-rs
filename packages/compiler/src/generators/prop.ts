@@ -1,4 +1,5 @@
 import {
+  genExpression,
   getDelimitersArray,
   getDelimitersObject,
 } from '@vue-jsx-vapor/compiler-rs'
@@ -25,7 +26,6 @@ import {
   type CodeFragment,
 } from '../utils'
 import type { CodegenContext } from '../generate'
-import { genExpression } from './expression'
 
 export type HelperConfig = {
   name: string

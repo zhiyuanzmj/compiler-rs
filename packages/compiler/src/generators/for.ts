@@ -1,4 +1,4 @@
-import { walk } from '@vue-jsx-vapor/compiler-rs'
+import { genExpression, walk } from '@vue-jsx-vapor/compiler-rs'
 import { extend, isGloballyAllowed } from '@vue/shared'
 import {
   IRNodeTypes,
@@ -20,7 +20,6 @@ import {
 } from '../utils'
 import type { CodegenContext } from '../generate'
 import { genBlockContent } from './block'
-import { genExpression } from './expression'
 import { genOperation } from './operation'
 import type { Expression, IdentifierName, Node } from 'oxc-parser'
 

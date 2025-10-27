@@ -17,6 +17,7 @@ use crate::{
 };
 
 #[napi(string_enum)]
+#[derive(PartialEq)]
 pub enum IRNodeTypes {
   ROOT,
   BLOCK,
@@ -388,6 +389,7 @@ pub struct IREffect {
 pub type SourceLocation = (i32, i32);
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct SimpleExpressionNode {
   pub content: String,
   pub is_static: bool,

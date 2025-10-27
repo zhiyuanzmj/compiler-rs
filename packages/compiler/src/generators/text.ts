@@ -1,3 +1,4 @@
+import { genExpression } from '@vue-jsx-vapor/compiler-rs'
 import {
   genCall,
   getLiteralExpressionValue,
@@ -13,7 +14,6 @@ import type {
   SetTextIRNode,
   SimpleExpressionNode,
 } from '../ir'
-import { genExpression } from './expression'
 
 export function genSetText(
   oper: SetTextIRNode,

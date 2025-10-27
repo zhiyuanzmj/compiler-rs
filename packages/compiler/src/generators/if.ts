@@ -1,3 +1,4 @@
+import { genExpression } from '@vue-jsx-vapor/compiler-rs'
 import { IRNodeTypes, type IfIRNode } from '../ir'
 import {
   buildCodeFragment,
@@ -7,7 +8,6 @@ import {
 } from '../utils'
 import type { CodegenContext } from '../generate'
 import { genBlock } from './block'
-import { genExpression } from './expression'
 
 export function genIf(
   oper: IfIRNode,

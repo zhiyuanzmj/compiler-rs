@@ -433,8 +433,11 @@ pub fn is_build_in_directive(prop_name: &str) -> bool {
 static NON_IDENTIFIER_RE: LazyLock<Regex> =
   LazyLock::new(|| Regex::new(r"^$|^\d|[^$\w\x{00A0}-\x{FFFF}]").unwrap());
 #[napi]
-pub fn is_simple_identifier(name: String) -> bool {
+pub fn _is_simple_identifier(name: String) -> bool {
   !NON_IDENTIFIER_RE.is_match(&name)
+}
+pub fn is_simple_identifier(name: &str) -> bool {
+  !NON_IDENTIFIER_RE.is_match(name)
 }
 
 #[napi]

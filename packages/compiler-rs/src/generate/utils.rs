@@ -145,7 +145,7 @@ pub fn gen_multi(
     Either4::A(item) => _frag.push(Either3::A(item)),
     Either4::B(item) => _frag.push(Either3::B(item)),
     Either4::C(item) => _frag.push(Either3::C(item)),
-    Either4::D(mut item) => _frag.append(&mut item),
+    Either4::D(item) => _frag.extend(item),
   };
   push(left);
   let mut i = 0;
@@ -179,7 +179,7 @@ pub fn gen_call(
     ),
   };
   let mut result = vec![Either3::C(Some(fn_name))];
-  result.append(&mut gen_multi(
+  result.extend(gen_multi(
     (
       Either4::C(Some("(".to_string())),
       Either4::C(Some(")".to_string())),

@@ -1,7 +1,12 @@
 pub mod block;
+pub mod directive;
 pub mod dom;
 pub mod expression;
+pub mod html;
+pub mod template_ref;
 pub mod utils;
+pub mod v_model;
+pub mod v_show;
 
 use std::{
   collections::{HashMap, HashSet},

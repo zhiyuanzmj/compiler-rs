@@ -14,7 +14,7 @@ pub fn gen_block(
   root: bool,
 ) -> Vec<CodeFragment> {
   let mut result = vec![Either3::C(Some("(".to_string()))];
-  result.append(&mut args);
+  result.extend(args);
   result.push(Either3::C(Some(") => {".to_string())));
   result.push(Either3::A(IndentStart));
 

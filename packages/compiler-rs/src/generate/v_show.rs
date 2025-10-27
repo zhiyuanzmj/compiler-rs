@@ -1,4 +1,5 @@
 use napi::Either;
+use napi::Env;
 use napi::Result;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
@@ -7,46 +8,31 @@ use napi::bindgen_prelude::JsObjectValue;
 use napi::bindgen_prelude::Object;
 use napi_derive::napi;
 
+use crate::generate::expression::gen_expression;
 use crate::generate::utils::CodeFragment;
 use crate::generate::utils::FragmentSymbol::Newline;
 use crate::generate::utils::gen_call;
-use crate::ir::index::InsertNodeIRNode;
+use crate::ir::index::DirectiveIRNode;
+use crate::ir::index::SimpleExpressionNode;
 
 #[napi]
-pub fn gen_insert_node(
-  oper: InsertNodeIRNode,
+pub fn gen_v_show(
+  env: Env,
+  oper: DirectiveIRNode,
   context: Object<'static>,
 ) -> Result<Vec<CodeFragment>> {
-  let InsertNodeIRNode {
-    parent,
-    elements,
-    anchor,
-    ..
-  } = oper;
-  let mut element = elements
-    .iter()
-    .map(|el| format!("n{el}"))
-    .collect::<Vec<String>>()
-    .join(", ");
-  if elements.len() > 1 {
-    element = format!("[{element}]");
-  }
+  let DirectiveIRNode { dir, element, .. } = oper;
   let mut result = vec![Either3::A(Newline)];
+  let mut body = vec![Either3::C(Some("() => (".to_string()))];
+  body.extend(gen_expression(env, dir.exp.unwrap(), context, None, None)?);
+  body.push(Either3::C(Some(")".to_string())));
   result.extend(gen_call(
     Either::A(
       context
         .get_named_property::<Function<String, String>>("helper")?
-        .call("insert".to_string())?,
+        .call("applyVShow".to_string())?,
     ),
-    vec![
-      Either4::C(Some(element)),
-      Either4::C(Some(format!("n{parent}"))),
-      if let Some(anchor) = anchor {
-        Either4::C(Some(format!("n{}", anchor.to_string())))
-      } else {
-        Either4::C(None)
-      },
-    ],
+    vec![Either4::C(Some(format!("n{element}"))), Either4::D(body)],
   ));
   Ok(result)
 }

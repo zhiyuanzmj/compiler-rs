@@ -1,4 +1,11 @@
 import {
+  genBuiltinDirective,
+  genDeclareOldRef,
+  genInsertNode,
+  genSetHtml,
+  genSetTemplateRef,
+} from '@vue-jsx-vapor/compiler-rs'
+import {
   IRNodeTypes,
   isBlockOperation,
   type InsertionStateTypes,
@@ -15,14 +22,10 @@ import {
 } from '../utils'
 import type { CodegenContext } from '../generate'
 import { genCreateComponent } from './component'
-import { genBuiltinDirective } from './directive'
-import { genInsertNode } from './dom'
 import { genSetDynamicEvents, genSetEvent } from './event'
 import { genFor } from './for'
-import { genSetHtml } from './html'
 import { genIf } from './if'
 import { genDynamicProps, genSetProp } from './prop'
-import { genDeclareOldRef, genSetTemplateRef } from './templateRef'
 import {
   genCreateNodes,
   genGetTextChild,

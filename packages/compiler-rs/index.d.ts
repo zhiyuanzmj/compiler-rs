@@ -162,13 +162,35 @@ export declare const enum FragmentSymbol {
 
 export declare function genBlock(oper: BlockIRNode, context: object, args: Array<CodeFragment>, root: boolean): Array<CodeFragment>
 
+export declare function genBuiltinDirective(oper: DirectiveIRNode, context: object): Array<CodeFragment>
+
 export declare function genCall(node: string | [string, CodeFragment | undefined | null], frags: Array<CodeFragments>): Array<CodeFragment>
+
+export declare function genDeclareOldRef(oper: DeclareOldRefIRNode): Array<CodeFragment>
+
+export declare function genDirectiveModifiers(modifiers: Array<string>): string
+
+/** * user directives via `withVaporDirectives`
+ * TODO the compiler side is implemented but no runtime support yet
+ * it was removed due to perf issues
+ */
+export declare function genDirectivesForElement(id: number, context: object): Array<CodeFragment>
 
 export declare function genExpression(node: SimpleExpressionNode, context: object, assignment?: string | undefined | null, needWrap?: boolean | undefined | null): Array<CodeFragment>
 
 export declare function genInsertNode(oper: InsertNodeIRNode, context: object): Array<CodeFragment>
 
+export declare function genModelHandler(exp: SimpleExpressionNode, context: object): Array<CodeFragment>
+
 export declare function genMulti([left, right, seg, placeholder]: CodeFragmentDelimiters, frags: Array<CodeFragments>): Array<CodeFragment>
+
+export declare function genSetHtml(oper: SetHtmlIRNode, context: object): Array<CodeFragment>
+
+export declare function genSetTemplateRef(oper: SetTemplateRefIRNode, context: object): Array<CodeFragment>
+
+export declare function genVModel(oper: DirectiveIRNode, context: object): Array<CodeFragment>
+
+export declare function genVShow(oper: DirectiveIRNode, context: object): Array<CodeFragment>
 
 export declare function getDelimitersArray(): CodeFragmentDelimiters
 

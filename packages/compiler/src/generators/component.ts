@@ -1,4 +1,8 @@
 import {
+  genDirectiveModifiers,
+  genDirectivesForElement,
+  genExpression,
+  genModelHandler,
   getDelimitersArrayNewline,
   getDelimitersObject,
   getDelimitersObjectNewline,
@@ -32,11 +36,8 @@ import {
 } from '../utils'
 import type { CodegenContext } from '../generate'
 import { genBlock } from './block'
-import { genDirectiveModifiers, genDirectivesForElement } from './directive'
 import { genEventHandler } from './event'
-import { genExpression } from './expression'
 import { genPropKey, genPropValue } from './prop'
-import { genModelHandler } from './vModel'
 
 export function genCreateComponent(
   operation: CreateComponentIRNode,

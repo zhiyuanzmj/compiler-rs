@@ -1,4 +1,7 @@
-import { getDelimitersObjectNewline } from '@vue-jsx-vapor/compiler-rs'
+import {
+  genExpression,
+  getDelimitersObjectNewline,
+} from '@vue-jsx-vapor/compiler-rs'
 import {
   IRNodeTypes,
   type OperationNode,
@@ -15,7 +18,6 @@ import {
   type CodeFragment,
 } from '../utils'
 import type { CodegenContext } from '../generate'
-import { genExpression } from './expression'
 
 export function genSetEvent(
   oper: SetEventIRNode,

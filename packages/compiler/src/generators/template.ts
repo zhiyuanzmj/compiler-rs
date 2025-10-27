@@ -1,3 +1,4 @@
+import { genDirectivesForElement } from '@vue-jsx-vapor/compiler-rs'
 import { DynamicFlag, type IRDynamicInfo } from '../ir'
 import {
   buildCodeFragment,
@@ -6,7 +7,6 @@ import {
   type CodeFragment,
 } from '../utils'
 import type { CodegenContext } from '../generate'
-import { genDirectivesForElement } from './directive'
 import { genOperationWithInsertionState } from './operation'
 
 export function genTemplates(

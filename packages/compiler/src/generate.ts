@@ -2,7 +2,6 @@ import { CodegenOptions } from '@vue-jsx-vapor/compiler-rs'
 import { extend, remove } from '@vue/shared'
 import { genBlockContent } from './generators/block'
 import { genTemplates } from './generators/template'
-import { setTemplateRefIdent } from './generators/templateRef'
 import {
   buildCodeFragment,
   codeFragmentToString,
@@ -93,7 +92,7 @@ export function generate(
   if (ir.hasTemplateRef) {
     push(
       NEWLINE,
-      `const ${setTemplateRefIdent} = ${context.helper('createTemplateRefSetter')}()`,
+      `const _setTemplateRef = ${context.helper('createTemplateRefSetter')}()`,
     )
   }
   push(...genBlockContent(context.block, context, true))
