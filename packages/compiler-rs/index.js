@@ -570,6 +570,7 @@ module.exports.genCall = nativeBinding.genCall
 module.exports.genDeclareOldRef = nativeBinding.genDeclareOldRef
 module.exports.genDirectiveModifiers = nativeBinding.genDirectiveModifiers
 module.exports.genDirectivesForElement = nativeBinding.genDirectivesForElement
+module.exports.genEffect = nativeBinding.genEffect
 module.exports.genEventHandler = nativeBinding.genEventHandler
 module.exports.genExpression = nativeBinding.genExpression
 module.exports.genIf = nativeBinding.genIf

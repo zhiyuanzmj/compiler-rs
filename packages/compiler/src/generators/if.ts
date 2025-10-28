@@ -24,12 +24,12 @@ export function genIf(
     ')',
   ]
 
-  const positiveArg = genBlock(positive, context)
+  const positiveArg = genBlock(positive, context, [], false)
   let negativeArg: CodeFragment[] = null
 
   if (negative) {
     if (negative.type === IRNodeTypes.BLOCK) {
-      negativeArg = genBlock(negative, context)
+      negativeArg = genBlock(negative, context, [], false)
     } else {
       negativeArg = ['() => ', ...genIf(negative as IfIRNode, context, true)]
     }

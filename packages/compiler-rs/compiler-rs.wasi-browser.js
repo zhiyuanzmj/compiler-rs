@@ -69,6 +69,7 @@ export const genCall = __napiModule.exports.genCall
 export const genDeclareOldRef = __napiModule.exports.genDeclareOldRef
 export const genDirectiveModifiers = __napiModule.exports.genDirectiveModifiers
 export const genDirectivesForElement = __napiModule.exports.genDirectivesForElement
+export const genEffect = __napiModule.exports.genEffect
 export const genEventHandler = __napiModule.exports.genEventHandler
 export const genExpression = __napiModule.exports.genExpression
 export const genIf = __napiModule.exports.genIf

@@ -65,7 +65,6 @@ pub fn gen_self(env: Env, dynamic: IRDynamicInfo, context: Object) -> Result<Vec
     id,
     children,
     template,
-    has_dynamic_child,
     operation,
     ..
   } = dynamic;
@@ -86,26 +85,22 @@ pub fn gen_self(env: Env, dynamic: IRDynamicInfo, context: Object) -> Result<Vec
     )?)
   }
 
-  if let Some(id) = id
-    && has_dynamic_child.unwrap_or(false)
-  {
-    let result = {
-      let _frag = &mut frag;
-      gen_children(
-        env,
-        children,
-        context,
-        Rc::new(RefCell::new(move |value| _frag.extend(value))),
-        format!("n{id}"),
-      )?
-    };
-    frag.extend(result);
-  }
+  let result = {
+    let _frag = &mut frag;
+    gen_children(
+      env,
+      children,
+      context,
+      Rc::new(RefCell::new(move |value| _frag.extend(value))),
+      format!("n{}", id.unwrap_or(0)),
+    )?
+  };
+  frag.extend(result);
 
   Ok(frag)
 }
 
-pub fn gen_children(
+fn gen_children(
   env: Env,
   children: Vec<IRDynamicInfo>,
   context: Object,

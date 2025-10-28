@@ -1,6 +1,7 @@
 import {
   genBuiltinDirective,
   genDeclareOldRef,
+  // genIf,
   genInsertNode,
   genOperation,
   // genOperations,
@@ -38,6 +39,7 @@ import {
 } from './text'
 
 export {
+  // genEffect,
   genOperation,
   // genOperations, genOperationWithInsertionState
 }
@@ -90,7 +92,7 @@ export function genOperation1(
     case IRNodeTypes.INSERT_NODE:
       return genInsertNode(oper, context)
     case IRNodeTypes.IF:
-      return genIf(oper, context)
+      return genIf(oper, context, false)
     case IRNodeTypes.CREATE_COMPONENT_NODE:
       return genCreateComponent(oper, context)
     case IRNodeTypes.DECLARE_OLD_REF:
@@ -115,7 +117,6 @@ export function genOperation1(
 export function genEffects(
   effects: IREffect[],
   context: CodegenContext,
-  genExtraFrag?: () => CodeFragment[],
 ): CodeFragment[] {
   const { helper } = context
   const [frag, push, unshift] = buildCodeFragment()
@@ -139,10 +140,6 @@ export function genEffects(
   if (effects.length) {
     unshift(NEWLINE, `${helper('renderEffect')}(() => `)
     push(`)`)
-  }
-
-  if (genExtraFrag) {
-    push(...genExtraFrag())
   }
 
   return frag

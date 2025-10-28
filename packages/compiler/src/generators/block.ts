@@ -12,7 +12,7 @@ import {
 import type { CodegenContext } from '../generate'
 import type { BlockIRNode } from '../ir'
 import { genEffects, genOperations } from './operation'
-import { genChildren, genSelf } from './template'
+import { genSelf } from './template'
 
 export function genBlock(
   oper: BlockIRNode,
@@ -43,18 +43,12 @@ export function genBlockContent(
   const { dynamic, effect, operation, returns } = context.block
 
   if (root) {
-    for (let name of context.ir.component) {
+    for (const name of context.ir.component) {
       const id = toValidAssetId(name, 'component')
-      const maybeSelfReference = name.endsWith('__self')
-      if (maybeSelfReference) name = name.slice(0, -6)
       push(
         NEWLINE,
         `const ${id} = `,
-        ...genCall(context.helper('resolveComponent'), [
-          JSON.stringify(name),
-          // pass additional `maybeSelfReference` flag
-          maybeSelfReference ? 'true' : null,
-        ]),
+        ...genCall(context.helper('resolveComponent'), [JSON.stringify(name)]),
       )
     }
     genResolveAssets('directive', 'resolveDirective')
@@ -63,14 +57,13 @@ export function genBlockContent(
   for (const child of dynamic.children) {
     push(...genSelf(child, context))
   }
-  for (const child of dynamic.children) {
-    if (!child.hasDynamicChild) {
-      push(...genChildren(child.children, context, push, `n${child.id!}`))
-    }
-  }
 
   push(...genOperations(operation, context))
-  push(...genEffects(effect, context, genEffectsExtraFrag))
+  const effects_frag = genEffects(effect, context)
+  if (genEffectsExtraFrag) {
+    push(...genEffectsExtraFrag())
+  }
+  push(...effects_frag)
 
   push(NEWLINE, `return `)
 
@@ -78,7 +71,7 @@ export function genBlockContent(
   const returnsCode: CodeFragment[] =
     returnNodes.length > 1
       ? genMulti(getDelimitersArray(), returnNodes)
-      : [returnNodes[0] || 'null']
+      : [returnNodes[0] === undefined ? 'null' : returnNodes[0]]
   push(...returnsCode)
 
   resetBlock()

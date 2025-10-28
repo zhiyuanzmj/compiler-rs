@@ -15,7 +15,7 @@ export function genSelf(
   context: CodegenContext,
 ): CodeFragment[] {
   const [frag, push] = buildCodeFragment()
-  const { id, template, operation, hasDynamicChild } = dynamic
+  const { id, template, operation } = dynamic
 
   if (id !== undefined && template !== undefined) {
     push(NEWLINE, `const n${id} = t${template}()`)
@@ -26,9 +26,7 @@ export function genSelf(
     push(...genOperationWithInsertionState(operation, context))
   }
 
-  if (hasDynamicChild) {
-    push(...genChildren(dynamic.children, context, push, `n${id}`))
-  }
+  push(...genChildren(dynamic.children, context, push, `n${id}`))
 
   return frag
 }

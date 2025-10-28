@@ -18,12 +18,15 @@ use crate::generate::html::gen_set_html;
 use crate::generate::template_ref::gen_declare_old_ref;
 use crate::generate::template_ref::gen_set_template_ref;
 use crate::generate::utils::CodeFragment;
+use crate::generate::utils::FragmentSymbol;
 use crate::generate::utils::FragmentSymbol::Newline;
 use crate::generate::utils::gen_call;
+use crate::generate::v_if::gen_if;
 use crate::ir::index::CreateComponentIRNode;
 use crate::ir::index::CreateNodesIRNode;
 use crate::ir::index::ForIRNode;
 use crate::ir::index::GetTextChildIRNode;
+use crate::ir::index::IREffect;
 use crate::ir::index::IfIRNode;
 use crate::ir::index::OperationNode;
 use crate::ir::index::SetDynamicPropsIRNode;
@@ -82,62 +85,54 @@ pub fn gen_operation_with_insertion_state(
 #[napi]
 pub fn gen_operation(env: Env, oper: OperationNode, context: Object) -> Result<Vec<CodeFragment>> {
   match oper {
-    Either16::A(v_if_ir_node) => context
-      .get_named_property::<Function<FnArgs<(IfIRNode, Object)>, Vec<CodeFragment>>>(
-        "genOperation",
-      )?
-      .call((v_if_ir_node, context).into()),
-    Either16::B(v_for_ir_node) => context
+    Either16::A(oper) => gen_if(env, oper, context, false),
+    Either16::B(oper) => context
       .get_named_property::<Function<FnArgs<(ForIRNode, Object)>, Vec<CodeFragment>>>(
         "genOperation",
       )?
-      .call((v_for_ir_node, context).into()),
-    Either16::C(set_text_ir_node) => context
+      .call((oper, context).into()),
+    Either16::C(oper) => context
       .get_named_property::<Function<FnArgs<(SetTextIRNode, Object)>, Vec<CodeFragment>>>(
         "genOperation",
       )?
-      .call((set_text_ir_node, context).into()),
-    Either16::D(set_prop_ir_node) => context
+      .call((oper, context).into()),
+    Either16::D(oper) => context
       .get_named_property::<Function<FnArgs<(SetPropIRNode, Object)>, Vec<CodeFragment>>>(
         "genOperation",
       )?
-      .call((set_prop_ir_node, context).into()),
-    Either16::E(set_dynamic_props_ir_node) => context
+      .call((oper, context).into()),
+    Either16::E(oper) => context
       .get_named_property::<Function<FnArgs<(SetDynamicPropsIRNode, Object)>, Vec<CodeFragment>>>(
         "genOperation",
       )?
-      .call((set_dynamic_props_ir_node, context).into()),
-    Either16::F(set_dynamic_events_ir_node) => {
-      gen_set_dynamic_events(env, set_dynamic_events_ir_node, context)
-    }
-    Either16::G(set_nodes_ir_node) => context
+      .call((oper, context).into()),
+    Either16::F(oper) => gen_set_dynamic_events(env, oper, context),
+    Either16::G(oper) => context
       .get_named_property::<Function<FnArgs<(SetNodesIRNode, Object)>, Vec<CodeFragment>>>(
         "genOperation",
       )?
-      .call((set_nodes_ir_node, context).into()),
-    Either16::H(set_event_ir_node) => gen_set_event(env, set_event_ir_node, context),
-    Either16::I(set_html_ir_node) => gen_set_html(env, set_html_ir_node, context),
-    Either16::J(set_template_ref_ir_node) => {
-      gen_set_template_ref(env, set_template_ref_ir_node, context)
-    }
-    Either16::K(create_nodes_ir_node) => context
+      .call((oper, context).into()),
+    Either16::H(oper) => gen_set_event(env, oper, context),
+    Either16::I(oper) => gen_set_html(env, oper, context),
+    Either16::J(oper) => gen_set_template_ref(env, oper, context),
+    Either16::K(oper) => context
       .get_named_property::<Function<FnArgs<(CreateNodesIRNode, Object)>, Vec<CodeFragment>>>(
         "genOperation",
       )?
-      .call((create_nodes_ir_node, context).into()),
-    Either16::L(insert_node_ir_node) => gen_insert_node(insert_node_ir_node, context),
-    Either16::M(directive_ir_node) => gen_builtin_directive(env, directive_ir_node, context),
-    Either16::N(create_component_ir_node) => context
+      .call((oper, context).into()),
+    Either16::L(oper) => gen_insert_node(oper, context),
+    Either16::M(oper) => gen_builtin_directive(env, oper, context),
+    Either16::N(oper) => context
       .get_named_property::<Function<FnArgs<(CreateComponentIRNode, Object)>, Vec<CodeFragment>>>(
         "genOperation",
       )?
-      .call((create_component_ir_node, context).into()),
-    Either16::O(declare_old_ref_ir_node) => Ok(gen_declare_old_ref(declare_old_ref_ir_node)),
-    Either16::P(get_text_child_ir_node) => context
+      .call((oper, context).into()),
+    Either16::O(oper) => Ok(gen_declare_old_ref(oper)),
+    Either16::P(oper) => context
       .get_named_property::<Function<FnArgs<(GetTextChildIRNode, Object)>, Vec<CodeFragment>>>(
         "genOperation",
       )?
-      .call((get_text_child_ir_node, context).into()),
+      .call((oper, context).into()),
   }
 }
 
@@ -169,4 +164,86 @@ pub fn gen_insertion_state(
     ],
   ));
   Ok(result)
+}
+
+pub fn gen_effects(env: Env, effects: Vec<IREffect>, context: Object) -> Result<Vec<CodeFragment>> {
+  let mut frag: Vec<CodeFragment> = vec![];
+  let mut operations_count = 0;
+
+  let mut i = 0;
+  let effects_len = effects.len();
+  for effect in effects {
+    operations_count += effect.operations.len();
+    let frags = gen_effect(env, effect.operations, context)?;
+    if i > 0 {
+      frag.push(Either3::A(Newline));
+    }
+    if let Some(last) = frag.last()
+      && matches!(last, Either3::C(Some(s)) if s.eq(")"))
+      && let Some(first) = frags.first()
+      && matches!(first, Either3::C(Some(s)) if s.eq("("))
+    {
+      frag.push(Either3::C(Some(";".to_string())))
+    }
+    frag.extend(frags);
+    i += 1;
+  }
+
+  let newline_count = frag
+    .iter()
+    .filter(|frag| matches!(frag, Either3::A(FragmentSymbol::Newline)))
+    .collect::<Vec<_>>()
+    .len();
+  if newline_count > 1 || operations_count > 1 {
+    frag.insert(0, Either3::A(FragmentSymbol::Newline));
+    frag.insert(0, Either3::A(FragmentSymbol::IndentStart));
+    frag.insert(0, Either3::C(Some("{".to_string())));
+    frag.push(Either3::A(FragmentSymbol::IndentEnd));
+    frag.push(Either3::A(FragmentSymbol::Newline));
+    frag.push(Either3::C(Some("}".to_string())));
+  }
+
+  if effects_len > 0 {
+    frag.insert(
+      0,
+      Either3::C(Some(format!(
+        "{}(() => ",
+        context
+          .get_named_property::<Function<String, String>>("helper")?
+          .call("renderEffect".to_string())?
+      ))),
+    );
+    frag.insert(0, Either3::A(FragmentSymbol::Newline));
+    frag.push(Either3::C(Some(")".to_string())))
+  }
+
+  Ok(frag)
+}
+
+#[napi]
+pub fn gen_effect(
+  env: Env,
+  operations: Vec<OperationNode>,
+  context: Object,
+) -> Result<Vec<CodeFragment>> {
+  let mut frag = vec![];
+  let operations_exps = gen_operations(env, operations, context)?;
+  let newline_count = operations_exps
+    .iter()
+    .filter(|frag| matches!(frag, Either3::A(FragmentSymbol::Newline)))
+    .collect::<Vec<_>>()
+    .len();
+
+  if newline_count > 1 {
+    frag.extend(operations_exps);
+  } else {
+    frag.extend(
+      operations_exps
+        .into_iter()
+        .filter(|frag| !matches!(frag, Either3::A(FragmentSymbol::Newline)))
+        .collect::<Vec<_>>(),
+    )
+  }
+
+  Ok(frag)
 }

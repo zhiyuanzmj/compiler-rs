@@ -176,6 +176,8 @@ export declare function genDirectiveModifiers(modifiers: Array<string>): string
  */
 export declare function genDirectivesForElement(id: number, context: object): Array<CodeFragment>
 
+export declare function genEffect(operations: Array<OperationNode>, context: object): Array<CodeFragment>
+
 export declare function genEventHandler(context: object, value: SimpleExpressionNode | undefined | null, modifiers: Modifiers | undefined | null, extraWrap: boolean): Array<CodeFragment>
 
 export declare function genExpression(node: SimpleExpressionNode, context: object, assignment?: string | undefined | null, needWrap?: boolean | undefined | null): Array<CodeFragment>

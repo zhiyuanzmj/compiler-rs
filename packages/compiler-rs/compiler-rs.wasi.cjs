@@ -121,6 +121,7 @@ module.exports.genCall = __napiModule.exports.genCall
 module.exports.genDeclareOldRef = __napiModule.exports.genDeclareOldRef
 module.exports.genDirectiveModifiers = __napiModule.exports.genDirectiveModifiers
 module.exports.genDirectivesForElement = __napiModule.exports.genDirectivesForElement
+module.exports.genEffect = __napiModule.exports.genEffect
 module.exports.genEventHandler = __napiModule.exports.genEventHandler
 module.exports.genExpression = __napiModule.exports.genExpression
 module.exports.genIf = __napiModule.exports.genIf
