@@ -12,8 +12,8 @@ use crate::{
   },
   transform::TransformContext,
   utils::{
-    check::{_is_constant_node, is_fragment_node, is_jsx_component, is_template},
-    expression::{_get_literal_expression_value, resolve_expression},
+    check::{is_constant_node, is_fragment_node, is_jsx_component, is_template},
+    expression::{get_literal_expression_value, resolve_expression},
     my_box::MyBox,
     text::{is_empty_text, resolve_jsx_text},
     utils::{_get_expression, find_prop, get_expression},
@@ -199,7 +199,7 @@ fn process_text_container(
   let values = process_text_like_expressions(children, context)?;
   let literals = values
     .iter()
-    .map(_get_literal_expression_value)
+    .map(get_literal_expression_value)
     .collect::<Vec<Option<String>>>();
   if literals.iter().all(|l| l.is_some()) {
     *context.children_template.borrow_mut() = literals.into_iter().filter_map(|i| i).collect();
@@ -281,7 +281,7 @@ pub fn process_conditional_expression<'a>(
       _type: IRNodeTypes::IF,
       id,
       positive: block,
-      once: Some(*context.in_v_once.borrow() || _is_constant_node(&Some(test))),
+      once: Some(*context.in_v_once.borrow() || is_constant_node(&Some(test))),
       condition: resolve_expression(test, context),
       negative: None,
       parent: None,
@@ -331,7 +331,7 @@ fn process_logical_expression<'a>(
       id,
       condition: resolve_expression(left, context),
       positive: block,
-      once: Some(*context.in_v_once.borrow() || _is_constant_node(&Some(left))),
+      once: Some(*context.in_v_once.borrow() || is_constant_node(&Some(left))),
       negative: None,
       anchor: None,
       parent: None,
@@ -372,7 +372,7 @@ fn set_negative(
       id: -1,
       condition: resolve_expression(test, context),
       positive: block,
-      once: Some(*context.in_v_once.borrow() || _is_constant_node(&Some(test))),
+      once: Some(*context.in_v_once.borrow() || is_constant_node(&Some(test))),
       negative: None,
       anchor: None,
       parent: None,
@@ -402,7 +402,7 @@ fn set_negative(
       id: -1,
       condition: resolve_expression(left, context),
       positive: block,
-      once: Some(*context.in_v_once.borrow() || _is_constant_node(&Some(left))),
+      once: Some(*context.in_v_once.borrow() || is_constant_node(&Some(left))),
       negative: None,
       anchor: None,
       parent: None,

@@ -11,7 +11,7 @@ use crate::{
   },
   transform::TransformContext,
   utils::{
-    check::{_is_constant_node, is_jsx_component, is_template},
+    check::{is_constant_node, is_jsx_component, is_template},
     error::{ErrorCodes, on_error},
     expression::resolve_expression,
     my_box::MyBox,
@@ -101,7 +101,7 @@ pub fn transform_v_for<'a>(
       index,
       key_prop,
       render: block,
-      once: *context.in_v_once.borrow() || _is_constant_node(&source.ast),
+      once: *context.in_v_once.borrow() || is_constant_node(&source.ast),
       source,
       component,
       only_child,

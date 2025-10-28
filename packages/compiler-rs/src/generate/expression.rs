@@ -10,7 +10,7 @@ use crate::{
   generate::utils::{CodeFragment, NewlineType},
   ir::index::{SimpleExpressionNode, SourceLocation},
   utils::{
-    check::is_static_property, expression::_is_constant_expression, utils::TS_NODE_TYPES,
+    check::is_static_property, expression::is_constant_expression, utils::TS_NODE_TYPES,
     walk::_walk_identifiers,
   },
 };
@@ -36,7 +36,7 @@ pub fn gen_expression(
     ))]);
   }
 
-  if content.is_empty() || _is_constant_expression(&node) {
+  if content.is_empty() || is_constant_expression(&node) {
     return Ok(vec![
       Either3::B((content, NewlineType::None, loc, None)),
       Either3::B((

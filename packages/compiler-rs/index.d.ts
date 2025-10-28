@@ -166,6 +166,8 @@ export declare function genBuiltinDirective(oper: DirectiveIRNode, context: obje
 
 export declare function genCall(node: string | [string, CodeFragment | undefined | null], frags: Array<CodeFragments>): Array<CodeFragment>
 
+export declare function genCreateNodes(oper: CreateNodesIRNode, context: object): Array<CodeFragment>
+
 export declare function genDeclareOldRef(oper: DeclareOldRefIRNode): Array<CodeFragment>
 
 export declare function genDirectiveModifiers(modifiers: Array<string>): string
@@ -181,6 +183,8 @@ export declare function genEffect(operations: Array<OperationNode>, context: obj
 export declare function genEventHandler(context: object, value: SimpleExpressionNode | undefined | null, modifiers: Modifiers | undefined | null, extraWrap: boolean): Array<CodeFragment>
 
 export declare function genExpression(node: SimpleExpressionNode, context: object, assignment?: string | undefined | null, needWrap?: boolean | undefined | null): Array<CodeFragment>
+
+export declare function genGetTextChild(oper: GetTextChildIRNode, context: object): Array<CodeFragment>
 
 export declare function genIf(oper: IfIRNode, context: object, isNested: boolean): Array<CodeFragment>
 
@@ -206,7 +210,11 @@ export declare function genSetEvent(oper: SetEventIRNode, context: object): Arra
 
 export declare function genSetHtml(oper: SetHtmlIRNode, context: object): Array<CodeFragment>
 
+export declare function genSetNodes(oper: SetNodesIRNode, context: object): Array<CodeFragment>
+
 export declare function genSetTemplateRef(oper: SetTemplateRefIRNode, context: object): Array<CodeFragment>
+
+export declare function genSetText(oper: SetTextIRNode, context: object): Array<CodeFragment>
 
 export declare function genTemplates(templates: Array<string>, rootIndex: number | undefined | null, context: object): Array<string>
 

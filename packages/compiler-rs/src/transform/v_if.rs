@@ -9,7 +9,7 @@ use crate::{
   ir::index::{BlockIRNode, DynamicFlag, IRDynamicInfo, IRNodeTypes, IfIRNode},
   transform::TransformContext,
   utils::{
-    check::{_is_constant_node, is_template},
+    check::{is_constant_node, is_template},
     directive::resolve_directive,
     error::{ErrorCodes, on_error},
     expression::create_simple_expression,
@@ -74,9 +74,7 @@ pub fn transform_v_if<'a>(
         _type: IRNodeTypes::IF,
         id,
         positive: block,
-        once: Some(
-          *context.in_v_once.borrow() || _is_constant_node(&dir.exp.as_ref().unwrap().ast),
-        ),
+        once: Some(*context.in_v_once.borrow() || is_constant_node(&dir.exp.as_ref().unwrap().ast)),
         condition: dir.exp.unwrap(),
         negative: None,
         anchor: None,
@@ -134,9 +132,7 @@ pub fn transform_v_if<'a>(
         _type: IRNodeTypes::IF,
         id: -1,
         positive: block,
-        once: Some(
-          *context.in_v_once.borrow() || _is_constant_node(&dir.exp.as_ref().unwrap().ast),
-        ),
+        once: Some(*context.in_v_once.borrow() || is_constant_node(&dir.exp.as_ref().unwrap().ast)),
         condition: dir.exp.unwrap(),
         parent: None,
         anchor: None,

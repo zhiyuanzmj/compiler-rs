@@ -1,6 +1,8 @@
 import {
   genBuiltinDirective,
+  genCreateNodes,
   genDeclareOldRef,
+  genGetTextChild,
   // genIf,
   genInsertNode,
   genOperation,
@@ -9,15 +11,12 @@ import {
   genSetDynamicEvents,
   genSetEvent,
   genSetHtml,
+  genSetNodes,
   genSetTemplateRef,
+  genSetText,
   isBlockOperation,
 } from '@vue-jsx-vapor/compiler-rs'
-import {
-  IRNodeTypes,
-  type InsertionStateTypes,
-  type IREffect,
-  type OperationNode,
-} from '../ir'
+import { IRNodeTypes, type IREffect, type OperationNode } from '../ir'
 import {
   buildCodeFragment,
   genCall,
@@ -31,12 +30,6 @@ import { genCreateComponent } from './component'
 import { genFor } from './for'
 import { genIf } from './if'
 import { genDynamicProps, genSetProp } from './prop'
-import {
-  genCreateNodes,
-  genGetTextChild,
-  genSetNodes,
-  genSetText,
-} from './text'
 
 export {
   // genEffect,

@@ -7,6 +7,7 @@ pub mod html;
 pub mod operation;
 pub mod template;
 pub mod template_ref;
+pub mod text;
 pub mod utils;
 pub mod v_if;
 pub mod v_model;

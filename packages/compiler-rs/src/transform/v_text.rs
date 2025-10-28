@@ -11,7 +11,7 @@ use crate::{
   utils::{
     check::is_void_tag,
     error::{ErrorCodes, on_error},
-    expression::{_get_literal_expression_value, EMPTY_EXPRESSION, resolve_expression},
+    expression::{EMPTY_EXPRESSION, get_literal_expression_value, resolve_expression},
     text::get_text,
   },
 };
@@ -47,7 +47,7 @@ pub fn transform_v_text(
     return Ok(None);
   }
 
-  let literal = _get_literal_expression_value(&exp);
+  let literal = get_literal_expression_value(&exp);
   if let Some(literal) = literal {
     *context.children_template.borrow_mut() = vec![literal];
   } else {

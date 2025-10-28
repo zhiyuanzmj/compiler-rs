@@ -43,7 +43,7 @@ use crate::{
   utils::{
     check::{is_constant_node, is_template},
     error::CompilerError,
-    expression::_is_constant_expression,
+    expression::is_constant_expression,
   },
 };
 
@@ -207,12 +207,12 @@ impl TransformContext {
     }
     let expressions: Vec<&SimpleExpressionNode> = expressions
       .into_iter()
-      .filter(|exp| !_is_constant_expression(exp))
+      .filter(|exp| !is_constant_expression(exp))
       .collect();
     if expressions.len() == 0 {
       return true;
     }
-    expressions.into_iter().all(|exp| is_constant_node(exp.ast))
+    expressions.iter().all(|exp| is_constant_node(&exp.ast))
   }
 
   pub fn register_effect<'a>(

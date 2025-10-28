@@ -17,22 +17,21 @@ use crate::generate::event::gen_set_event;
 use crate::generate::html::gen_set_html;
 use crate::generate::template_ref::gen_declare_old_ref;
 use crate::generate::template_ref::gen_set_template_ref;
+use crate::generate::text::gen_create_nodes;
+use crate::generate::text::gen_get_text_child;
+use crate::generate::text::gen_set_nodes;
+use crate::generate::text::gen_set_text;
 use crate::generate::utils::CodeFragment;
 use crate::generate::utils::FragmentSymbol;
 use crate::generate::utils::FragmentSymbol::Newline;
 use crate::generate::utils::gen_call;
 use crate::generate::v_if::gen_if;
 use crate::ir::index::CreateComponentIRNode;
-use crate::ir::index::CreateNodesIRNode;
 use crate::ir::index::ForIRNode;
-use crate::ir::index::GetTextChildIRNode;
 use crate::ir::index::IREffect;
-use crate::ir::index::IfIRNode;
 use crate::ir::index::OperationNode;
 use crate::ir::index::SetDynamicPropsIRNode;
-use crate::ir::index::SetNodesIRNode;
 use crate::ir::index::SetPropIRNode;
-use crate::ir::index::SetTextIRNode;
 
 #[napi]
 pub fn gen_operations(
@@ -91,11 +90,7 @@ pub fn gen_operation(env: Env, oper: OperationNode, context: Object) -> Result<V
         "genOperation",
       )?
       .call((oper, context).into()),
-    Either16::C(oper) => context
-      .get_named_property::<Function<FnArgs<(SetTextIRNode, Object)>, Vec<CodeFragment>>>(
-        "genOperation",
-      )?
-      .call((oper, context).into()),
+    Either16::C(oper) => gen_set_text(env, oper, context),
     Either16::D(oper) => context
       .get_named_property::<Function<FnArgs<(SetPropIRNode, Object)>, Vec<CodeFragment>>>(
         "genOperation",
@@ -107,19 +102,11 @@ pub fn gen_operation(env: Env, oper: OperationNode, context: Object) -> Result<V
       )?
       .call((oper, context).into()),
     Either16::F(oper) => gen_set_dynamic_events(env, oper, context),
-    Either16::G(oper) => context
-      .get_named_property::<Function<FnArgs<(SetNodesIRNode, Object)>, Vec<CodeFragment>>>(
-        "genOperation",
-      )?
-      .call((oper, context).into()),
+    Either16::G(oper) => gen_set_nodes(env, oper, context),
     Either16::H(oper) => gen_set_event(env, oper, context),
     Either16::I(oper) => gen_set_html(env, oper, context),
     Either16::J(oper) => gen_set_template_ref(env, oper, context),
-    Either16::K(oper) => context
-      .get_named_property::<Function<FnArgs<(CreateNodesIRNode, Object)>, Vec<CodeFragment>>>(
-        "genOperation",
-      )?
-      .call((oper, context).into()),
+    Either16::K(oper) => gen_create_nodes(env, oper, context),
     Either16::L(oper) => gen_insert_node(oper, context),
     Either16::M(oper) => gen_builtin_directive(env, oper, context),
     Either16::N(oper) => context
@@ -128,11 +115,7 @@ pub fn gen_operation(env: Env, oper: OperationNode, context: Object) -> Result<V
       )?
       .call((oper, context).into()),
     Either16::O(oper) => Ok(gen_declare_old_ref(oper)),
-    Either16::P(oper) => context
-      .get_named_property::<Function<FnArgs<(GetTextChildIRNode, Object)>, Vec<CodeFragment>>>(
-        "genOperation",
-      )?
-      .call((oper, context).into()),
+    Either16::P(oper) => gen_get_text_child(oper, context),
   }
 }
 

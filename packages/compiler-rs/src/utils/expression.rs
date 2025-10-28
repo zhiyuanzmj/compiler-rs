@@ -147,20 +147,20 @@ pub fn is_globally_allowed(key: &str) -> bool {
 }
 
 #[napi]
-pub fn is_constant_expression(exp: SimpleExpressionNode) -> bool {
-  _is_constant_expression(&exp)
+pub fn _is_constant_expression(exp: SimpleExpressionNode) -> bool {
+  is_constant_expression(&exp)
 }
-pub fn _is_constant_expression(exp: &SimpleExpressionNode) -> bool {
+pub fn is_constant_expression(exp: &SimpleExpressionNode) -> bool {
   is_literal_whitelisted(&exp.content)
     || is_globally_allowed(&exp.content)
-    || _get_literal_expression_value(exp).is_some()
+    || get_literal_expression_value(&exp).is_some()
 }
 
 #[napi]
-pub fn get_literal_expression_value(exp: SimpleExpressionNode) -> Option<String> {
-  _get_literal_expression_value(&exp)
+pub fn _get_literal_expression_value(exp: SimpleExpressionNode) -> Option<String> {
+  get_literal_expression_value(&exp)
 }
-pub fn _get_literal_expression_value(exp: &SimpleExpressionNode) -> Option<String> {
+pub fn get_literal_expression_value(exp: &SimpleExpressionNode) -> Option<String> {
   if let Some(ast) = exp.ast {
     if let Some(res) = get_text_like_value(ast, None) {
       return Some(res);

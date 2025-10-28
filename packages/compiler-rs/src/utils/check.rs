@@ -79,10 +79,10 @@ pub fn is_template(node: &Object) -> bool {
   }
 }
 #[napi]
-pub fn is_constant_node(node: Option<Object>) -> bool {
-  _is_constant_node(&node)
+pub fn _is_constant_node(node: Option<Object>) -> bool {
+  is_constant_node(&node)
 }
-pub fn _is_constant_node(node: &Option<Object>) -> bool {
+pub fn is_constant_node(node: &Option<Object>) -> bool {
   let Some(node) = node else {
     return false;
   };
@@ -92,16 +92,16 @@ pub fn _is_constant_node(node: &Option<Object>) -> bool {
   };
   if node_type == "UnaryExpression" {
     // void 0, !true
-    is_constant_node(node.get::<Object>("argument").unwrap_or(None))
+    is_constant_node(&node.get::<Object>("argument").unwrap_or(None))
   } else if node_type == "LogicalExpression" || node_type == "BinaryExpression" {
     // 1 > 2, // 1 + 2
-    is_constant_node(node.get::<Object>("left").unwrap_or(None))
-      && is_constant_node(node.get::<Object>("right").unwrap_or(None))
+    is_constant_node(&node.get::<Object>("left").unwrap_or(None))
+      && is_constant_node(&node.get::<Object>("right").unwrap_or(None))
   } else if node_type == "ConditionalExpression" {
     // 1 ? 2 : 3
-    is_constant_node(node.get::<Object>("test").unwrap_or(None))
-      && is_constant_node(node.get::<Object>("consequent").unwrap_or(None))
-      && is_constant_node(node.get::<Object>("alternate").unwrap_or(None))
+    is_constant_node(&node.get::<Object>("test").unwrap_or(None))
+      && is_constant_node(&node.get::<Object>("consequent").unwrap_or(None))
+      && is_constant_node(&node.get::<Object>("alternate").unwrap_or(None))
   } else if node_type == "SequenceExpression" || node_type == "TemplateLiteral" {
     // (1, 2) | `foo${1}`
     node
@@ -109,9 +109,9 @@ pub fn _is_constant_node(node: &Option<Object>) -> bool {
       .unwrap()
       .unwrap()
       .into_iter()
-      .all(|exp| is_constant_node(Some(exp)))
+      .all(|exp| is_constant_node(&Some(exp)))
   } else if node_type == "ParenthesizedExpression" {
-    is_constant_node(node.get::<Object>("expression").unwrap_or(None))
+    is_constant_node(&node.get::<Object>("expression").unwrap_or(None))
   } else if node_type == "Literal" {
     true
   } else if node_type == "Identifier" {
@@ -138,14 +138,14 @@ pub fn _is_constant_node(node: &Option<Object>) -> bool {
       }
       // { ...{ foo: 1 } }
       if name_type == "SpreadElement" {
-        return is_constant_node(prop.get_named_property::<Object>("argument").ok());
+        return is_constant_node(&prop.get_named_property::<Object>("argument").ok());
       }
       // { foo: 1 }
       (prop
         .get_named_property::<bool>("computed")
         .is_ok_and(|m| m != true)
-        || is_constant_node(prop.get_named_property::<Object>("key").ok()))
-        && is_constant_node(prop.get_named_property("value").ok())
+        || is_constant_node(&prop.get_named_property::<Object>("key").ok()))
+        && is_constant_node(&prop.get_named_property("value").ok())
     })
   } else if node_type == "ArrayExpression" {
     let Some(elements) = node.get_named_property::<Vec<Object>>("elements").ok() else {
@@ -161,10 +161,10 @@ pub fn _is_constant_node(node: &Option<Object>) -> bool {
         .get_named_property::<String>("type")
         .is_ok_and(|t| t == "SpreadElement")
       {
-        return is_constant_node(element.get_named_property("argument").ok());
+        return is_constant_node(&element.get_named_property("argument").ok());
       }
       // [1, 2]
-      is_constant_node(Some(element.to_owned()))
+      is_constant_node(&Some(element.to_owned()))
     })
   } else {
     false

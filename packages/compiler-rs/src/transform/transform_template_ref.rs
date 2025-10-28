@@ -10,7 +10,7 @@ use crate::{
   transform::TransformContext,
   utils::{
     check::is_fragment_node,
-    expression::{_is_constant_expression, resolve_expression},
+    expression::{is_constant_expression, resolve_expression},
     utils::find_prop,
   },
 };
@@ -40,7 +40,7 @@ pub fn transform_template_ref<'a>(
     let value = resolve_expression(value, &context);
 
     let id = context.reference(&mut context_block.dynamic)?;
-    let effect = !_is_constant_expression(&value);
+    let effect = !is_constant_expression(&value);
     if effect {
       context.register_operation(
         context_block,
