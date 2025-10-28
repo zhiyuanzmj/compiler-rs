@@ -1,6 +1,7 @@
 import {
   genDirectiveModifiers,
   genDirectivesForElement,
+  genEventHandler,
   genExpression,
   genModelHandler,
   getDelimitersArrayNewline,
@@ -36,7 +37,6 @@ import {
 } from '../utils'
 import type { CodegenContext } from '../generate'
 import { genBlock } from './block'
-import { genEventHandler } from './event'
 import { genPropKey, genPropValue } from './prop'
 
 export function genCreateComponent(

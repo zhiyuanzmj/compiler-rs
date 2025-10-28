@@ -8,20 +8,7 @@ import {
 } from '../utils'
 import type { CodegenContext } from '../generate'
 import { genOperationWithInsertionState } from './operation'
-
-export function genTemplates(
-  templates: string[],
-  rootIndex: number | undefined,
-  { helper }: CodegenContext,
-): string[] {
-  return templates.map((template, i) =>
-    template.startsWith('_template')
-      ? template
-      : `${helper('template')}(${JSON.stringify(
-          template,
-        )}${i === rootIndex ? ', true' : ''})`,
-  )
-}
+export { genTemplates } from '@vue-jsx-vapor/compiler-rs'
 
 export function genSelf(
   dynamic: IRDynamicInfo,
@@ -40,21 +27,20 @@ export function genSelf(
   }
 
   if (hasDynamicChild) {
-    push(...genChildren(dynamic, context, push, `n${id}`))
+    push(...genChildren(dynamic.children, context, push, `n${id}`))
   }
 
   return frag
 }
 
 export function genChildren(
-  dynamic: IRDynamicInfo,
+  children: IRDynamicInfo[],
   context: CodegenContext,
   pushBlock: (...items: CodeFragment[]) => number,
-  from: string = `n${dynamic.id}`,
+  from: string,
 ): CodeFragment[] {
   const { helper } = context
   const [frag, push] = buildCodeFragment()
-  const { children } = dynamic
 
   let offset = 0
   let prev: [variable: string, elementIndex: number] | undefined
@@ -101,6 +87,7 @@ export function genChildren(
       pushBlock(...init)
     }
 
+    const child_children = child.children
     if (id === child.anchor && !child.hasDynamicChild) {
       push(...genSelf(child, context))
     }
@@ -110,7 +97,7 @@ export function genChildren(
     }
 
     prev = [variable, elementIndex]
-    push(...genChildren(child, context, pushBlock, variable))
+    push(...genChildren(child_children, context, pushBlock, variable))
   }
 
   return frag

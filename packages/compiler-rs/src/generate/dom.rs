@@ -13,10 +13,7 @@ use crate::generate::utils::gen_call;
 use crate::ir::index::InsertNodeIRNode;
 
 #[napi]
-pub fn gen_insert_node(
-  oper: InsertNodeIRNode,
-  context: Object<'static>,
-) -> Result<Vec<CodeFragment>> {
+pub fn gen_insert_node(oper: InsertNodeIRNode, context: Object) -> Result<Vec<CodeFragment>> {
   let InsertNodeIRNode {
     parent,
     elements,

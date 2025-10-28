@@ -18,11 +18,7 @@ use crate::ir::index::SimpleExpressionNode;
 
 #[napi]
 // This is only for built-in v-model on native elements.
-pub fn gen_v_model(
-  env: Env,
-  oper: DirectiveIRNode,
-  context: Object<'static>,
-) -> Result<Vec<CodeFragment>> {
+pub fn gen_v_model(env: Env, oper: DirectiveIRNode, context: Object) -> Result<Vec<CodeFragment>> {
   let DirectiveIRNode {
     model_type,
     element,

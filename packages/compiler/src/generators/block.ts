@@ -39,8 +39,8 @@ export function genBlockContent(
   genEffectsExtraFrag?: () => CodeFragment[],
 ): CodeFragment[] {
   const [frag, push] = buildCodeFragment()
-  const { dynamic, effect, operation, returns } = block
   const resetBlock = context.enterBlock(block)
+  const { dynamic, effect, operation, returns } = context.block
 
   if (root) {
     for (let name of context.ir.component) {
@@ -65,7 +65,7 @@ export function genBlockContent(
   }
   for (const child of dynamic.children) {
     if (!child.hasDynamicChild) {
-      push(...genChildren(child, context, push, `n${child.id!}`))
+      push(...genChildren(child.children, context, push, `n${child.id!}`))
     }
   }
 

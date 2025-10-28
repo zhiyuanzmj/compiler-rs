@@ -19,7 +19,7 @@ use crate::ir::index::SetTemplateRefIRNode;
 pub fn gen_set_template_ref(
   env: Env,
   oper: SetTemplateRefIRNode,
-  context: Object<'static>,
+  context: Object,
 ) -> Result<Vec<CodeFragment>> {
   let SetTemplateRefIRNode {
     effect,

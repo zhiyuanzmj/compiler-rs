@@ -419,9 +419,6 @@ pub struct DirectiveNode {
   pub loc: Option<SourceLocation>,
 }
 
-#[napi]
-pub type InsertionStateTypes = Either3<IfIRNode, ForIRNode, CreateComponentIRNode>;
-
 #[napi[ts_return_type = "op is InsertionStateTypes"]]
 pub fn _is_block_operation(#[napi(ts_arg_type = "OperationNode")] op: Object) -> bool {
   let _type = op.get::<IRNodeTypes>("type").ok().flatten();
@@ -429,15 +426,6 @@ pub fn _is_block_operation(#[napi(ts_arg_type = "OperationNode")] op: Object) ->
     Some(IRNodeTypes::CREATE_COMPONENT_NODE) => true,
     Some(IRNodeTypes::IF) => true,
     Some(IRNodeTypes::FOR) => true,
-    _ => false,
-  }
-}
-
-pub fn is_block_operation(op: &OperationNode) -> bool {
-  match op {
-    Either16::A(_) => true,
-    Either16::B(_) => true,
-    Either16::N(_) => true,
     _ => false,
   }
 }

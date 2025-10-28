@@ -441,7 +441,10 @@ pub fn is_simple_identifier(name: &str) -> bool {
 }
 
 #[napi]
-pub fn is_fn_expression(exp: SimpleExpressionNode) -> bool {
+pub fn _is_fn_expression(exp: SimpleExpressionNode) -> bool {
+  is_fn_expression(&exp)
+}
+pub fn is_fn_expression(exp: &SimpleExpressionNode) -> bool {
   let Some(mut ast) = exp.ast else {
     return false;
   };

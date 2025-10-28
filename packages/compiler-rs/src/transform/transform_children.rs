@@ -6,14 +6,11 @@ use napi::{
 };
 
 use crate::{
-  ir::index::{
-    BlockIRNode, DynamicFlag, IRDynamicInfo, IRNodeTypes, InsertNodeIRNode, is_block_operation,
-  },
+  ir::index::{BlockIRNode, DynamicFlag, IRDynamicInfo, IRNodeTypes, InsertNodeIRNode},
   transform::TransformContext,
   utils::{
     check::{is_fragment_node, is_jsx_component},
     my_box::MyBox,
-    text::get_text,
   },
 };
 
@@ -153,23 +150,23 @@ pub fn register_insertion(
         }),
         None,
       )?;
-    } else if let Some(MyBox(operation)) = &mut child.operation
-      && is_block_operation(&operation)
-    {
+    } else if let Some(MyBox(operation)) = &mut child.operation {
       // block types
-      let parent = context.reference(&mut context_block.dynamic)?;
       match operation.as_mut() {
-        Either16::A(a) => {
-          a.parent = Some(parent);
-          a.anchor = anchor;
+        Either16::A(if_ir_node) => {
+          let parent = context.reference(&mut context_block.dynamic)?;
+          if_ir_node.parent = Some(parent);
+          if_ir_node.anchor = anchor;
         }
-        Either16::B(b) => {
-          b.parent = Some(parent);
-          b.anchor = anchor;
+        Either16::B(for_ir_node) => {
+          let parent = context.reference(&mut context_block.dynamic)?;
+          for_ir_node.parent = Some(parent);
+          for_ir_node.anchor = anchor;
         }
-        Either16::N(c) => {
-          c.parent = Some(parent);
-          c.anchor = anchor;
+        Either16::N(create_component_ir_node) => {
+          let parent = context.reference(&mut context_block.dynamic)?;
+          create_component_ir_node.parent = Some(parent);
+          create_component_ir_node.anchor = anchor;
         }
         _ => (),
       };

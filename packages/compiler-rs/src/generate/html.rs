@@ -15,11 +15,7 @@ use crate::generate::utils::gen_call;
 use crate::ir::index::SetHtmlIRNode;
 
 #[napi]
-pub fn gen_set_html(
-  env: Env,
-  oper: SetHtmlIRNode,
-  context: Object<'static>,
-) -> Result<Vec<CodeFragment>> {
+pub fn gen_set_html(env: Env, oper: SetHtmlIRNode, context: Object) -> Result<Vec<CodeFragment>> {
   let SetHtmlIRNode { value, element, .. } = oper;
 
   let mut result = vec![Either3::A(Newline)];

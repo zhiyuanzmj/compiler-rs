@@ -1,6 +1,7 @@
 import { CodegenOptions } from '@vue-jsx-vapor/compiler-rs'
 import { extend, remove } from '@vue/shared'
 import { genBlockContent } from './generators/block'
+import { genOperation1 } from './generators/operation'
 import { genTemplates } from './generators/template'
 import {
   buildCodeFragment,
@@ -9,8 +10,8 @@ import {
   INDENT_START,
   NEWLINE,
 } from './utils/generate'
-import type { BlockIRNode, RootIRNode, SimpleExpressionNode } from './ir'
 
+import type { BlockIRNode, RootIRNode, SimpleExpressionNode } from './ir'
 import type { RawSourceMap } from 'source-map-js'
 
 export { CodegenOptions }
@@ -67,6 +68,7 @@ export class CodegenContext {
     }
     this.options = extend(defaultOptions, options)
     this.block = ir.block
+    this.genOperation = genOperation1
   }
 }
 

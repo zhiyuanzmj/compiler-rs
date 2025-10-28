@@ -13,14 +13,9 @@ use crate::generate::utils::CodeFragment;
 use crate::generate::utils::FragmentSymbol::Newline;
 use crate::generate::utils::gen_call;
 use crate::ir::index::DirectiveIRNode;
-use crate::ir::index::SimpleExpressionNode;
 
 #[napi]
-pub fn gen_v_show(
-  env: Env,
-  oper: DirectiveIRNode,
-  context: Object<'static>,
-) -> Result<Vec<CodeFragment>> {
+pub fn gen_v_show(env: Env, oper: DirectiveIRNode, context: Object) -> Result<Vec<CodeFragment>> {
   let DirectiveIRNode { dir, element, .. } = oper;
   let mut result = vec![Either3::A(Newline)];
   let mut body = vec![Either3::C(Some("() => (".to_string()))];

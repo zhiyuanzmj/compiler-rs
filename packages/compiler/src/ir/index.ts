@@ -1,7 +1,6 @@
 export {
   _DynamicFlag as DynamicFlag,
   IRNodeTypes,
-  isBlockOperation,
   type BaseIRNode,
   type BlockIRNode,
   type CreateComponentIRNode,
@@ -12,7 +11,6 @@ export {
   type ForIRNode,
   type GetTextChildIRNode,
   type IfIRNode,
-  type InsertionStateTypes,
   type InsertNodeIRNode,
   type IRDynamicInfo,
   type IREffect,

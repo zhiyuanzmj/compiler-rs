@@ -60,7 +60,7 @@ pub fn transform_template_ref<'a>(
         element: id,
         value,
         ref_for: *context.in_v_for.borrow() != 0,
-        effect,
+        effect: effect,
       }),
       None,
       None,

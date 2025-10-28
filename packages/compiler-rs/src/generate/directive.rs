@@ -27,7 +27,7 @@ use crate::utils::expression::create_simple_expression;
 pub fn gen_builtin_directive(
   env: Env,
   oper: DirectiveIRNode,
-  context: Object<'static>,
+  context: Object,
 ) -> Result<Vec<CodeFragment>> {
   match oper.name.as_str() {
     "show" => gen_v_show(env, oper, context),

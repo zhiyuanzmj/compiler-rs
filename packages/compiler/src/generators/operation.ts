@@ -2,12 +2,17 @@ import {
   genBuiltinDirective,
   genDeclareOldRef,
   genInsertNode,
+  genOperation,
+  // genOperations,
+  // genOperationWithInsertionState,
+  genSetDynamicEvents,
+  genSetEvent,
   genSetHtml,
   genSetTemplateRef,
+  isBlockOperation,
 } from '@vue-jsx-vapor/compiler-rs'
 import {
   IRNodeTypes,
-  isBlockOperation,
   type InsertionStateTypes,
   type IREffect,
   type OperationNode,
@@ -22,7 +27,6 @@ import {
 } from '../utils'
 import type { CodegenContext } from '../generate'
 import { genCreateComponent } from './component'
-import { genSetDynamicEvents, genSetEvent } from './event'
 import { genFor } from './for'
 import { genIf } from './if'
 import { genDynamicProps, genSetProp } from './prop'
@@ -32,6 +36,11 @@ import {
   genSetNodes,
   genSetText,
 } from './text'
+
+export {
+  genOperation,
+  // genOperations, genOperationWithInsertionState
+}
 
 export function genOperations(
   opers: OperationNode[],
@@ -48,21 +57,24 @@ export function genOperationWithInsertionState(
   oper: OperationNode,
   context: CodegenContext,
 ): CodeFragment[] {
+  // genOperationWithInsertionState2
   const [frag, push] = buildCodeFragment()
   if (isBlockOperation(oper) && oper.parent) {
     push(...genInsertionState(oper, context))
   }
-  push(...genOperation(oper, context))
+  push(...context.genOperation(oper, context))
   return frag
 }
 
-export function genOperation(
+export function genOperation1(
   oper: OperationNode,
   context: CodegenContext,
 ): CodeFragment[] {
   switch (oper.type) {
     case IRNodeTypes.SET_PROP:
       return genSetProp(oper, context)
+    case IRNodeTypes.FOR:
+      return genFor(oper, context)
     case IRNodeTypes.SET_DYNAMIC_PROPS:
       return genDynamicProps(oper, context)
     case IRNodeTypes.SET_TEXT:
@@ -79,8 +91,6 @@ export function genOperation(
       return genInsertNode(oper, context)
     case IRNodeTypes.IF:
       return genIf(oper, context)
-    case IRNodeTypes.FOR:
-      return genFor(oper, context)
     case IRNodeTypes.CREATE_COMPONENT_NODE:
       return genCreateComponent(oper, context)
     case IRNodeTypes.DECLARE_OLD_REF:
@@ -94,7 +104,7 @@ export function genOperation(
     case IRNodeTypes.CREATE_NODES:
       return genCreateNodes(oper, context)
     default: {
-      const exhaustiveCheck = oper
+      const exhaustiveCheck = oper.type
       throw new Error(
         `Unhandled operation type in genOperation: ${exhaustiveCheck}`,
       )
