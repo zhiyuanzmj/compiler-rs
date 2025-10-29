@@ -1,9 +1,7 @@
 export {
-  IRDynamicPropsKind,
   IRSlotType,
   type IRProp,
   type IRProps,
-  type IRPropsDynamicAttribute,
   type IRPropsDynamicExpression,
   type IRPropsStatic,
   type IRSlotDynamic,

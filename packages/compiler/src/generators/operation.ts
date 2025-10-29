@@ -2,6 +2,7 @@ import {
   genBuiltinDirective,
   genCreateNodes,
   genDeclareOldRef,
+  genDynamicProps,
   genGetTextChild,
   // genIf,
   genInsertNode,
@@ -12,6 +13,7 @@ import {
   genSetEvent,
   genSetHtml,
   genSetNodes,
+  genSetProp,
   genSetTemplateRef,
   genSetText,
   isBlockOperation,
@@ -29,7 +31,6 @@ import type { CodegenContext } from '../generate'
 import { genCreateComponent } from './component'
 import { genFor } from './for'
 import { genIf } from './if'
-import { genDynamicProps, genSetProp } from './prop'
 
 export {
   // genEffect,

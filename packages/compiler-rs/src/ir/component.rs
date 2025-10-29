@@ -1,16 +1,10 @@
 use std::collections::HashMap;
 
-use napi::{
-  Either,
-  bindgen_prelude::{Either3, Object},
-};
+use napi::{Either, bindgen_prelude::Either3};
 use napi_derive::napi;
 
 use crate::{
-  ir::index::{
-    BlockIRNode, IRDynamicInfo, IREffect, IRFor, IRNodeTypes, Modifiers, OperationNode,
-    SimpleExpressionNode,
-  },
+  ir::index::{BlockIRNode, IRFor, Modifiers, SimpleExpressionNode},
   utils::my_box::MyBox,
 };
 
@@ -26,12 +20,7 @@ pub struct IRProp {
   pub model_modifiers: Option<Vec<String>>,
 
   pub values: Vec<SimpleExpressionNode>,
-}
-
-#[napi(js_name = "IRDynamicPropsKind")]
-pub enum IRDynamicPropsKind {
-  EXPRESSION, // v-bind="value"
-  ATTRIBUTE,  // v-bind:[foo]="value"
+  pub dynamic: bool,
 }
 
 #[napi]
@@ -39,30 +28,12 @@ pub type IRPropsStatic = Vec<IRProp>;
 
 #[napi(object, js_name = "IRPropsDynamicExpression")]
 pub struct IRPropsDynamicExpression {
-  #[napi(ts_type = "IRDynamicPropsKind.EXPRESSION")]
-  pub kind: IRDynamicPropsKind,
   pub value: SimpleExpressionNode,
   pub handler: Option<bool>,
 }
 
-#[napi(object, js_name = "IRPropsDynamicAttribute")]
-pub struct IRPropsDynamicAttribute {
-  pub key: SimpleExpressionNode,
-  #[napi(ts_type = "'.' | '^'")]
-  pub modifier: Option<String>,
-  pub runtime_camelize: Option<bool>,
-  pub handler: Option<bool>,
-  pub handler_modifiers: Option<Modifiers>,
-  pub model: Option<bool>,
-  pub model_modifiers: Option<Vec<String>>,
-  pub values: Vec<SimpleExpressionNode>,
-
-  #[napi(ts_type = "IRDynamicPropsKind.ATTRIBUTE")]
-  pub kind: IRDynamicPropsKind,
-}
-
 #[napi]
-pub type IRProps = Either3<IRPropsStatic, IRPropsDynamicAttribute, IRPropsDynamicExpression>;
+pub type IRProps = Either3<IRPropsStatic, IRProp, IRPropsDynamicExpression>;
 
 // slots
 #[napi]

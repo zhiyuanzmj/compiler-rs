@@ -5,6 +5,7 @@ pub mod event;
 pub mod expression;
 pub mod html;
 pub mod operation;
+pub mod prop;
 pub mod template;
 pub mod template_ref;
 pub mod text;

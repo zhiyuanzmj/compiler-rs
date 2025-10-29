@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { IRDynamicPropsKind, IRNodeTypes } from '../../src'
+import { IRNodeTypes } from '../../src'
 import { makeCompile } from './_utils'
 
 const compileWithElementTransform = makeCompile()
@@ -94,7 +94,6 @@ describe('compiler: children transform', () => {
             element: 0,
             props: [
               {
-                kind: IRDynamicPropsKind.EXPRESSION,
                 value: {
                   content: 'obj',
                   isStatic: false,

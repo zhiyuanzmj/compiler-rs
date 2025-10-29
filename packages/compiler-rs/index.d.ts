@@ -178,6 +178,8 @@ export declare function genDirectiveModifiers(modifiers: Array<string>): string
  */
 export declare function genDirectivesForElement(id: number, context: object): Array<CodeFragment>
 
+export declare function genDynamicProps(oper: SetDynamicPropsIRNode, context: object): Array<CodeFragment>
+
 export declare function genEffect(operations: Array<OperationNode>, context: object): Array<CodeFragment>
 
 export declare function genEventHandler(context: object, value: SimpleExpressionNode | undefined | null, modifiers: Modifiers | undefined | null, extraWrap: boolean): Array<CodeFragment>
@@ -202,6 +204,10 @@ export declare function genOperations(opers: Array<OperationNode>, context: obje
 
 export declare function genOperationWithInsertionState(oper: OperationNode, context: object): Array<CodeFragment>
 
+export declare function genPropKey(oper: IRProp, context: object): Array<CodeFragment>
+
+export declare function genPropValue(values: Array<SimpleExpressionNode>, context: object): Array<CodeFragment>
+
 export declare function genSelf(dynamic: IRDynamicInfo, context: object): Array<CodeFragment>
 
 export declare function genSetDynamicEvents(oper: SetDynamicEventsIRNode, context: object): Array<CodeFragment>
@@ -211,6 +217,8 @@ export declare function genSetEvent(oper: SetEventIRNode, context: object): Arra
 export declare function genSetHtml(oper: SetHtmlIRNode, context: object): Array<CodeFragment>
 
 export declare function genSetNodes(oper: SetNodesIRNode, context: object): Array<CodeFragment>
+
+export declare function genSetProp(oper: SetPropIRNode, context: object): Array<CodeFragment>
 
 export declare function genSetTemplateRef(oper: SetTemplateRefIRNode, context: object): Array<CodeFragment>
 
@@ -269,11 +277,6 @@ export interface IRDynamicInfo {
   operation?: OperationNode | null
 }
 
-export declare const enum IRDynamicPropsKind {
-  EXPRESSION = 0,
-  ATTRIBUTE = 1
-}
-
 export interface IREffect {
   expressions: Array<SimpleExpressionNode>
   operations: Array<OperationNode>
@@ -316,25 +319,13 @@ export interface IRProp {
   model?: boolean
   modelModifiers?: Array<string>
   values: Array<SimpleExpressionNode>
+  dynamic: boolean
 }
 
 export type IRProps =
-  IRPropsStatic | IRPropsDynamicAttribute | IRPropsDynamicExpression
-
-export interface IRPropsDynamicAttribute {
-  key: SimpleExpressionNode
-  modifier?: '.' | '^'
-  runtimeCamelize?: boolean
-  handler?: boolean
-  handlerModifiers?: Modifiers
-  model?: boolean
-  modelModifiers?: Array<string>
-  values: Array<SimpleExpressionNode>
-  kind: IRDynamicPropsKind.ATTRIBUTE
-}
+  IRPropsStatic | IRProp | IRPropsDynamicExpression
 
 export interface IRPropsDynamicExpression {
-  kind: IRDynamicPropsKind.EXPRESSION
   value: SimpleExpressionNode
   handler?: boolean
 }

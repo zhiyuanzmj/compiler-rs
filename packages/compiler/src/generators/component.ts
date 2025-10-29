@@ -4,13 +4,14 @@ import {
   genEventHandler,
   genExpression,
   genModelHandler,
+  genPropKey,
+  genPropValue,
   getDelimitersArrayNewline,
   getDelimitersObject,
   getDelimitersObjectNewline,
 } from '@vue-jsx-vapor/compiler-rs'
 import { camelize, isArray } from '@vue/shared'
 import {
-  IRDynamicPropsKind,
   IRSlotType,
   type BlockIRNode,
   type CreateComponentIRNode,
@@ -37,7 +38,6 @@ import {
 } from '../utils'
 import type { CodegenContext } from '../generate'
 import { genBlock } from './block'
-import { genPropKey, genPropValue } from './prop'
 
 export function genCreateComponent(
   operation: CreateComponentIRNode,
@@ -129,7 +129,7 @@ function genDynamicProps(
         frags.push(genStaticProps(p, context))
       }
       continue
-    } else if (p.kind === IRDynamicPropsKind.ATTRIBUTE)
+    } else if (p.dynamic)
       expr = genMulti(getDelimitersObject(), [genProp(p, context)])
     else {
       expr = genExpression(p.value, context)

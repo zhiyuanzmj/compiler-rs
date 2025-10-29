@@ -15,6 +15,8 @@ use crate::generate::dom::gen_insert_node;
 use crate::generate::event::gen_set_dynamic_events;
 use crate::generate::event::gen_set_event;
 use crate::generate::html::gen_set_html;
+use crate::generate::prop::gen_dynamic_props;
+use crate::generate::prop::gen_set_prop;
 use crate::generate::template_ref::gen_declare_old_ref;
 use crate::generate::template_ref::gen_set_template_ref;
 use crate::generate::text::gen_create_nodes;
@@ -91,16 +93,8 @@ pub fn gen_operation(env: Env, oper: OperationNode, context: Object) -> Result<V
       )?
       .call((oper, context).into()),
     Either16::C(oper) => gen_set_text(env, oper, context),
-    Either16::D(oper) => context
-      .get_named_property::<Function<FnArgs<(SetPropIRNode, Object)>, Vec<CodeFragment>>>(
-        "genOperation",
-      )?
-      .call((oper, context).into()),
-    Either16::E(oper) => context
-      .get_named_property::<Function<FnArgs<(SetDynamicPropsIRNode, Object)>, Vec<CodeFragment>>>(
-        "genOperation",
-      )?
-      .call((oper, context).into()),
+    Either16::D(oper) => gen_set_prop(env, oper, context),
+    Either16::E(oper) => gen_dynamic_props(env, oper, context),
     Either16::F(oper) => gen_set_dynamic_events(env, oper, context),
     Either16::G(oper) => gen_set_nodes(env, oper, context),
     Either16::H(oper) => gen_set_event(env, oper, context),

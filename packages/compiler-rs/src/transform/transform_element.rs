@@ -8,10 +8,7 @@ use napi_derive::napi;
 
 use crate::{
   ir::{
-    component::{
-      IRDynamicPropsKind, IRProp, IRProps, IRPropsDynamicAttribute, IRPropsDynamicExpression,
-      IRPropsStatic,
-    },
+    component::{IRProp, IRProps, IRPropsDynamicExpression, IRPropsStatic},
     index::{
       BlockIRNode, CreateComponentIRNode, DirectiveIRNode, DynamicFlag, IRDynamicInfo, IRNodeTypes,
       SetDynamicEventsIRNode, SetDynamicPropsIRNode, SetPropIRNode, SimpleExpressionNode,
@@ -306,7 +303,6 @@ pub fn build_props<'a>(
         results = vec![];
       }
       dynamic_args.push(Either3::C(IRPropsDynamicExpression {
-        kind: IRDynamicPropsKind::EXPRESSION,
         value,
         handler: None,
       }));
@@ -324,7 +320,6 @@ pub fn build_props<'a>(
             results = vec![];
           }
           dynamic_args.push(Either3::C(IRPropsDynamicExpression {
-            kind: IRDynamicPropsKind::EXPRESSION,
             value,
             handler: Some(true),
           }))
@@ -362,8 +357,7 @@ pub fn build_props<'a>(
           dynamic_args.push(Either3::A(dedupe_properties(results)));
           results = vec![];
         }
-        dynamic_args.push(Either3::B(IRPropsDynamicAttribute {
-          kind: IRDynamicPropsKind::ATTRIBUTE,
+        dynamic_args.push(Either3::B(IRProp {
           key: prop.key,
           modifier: prop.modifier,
           runtime_camelize: prop.runtime_camelize,
@@ -372,6 +366,7 @@ pub fn build_props<'a>(
           model: prop.model,
           model_modifiers: prop.model_modifiers,
           values: vec![prop.value],
+          dynamic: true,
         }));
       } else {
         // other static props
@@ -509,6 +504,7 @@ pub fn dedupe_properties(results: Vec<DirectiveTransformResult>) -> Vec<IRProp> 
       model: result.model,
       model_modifiers: result.model_modifiers,
       values: vec![result.value],
+      dynamic: false,
     };
     // dynamic keys are always allowed
     if !prop.key.is_static {
