@@ -1,5 +1,6 @@
 import {
   genBuiltinDirective,
+  genCreateComponent,
   genCreateNodes,
   genDeclareOldRef,
   genDynamicProps,
@@ -28,7 +29,6 @@ import {
   type CodeFragment,
 } from '../utils'
 import type { CodegenContext } from '../generate'
-import { genCreateComponent } from './component'
 import { genFor } from './for'
 import { genIf } from './if'
 

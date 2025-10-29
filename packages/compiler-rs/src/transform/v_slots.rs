@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use napi::{
   Result,
-  bindgen_prelude::{Either3, JsObjectValue, Object},
+  bindgen_prelude::{Either3, Either4, JsObjectValue, Object},
 };
 
 use crate::{
@@ -30,7 +30,7 @@ pub fn transform_v_slots(
       .get_named_property::<String>("type")?
       .eq("JSXExpressionContainer")
   {
-    *context.slots.borrow_mut() = vec![Either3::C(IRSlotsExpression {
+    *context.slots.borrow_mut() = vec![Either4::D(IRSlotsExpression {
       slot_type: IRSlotType::EXPRESSION,
       slots: resolve_expression(
         dir

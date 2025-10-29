@@ -108,14 +108,16 @@ pub fn gen_block_content(
     .collect::<Vec<CodeFragments>>();
   let returns_code = if &return_nodes.len() > &1 {
     gen_multi(get_delimiters_array(), return_nodes)
-  } else if let Either4::C(ref node) = return_nodes[0] {
-    vec![Either3::C(Some(if let Some(node) = node {
-      node.clone()
-    } else {
-      "null".to_string()
-    }))]
   } else {
-    vec![]
+    vec![Either3::C(Some(
+      if let Some(node) = return_nodes.get(0)
+        && let Either4::C(Some(node)) = node
+      {
+        node.clone()
+      } else {
+        "null".to_string()
+      },
+    ))]
   };
   frag.extend(returns_code);
 

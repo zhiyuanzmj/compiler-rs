@@ -1,16 +1,13 @@
-use std::{cell::RefCell, collections::HashMap, mem, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 use napi::{
   Either,
-  bindgen_prelude::{Either3, JsObjectValue, Object, Result},
+  bindgen_prelude::{Either3, Either4, JsObjectValue, Object, Result},
 };
 
 use crate::{
   ir::{
-    component::{
-      IRSlotDynamicBasic, IRSlotDynamicConditional, IRSlotDynamicLoop, IRSlotType, IRSlots,
-      IRSlotsStatic,
-    },
+    component::{IRSlotDynamicBasic, IRSlotDynamicConditional, IRSlotType, IRSlots, IRSlotsStatic},
     index::{BlockIRNode, DirectiveNode, DynamicFlag, IRDynamicInfo, SimpleExpressionNode},
   },
   transform::{TransformContext, v_for::get_for_parse_result},
@@ -162,7 +159,7 @@ pub fn transform_template_slot<'a>(
       }
     } else if let Some(v_if) = v_if {
       let v_if_dir = resolve_directive(v_if, context)?;
-      slots.push(Either3::B(Either3::C(IRSlotDynamicConditional {
+      slots.push(Either4::C(IRSlotDynamicConditional {
         slot_type: IRSlotType::CONDITIONAL,
         condition: v_if_dir.exp.unwrap(),
         negative: None,
@@ -172,11 +169,11 @@ pub fn transform_template_slot<'a>(
           _fn: block,
           _loop: None,
         },
-      })));
+      }));
     } else if let Some(v_else) = v_else {
       let v_else_dir = resolve_directive(v_else, context)?;
       if let Some(last_slot) = slots.last_mut() {
-        if let Either3::B(Either3::C(v_if_slot)) = last_slot {
+        if let Either4::C(v_if_slot) = last_slot {
           let positive = IRSlotDynamicBasic {
             slot_type: IRSlotType::DYNAMIC,
             name: arg.unwrap(),
@@ -201,12 +198,12 @@ pub fn transform_template_slot<'a>(
     } else if let Some(v_for) = v_for {
       let for_parse_result = get_for_parse_result(v_for, context)?;
       if for_parse_result.source.is_some() {
-        slots.push(Either3::B(Either3::B(IRSlotDynamicLoop {
-          slot_type: IRSlotType::LOOP,
+        slots.push(Either4::B(IRSlotDynamicBasic {
+          slot_type: IRSlotType::DYNAMIC,
           name: arg.unwrap(),
           _fn: block,
-          _loop: for_parse_result,
-        })))
+          _loop: Some(for_parse_result),
+        }))
       }
     }
     Ok(())
@@ -228,14 +225,14 @@ pub fn ensure_static_slots<'a>(
   slots: &'a mut Vec<IRSlots>,
 ) -> Option<&'a mut HashMap<String, BlockIRNode>> {
   let last_slot = slots.last();
-  if slots.is_empty() || last_slot.is_some_and(|last_slot| !matches!(last_slot, Either3::A(_))) {
-    slots.push(Either3::A(IRSlotsStatic {
+  if slots.is_empty() || last_slot.is_some_and(|last_slot| !matches!(last_slot, Either4::A(_))) {
+    slots.push(Either4::A(IRSlotsStatic {
       slot_type: IRSlotType::STATIC,
       slots: HashMap::new(),
     }));
   }
   let last_slot = slots.last_mut();
-  if let Either3::A(slot) = last_slot.unwrap() {
+  if let Either4::A(slot) = last_slot.unwrap() {
     return Some(&mut slot.slots);
   }
   None
@@ -245,7 +242,7 @@ pub fn _ensure_static_slots<'a>(slots: &mut Object) -> Result<Object<'a>> {
   let len: i32 = slots.get_named_property("length")?;
   let last_index = if len > 0 { len - 1 } else { 0 };
   let last_slot = slots.get_named_property::<IRSlots>(last_index.to_string().as_str());
-  if len == 0 || last_slot.is_ok_and(|last_slot| !matches!(last_slot, Either3::A(_))) {
+  if len == 0 || last_slot.is_ok_and(|last_slot| !matches!(last_slot, Either4::A(_))) {
     slots.set(
       (if len > 0 { len } else { 0 }).to_string(),
       IRSlotsStatic {
@@ -279,18 +276,18 @@ fn register_slot(slots: &mut Vec<IRSlots>, name: Option<SimpleExpressionNode>, b
       block,
     );
   } else {
-    slots.push(Either3::B(Either3::A(IRSlotDynamicBasic {
+    slots.push(Either4::B(IRSlotDynamicBasic {
       slot_type: IRSlotType::DYNAMIC,
       name: name.unwrap(),
       _fn: block,
       _loop: None,
-    })));
+    }));
   }
 }
 
 fn has_static_slot(slots: &Vec<IRSlots>, name: &str) -> bool {
   slots.iter().any(|slot| match slot {
-    Either3::A(static_slot) => {
+    Either4::A(static_slot) => {
       matches!(static_slot.slot_type, IRSlotType::STATIC) && static_slot.slots.get(name).is_some()
     }
     _ => false,

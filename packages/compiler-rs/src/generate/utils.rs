@@ -45,8 +45,8 @@ pub type CodeFragmentDelimiters = (CodeFragments, CodeFragments, CodeFragments, 
 pub fn get_delimiters_array() -> CodeFragmentDelimiters {
   (
     Either4::C(Some(String::from("["))),
-    Either4::C(Some("]".to_string())),
-    Either4::C(Some(", ".to_string())),
+    Either4::C(Some(String::from("]"))),
+    Either4::C(Some(String::from(", "))),
     None,
   )
 }
@@ -76,8 +76,8 @@ pub fn get_delimiters_array_newline() -> CodeFragmentDelimiters {
 pub fn get_delimiters_object() -> CodeFragmentDelimiters {
   (
     Either4::C(Some(String::from("{ "))),
-    Either4::C(Some(" }".to_string())),
-    Either4::C(Some(", ".to_string())),
+    Either4::C(Some(String::from(" }"))),
+    Either4::C(Some(String::from(", "))),
     None,
   )
 }

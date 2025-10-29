@@ -166,6 +166,8 @@ export declare function genBuiltinDirective(oper: DirectiveIRNode, context: obje
 
 export declare function genCall(node: string | [string, CodeFragment | undefined | null], frags: Array<CodeFragments>): Array<CodeFragment>
 
+export declare function genCreateComponent(operation: CreateComponentIRNode, context: object): Array<CodeFragment>
+
 export declare function genCreateNodes(oper: CreateNodesIRNode, context: object): Array<CodeFragment>
 
 export declare function genDeclareOldRef(oper: DeclareOldRefIRNode): Array<CodeFragment>
@@ -207,6 +209,10 @@ export declare function genOperationWithInsertionState(oper: OperationNode, cont
 export declare function genPropKey(oper: IRProp, context: object): Array<CodeFragment>
 
 export declare function genPropValue(values: Array<SimpleExpressionNode>, context: object): Array<CodeFragment>
+
+export declare function genRawProps(props: Array<IRProps>, context: object): Array<CodeFragment> | null
+
+export declare function genRawSlots(slots: Array<IRSlots>, context: object): Array<CodeFragment> | null
 
 export declare function genSelf(dynamic: IRDynamicInfo, context: object): Array<CodeFragment>
 
@@ -333,9 +339,6 @@ export interface IRPropsDynamicExpression {
 export type IRPropsStatic =
   Array<IRProp>
 
-export type IRSlotDynamic =
-  IRSlotDynamicBasic | IRSlotDynamicLoop | IRSlotDynamicConditional
-
 export interface IRSlotDynamicBasic {
   slotType: IRSlotType.DYNAMIC
   name: SimpleExpressionNode
@@ -350,15 +353,8 @@ export interface IRSlotDynamicConditional {
   negative?: IRSlotDynamicBasic | IRSlotDynamicConditional
 }
 
-export interface IRSlotDynamicLoop {
-  slotType: IRSlotType.LOOP
-  name: SimpleExpressionNode
-  fn: BlockIRNode
-  loop: IRFor
-}
-
 export type IRSlots =
-  IRSlotsStatic | IRSlotDynamic | IRSlotsExpression
+  IRSlotsStatic | IRSlotDynamicBasic | IRSlotDynamicConditional | IRSlotsExpression
 
 export interface IRSlotsExpression {
   slotType: IRSlotType.EXPRESSION
@@ -373,9 +369,8 @@ export interface IRSlotsStatic {
 export declare const enum IRSlotType {
   STATIC = 0,
   DYNAMIC = 1,
-  LOOP = 2,
-  CONDITIONAL = 3,
-  EXPRESSION = 4
+  CONDITIONAL = 2,
+  EXPRESSION = 3
 }
 
 export declare function isBigIntLiteral(node?: import('oxc-parser').Node | undefined | null): node is import('oxc-parser').BigIntLiteral
@@ -495,6 +490,7 @@ export interface SetHtmlIRNode {
 
 export interface SetNodesIRNode {
   type: IRNodeTypes.SET_NODES
+  setNodes: boolean
   element: number
   once: boolean
   values: Array<SimpleExpressionNode>
@@ -519,6 +515,7 @@ export interface SetTemplateRefIRNode {
 
 export interface SetTextIRNode {
   type: IRNodeTypes.SET_TEXT
+  setText: boolean
   element: number
   values: Array<SimpleExpressionNode>
   generated?: boolean

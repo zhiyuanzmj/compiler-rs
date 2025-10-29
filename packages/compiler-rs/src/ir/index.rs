@@ -187,6 +187,7 @@ pub struct SetDynamicEventsIRNode {
 pub struct SetTextIRNode {
   #[napi(ts_type = "IRNodeTypes.SET_TEXT")]
   pub _type: IRNodeTypes,
+  pub set_text: bool,
   pub element: i32,
   pub values: Vec<SimpleExpressionNode>,
   pub generated: Option<bool>,
@@ -196,6 +197,7 @@ pub struct SetTextIRNode {
 pub struct SetNodesIRNode {
   #[napi(ts_type = "IRNodeTypes.SET_NODES")]
   pub _type: IRNodeTypes,
+  pub set_nodes: bool,
   pub element: i32,
   pub once: bool,
   pub values: Vec<SimpleExpressionNode>,
@@ -203,6 +205,7 @@ pub struct SetNodesIRNode {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct Modifiers {
   // modifiers for addEventListener() options, e.g. .passive & .capture
   pub options: Vec<String>,

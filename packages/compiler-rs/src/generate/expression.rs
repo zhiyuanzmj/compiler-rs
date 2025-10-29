@@ -23,8 +23,9 @@ pub fn gen_expression(
   assignment: Option<String>,
   need_wrap: Option<bool>,
 ) -> Result<Vec<CodeFragment>> {
-  let content = node.content.clone();
-  let loc = node.loc.clone();
+  let is_constant = is_constant_expression(&node);
+  let content = node.content;
+  let loc = node.loc;
   let need_wrap = need_wrap.unwrap_or(false);
 
   if node.is_static {
@@ -36,7 +37,7 @@ pub fn gen_expression(
     ))]);
   }
 
-  if content.is_empty() || is_constant_expression(&node) {
+  if content.is_empty() || is_constant {
     return Ok(vec![
       Either3::B((content, NewlineType::None, loc, None)),
       Either3::B((

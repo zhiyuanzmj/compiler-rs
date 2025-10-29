@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use napi::{Either, bindgen_prelude::Either3};
+use napi::{
+  Either,
+  bindgen_prelude::{Either3, Either4},
+};
 use napi_derive::napi;
 
 use crate::{
@@ -9,6 +12,7 @@ use crate::{
 };
 
 #[napi(object, js_name = "IRProp")]
+#[derive(Clone)]
 pub struct IRProp {
   pub key: SimpleExpressionNode,
   #[napi(ts_type = "'.' | '^'")]
@@ -27,6 +31,7 @@ pub struct IRProp {
 pub type IRPropsStatic = Vec<IRProp>;
 
 #[napi(object, js_name = "IRPropsDynamicExpression")]
+#[derive(Clone)]
 pub struct IRPropsDynamicExpression {
   pub value: SimpleExpressionNode,
   pub handler: Option<bool>,
@@ -40,7 +45,6 @@ pub type IRProps = Either3<IRPropsStatic, IRProp, IRPropsDynamicExpression>;
 pub enum IRSlotType {
   STATIC,
   DYNAMIC,
-  LOOP,
   CONDITIONAL,
   EXPRESSION,
 }
@@ -58,17 +62,7 @@ pub struct IRSlotDynamicBasic {
   pub slot_type: IRSlotType,
   pub name: SimpleExpressionNode,
   pub _fn: BlockIRNode,
-  // should removed
   pub _loop: Option<IRFor>,
-}
-
-#[napi(object, js_name = "IRSlotDynamicLoop")]
-pub struct IRSlotDynamicLoop {
-  #[napi(ts_type = "IRSlotType.LOOP")]
-  pub slot_type: IRSlotType,
-  pub name: SimpleExpressionNode,
-  pub _fn: BlockIRNode,
-  pub _loop: IRFor,
 }
 
 #[napi(object, js_name = "IRSlotDynamicConditional")]
@@ -88,8 +82,9 @@ pub struct IRSlotsExpression {
   pub slots: SimpleExpressionNode,
 }
 
-#[napi]
-pub type IRSlotDynamic = Either3<IRSlotDynamicBasic, IRSlotDynamicLoop, IRSlotDynamicConditional>;
+// #[napi]
+// pub type IRSlotDynamic = Either<IRSlotDynamicBasic, IRSlotDynamicConditional>;
 
 #[napi(js_name = "IRSlots")]
-pub type IRSlots = Either3<IRSlotsStatic, IRSlotDynamic, IRSlotsExpression>;
+pub type IRSlots =
+  Either4<IRSlotsStatic, IRSlotDynamicBasic, IRSlotDynamicConditional, IRSlotsExpression>;

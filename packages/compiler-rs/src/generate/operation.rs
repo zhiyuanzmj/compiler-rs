@@ -10,6 +10,7 @@ use napi::bindgen_prelude::JsObjectValue;
 use napi::bindgen_prelude::Object;
 use napi_derive::napi;
 
+use crate::generate::component::gen_create_component;
 use crate::generate::directive::gen_builtin_directive;
 use crate::generate::dom::gen_insert_node;
 use crate::generate::event::gen_set_dynamic_events;
@@ -28,12 +29,9 @@ use crate::generate::utils::FragmentSymbol;
 use crate::generate::utils::FragmentSymbol::Newline;
 use crate::generate::utils::gen_call;
 use crate::generate::v_if::gen_if;
-use crate::ir::index::CreateComponentIRNode;
 use crate::ir::index::ForIRNode;
 use crate::ir::index::IREffect;
 use crate::ir::index::OperationNode;
-use crate::ir::index::SetDynamicPropsIRNode;
-use crate::ir::index::SetPropIRNode;
 
 #[napi]
 pub fn gen_operations(
@@ -103,11 +101,7 @@ pub fn gen_operation(env: Env, oper: OperationNode, context: Object) -> Result<V
     Either16::K(oper) => gen_create_nodes(env, oper, context),
     Either16::L(oper) => gen_insert_node(oper, context),
     Either16::M(oper) => gen_builtin_directive(env, oper, context),
-    Either16::N(oper) => context
-      .get_named_property::<Function<FnArgs<(CreateComponentIRNode, Object)>, Vec<CodeFragment>>>(
-        "genOperation",
-      )?
-      .call((oper, context).into()),
+    Either16::N(oper) => gen_create_component(env, oper, context),
     Either16::O(oper) => Ok(gen_declare_old_ref(oper)),
     Either16::P(oper) => gen_get_text_child(oper, context),
   }

@@ -69,6 +69,10 @@ export class CodegenContext {
     this.options = extend(defaultOptions, options)
     this.block = ir.block
     this.genOperation = genOperation1
+    this.log = (a) => {
+      console.log(a)
+      return a
+    }
   }
 }
 
@@ -115,4 +119,22 @@ export function generate(
     templates,
     delegates: context.delegates,
   }
+}
+
+export function withId<T>(
+  identifiers: Record<string, string[]>,
+  fn: () => T,
+  map: Record<string, string>,
+): T {
+  const ids = Object.keys(map)
+
+  for (const id of ids) {
+    identifiers[id] ||= []
+    identifiers[id].unshift(map[id] || id)
+  }
+
+  const ret = fn()
+  ids.forEach((id) => remove(identifiers[id], map[id] || id))
+
+  return ret
 }

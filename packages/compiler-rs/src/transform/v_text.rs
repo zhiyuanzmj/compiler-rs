@@ -67,6 +67,7 @@ pub fn transform_v_text(
       context.is_operation(vec![&exp]),
       Either16::C(SetTextIRNode {
         _type: IRNodeTypes::SET_TEXT,
+        set_text: true,
         values: vec![exp],
         element,
         generated: Some(true),

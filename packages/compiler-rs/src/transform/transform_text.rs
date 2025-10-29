@@ -174,6 +174,7 @@ fn process_interpolation(
       context_block,
       Either16::G(SetNodesIRNode {
         _type: IRNodeTypes::SET_NODES,
+        set_nodes: true,
         element: id,
         once,
         values,
@@ -219,6 +220,7 @@ fn process_text_container(
       context_block,
       Either16::G(SetNodesIRNode {
         _type: IRNodeTypes::SET_NODES,
+        set_nodes: true,
         element,
         once: *context.in_v_once.borrow(),
         values,
