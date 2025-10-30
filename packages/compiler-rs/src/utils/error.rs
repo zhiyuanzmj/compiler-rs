@@ -1,9 +1,6 @@
 use std::{collections::HashMap, rc::Rc, sync::LazyLock};
 
-use napi::{
-  Env, Error, Result,
-  bindgen_prelude::{FunctionRef, JsObjectValue, Object},
-};
+use napi::{Env, Error, Result, bindgen_prelude::Object};
 use napi_derive::napi;
 
 use crate::{ir::index::SourceLocation, transform::TransformContext};

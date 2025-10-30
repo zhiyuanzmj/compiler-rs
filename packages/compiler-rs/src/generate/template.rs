@@ -59,7 +59,11 @@ pub fn gen_templates(
 }
 
 #[napi]
-pub fn gen_self(env: Env, dynamic: IRDynamicInfo, context: Object) -> Result<Vec<CodeFragment>> {
+pub fn gen_self(
+  env: Env,
+  dynamic: IRDynamicInfo,
+  context: Object<'static>,
+) -> Result<Vec<CodeFragment>> {
   let mut frag = vec![];
   let IRDynamicInfo {
     id,
@@ -103,7 +107,7 @@ pub fn gen_self(env: Env, dynamic: IRDynamicInfo, context: Object) -> Result<Vec
 fn gen_children(
   env: Env,
   children: Vec<IRDynamicInfo>,
-  context: Object,
+  context: Object<'static>,
   push_block: Rc<RefCell<impl FnMut(Vec<CodeFragment>)>>,
   from: String,
 ) -> Result<Vec<CodeFragment>> {

@@ -20,7 +20,7 @@ use crate::utils::my_box::MyBox;
 pub fn gen_if(
   env: Env,
   oper: IfIRNode,
-  context: Object,
+  context: Object<'static>,
   is_nested: bool,
 ) -> Result<Vec<CodeFragment>> {
   let IfIRNode {

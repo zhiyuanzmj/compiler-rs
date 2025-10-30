@@ -1,12 +1,8 @@
-use std::{
-  cell::RefCell,
-  collections::HashSet,
-  rc::{Rc, Weak},
-};
+use std::collections::HashSet;
 
 use napi::{
   Either,
-  bindgen_prelude::{Either3, Either16, Object},
+  bindgen_prelude::{Either16, Object},
 };
 use napi_derive::napi;
 use oxc_ast::ast::JSXChild;

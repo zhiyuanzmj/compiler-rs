@@ -576,6 +576,7 @@ module.exports.genDynamicProps = nativeBinding.genDynamicProps
 module.exports.genEffect = nativeBinding.genEffect
 module.exports.genEventHandler = nativeBinding.genEventHandler
 module.exports.genExpression = nativeBinding.genExpression
+module.exports.genFor = nativeBinding.genFor
 module.exports.genGetTextChild = nativeBinding.genGetTextChild
 module.exports.genIf = nativeBinding.genIf
 module.exports.genInsertionState = nativeBinding.genInsertionState

@@ -4,12 +4,13 @@ import {
   genCreateNodes,
   genDeclareOldRef,
   genDynamicProps,
+  genFor,
   genGetTextChild,
   // genIf,
   genInsertNode,
   genOperation,
-  // genOperations,
-  // genOperationWithInsertionState,
+  genOperations,
+  genOperationWithInsertionState,
   genSetDynamicEvents,
   genSetEvent,
   genSetHtml,
@@ -29,16 +30,17 @@ import {
   type CodeFragment,
 } from '../utils'
 import type { CodegenContext } from '../generate'
-import { genFor } from './for'
+// import { genFor } from './for'
 import { genIf } from './if'
 
 export {
   // genEffect,
   genOperation,
-  // genOperations, genOperationWithInsertionState
+  genOperations,
+  genOperationWithInsertionState,
 }
 
-export function genOperations(
+export function genOperations1(
   opers: OperationNode[],
   context: CodegenContext,
 ): CodeFragment[] {
@@ -49,7 +51,7 @@ export function genOperations(
   return frag
 }
 
-export function genOperationWithInsertionState(
+export function genOperationWithInsertionState1(
   oper: OperationNode,
   context: CodegenContext,
 ): CodeFragment[] {

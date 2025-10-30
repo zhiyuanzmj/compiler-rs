@@ -127,6 +127,7 @@ module.exports.genDynamicProps = __napiModule.exports.genDynamicProps
 module.exports.genEffect = __napiModule.exports.genEffect
 module.exports.genEventHandler = __napiModule.exports.genEventHandler
 module.exports.genExpression = __napiModule.exports.genExpression
+module.exports.genFor = __napiModule.exports.genFor
 module.exports.genGetTextChild = __napiModule.exports.genGetTextChild
 module.exports.genIf = __napiModule.exports.genIf
 module.exports.genInsertionState = __napiModule.exports.genInsertionState

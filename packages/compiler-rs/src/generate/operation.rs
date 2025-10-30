@@ -4,7 +4,6 @@ use napi::Result;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
 use napi::bindgen_prelude::Either16;
-use napi::bindgen_prelude::FnArgs;
 use napi::bindgen_prelude::Function;
 use napi::bindgen_prelude::JsObjectValue;
 use napi::bindgen_prelude::Object;
@@ -28,8 +27,8 @@ use crate::generate::utils::CodeFragment;
 use crate::generate::utils::FragmentSymbol;
 use crate::generate::utils::FragmentSymbol::Newline;
 use crate::generate::utils::gen_call;
+use crate::generate::v_for::gen_for;
 use crate::generate::v_if::gen_if;
-use crate::ir::index::ForIRNode;
 use crate::ir::index::IREffect;
 use crate::ir::index::OperationNode;
 
@@ -37,7 +36,7 @@ use crate::ir::index::OperationNode;
 pub fn gen_operations(
   env: Env,
   opers: Vec<OperationNode>,
-  context: Object,
+  context: Object<'static>,
 ) -> Result<Vec<CodeFragment>> {
   let mut frag = vec![];
   for operation in opers {
@@ -50,7 +49,7 @@ pub fn gen_operations(
 pub fn gen_operation_with_insertion_state(
   env: Env,
   oper: OperationNode,
-  context: Object,
+  context: Object<'static>,
 ) -> Result<Vec<CodeFragment>> {
   let mut frag = vec![];
   match &oper {
@@ -82,14 +81,14 @@ pub fn gen_operation_with_insertion_state(
 }
 
 #[napi]
-pub fn gen_operation(env: Env, oper: OperationNode, context: Object) -> Result<Vec<CodeFragment>> {
+pub fn gen_operation(
+  env: Env,
+  oper: OperationNode,
+  context: Object<'static>,
+) -> Result<Vec<CodeFragment>> {
   match oper {
     Either16::A(oper) => gen_if(env, oper, context, false),
-    Either16::B(oper) => context
-      .get_named_property::<Function<FnArgs<(ForIRNode, Object)>, Vec<CodeFragment>>>(
-        "genOperation",
-      )?
-      .call((oper, context).into()),
+    Either16::B(oper) => gen_for(env, oper, context),
     Either16::C(oper) => gen_set_text(env, oper, context),
     Either16::D(oper) => gen_set_prop(env, oper, context),
     Either16::E(oper) => gen_dynamic_props(env, oper, context),
@@ -137,7 +136,11 @@ pub fn gen_insertion_state(
   Ok(result)
 }
 
-pub fn gen_effects(env: Env, effects: Vec<IREffect>, context: Object) -> Result<Vec<CodeFragment>> {
+pub fn gen_effects(
+  env: Env,
+  effects: Vec<IREffect>,
+  context: Object<'static>,
+) -> Result<Vec<CodeFragment>> {
   let mut frag: Vec<CodeFragment> = vec![];
   let mut operations_count = 0;
 
@@ -195,7 +198,7 @@ pub fn gen_effects(env: Env, effects: Vec<IREffect>, context: Object) -> Result<
 pub fn gen_effect(
   env: Env,
   operations: Vec<OperationNode>,
-  context: Object,
+  context: Object<'static>,
 ) -> Result<Vec<CodeFragment>> {
   let mut frag = vec![];
   let operations_exps = gen_operations(env, operations, context)?;

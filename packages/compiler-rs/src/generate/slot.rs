@@ -27,7 +27,7 @@ use crate::{
 pub fn gen_raw_slots(
   env: Env,
   mut slots: Vec<IRSlots>,
-  context: Object,
+  context: Object<'static>,
 ) -> Result<Option<Vec<CodeFragment>>> {
   if slots.len() == 0 {
     return Ok(None);
@@ -53,7 +53,7 @@ pub fn gen_raw_slots(
 fn gen_static_slots(
   env: Env,
   mut slots: HashMap<String, BlockIRNode>,
-  context: Object,
+  context: Object<'static>,
   dynamic_slots: Option<Vec<IRSlots>>,
 ) -> Result<Vec<CodeFragment>> {
   let mut args = vec![];
@@ -71,7 +71,11 @@ fn gen_static_slots(
   Ok(gen_multi(get_delimiters_object_newline(), args))
 }
 
-fn gen_dynamic_slots(env: Env, slots: Vec<IRSlots>, context: Object) -> Result<Vec<CodeFragment>> {
+fn gen_dynamic_slots(
+  env: Env,
+  slots: Vec<IRSlots>,
+  context: Object<'static>,
+) -> Result<Vec<CodeFragment>> {
   Ok(gen_multi(
     get_delimiters_array_newline(),
     slots
@@ -89,7 +93,7 @@ fn gen_dynamic_slots(env: Env, slots: Vec<IRSlots>, context: Object) -> Result<V
 fn gen_dynamic_slot(
   env: Env,
   slot: IRSlotDynamicBasic,
-  context: Object,
+  context: Object<'static>,
   with_function: bool,
 ) -> Result<Vec<CodeFragment>> {
   let frag = if slot._loop.is_none() {
@@ -110,7 +114,7 @@ fn gen_dynamic_slot(
 fn gen_basic_dynamic_slot(
   env: Env,
   slot: IRSlotDynamicBasic,
-  context: Object,
+  context: Object<'static>,
 ) -> Result<Vec<CodeFragment>> {
   let mut name = vec![Either3::C(Some("name: ".to_string()))];
   name.extend(gen_expression(env, slot.name, context, None, None)?);
@@ -122,7 +126,11 @@ fn gen_basic_dynamic_slot(
   ))
 }
 
-fn gen_loop_slot(env: Env, slot: IRSlotDynamicBasic, context: Object) -> Result<Vec<CodeFragment>> {
+fn gen_loop_slot(
+  env: Env,
+  slot: IRSlotDynamicBasic,
+  context: Object<'static>,
+) -> Result<Vec<CodeFragment>> {
   let IRSlotDynamicBasic {
     name, _fn, _loop, ..
   } = slot;
@@ -211,7 +219,7 @@ fn gen_loop_slot(env: Env, slot: IRSlotDynamicBasic, context: Object) -> Result<
 fn gen_conditional_slot(
   env: Env,
   slot: IRSlotDynamicConditional,
-  context: Object,
+  context: Object<'static>,
   with_function: bool,
 ) -> Result<Vec<CodeFragment>> {
   let IRSlotDynamicConditional {
@@ -253,7 +261,7 @@ fn gen_conditional_slot(
 fn gen_slot_block_with_props(
   env: Env,
   oper: BlockIRNode,
-  context: Object,
+  context: Object<'static>,
 ) -> Result<Vec<CodeFragment>> {
   let mut is_destructure_assignment = false;
   let mut props_name = String::new();

@@ -30,7 +30,6 @@ use crate::utils::check::is_svg_tag;
 pub struct HelperConfig {
   name: String,
   need_key: bool,
-  accept_root: bool,
 }
 
 fn helpers(name: &str) -> HelperConfig {
@@ -38,47 +37,38 @@ fn helpers(name: &str) -> HelperConfig {
     "setText" => HelperConfig {
       name: "setText".to_string(),
       need_key: false,
-      accept_root: false,
     },
     "setHtml" => HelperConfig {
       name: "setHtml".to_string(),
       need_key: false,
-      accept_root: false,
     },
     "setClass" => HelperConfig {
       name: "setClass".to_string(),
       need_key: false,
-      accept_root: false,
     },
     "setStyle" => HelperConfig {
       name: "setStyle".to_string(),
       need_key: false,
-      accept_root: false,
     },
     "setValue" => HelperConfig {
       name: "setValue".to_string(),
       need_key: false,
-      accept_root: false,
     },
     "setAttr" => HelperConfig {
       name: "setAttr".to_string(),
       need_key: true,
-      accept_root: false,
     },
     "setProp" => HelperConfig {
       name: "setProp".to_string(),
       need_key: true,
-      accept_root: false,
     },
     "setDOMProp" => HelperConfig {
       name: "setDOMProp".to_string(),
       need_key: true,
-      accept_root: false,
     },
     "setDynamicProps" => HelperConfig {
       name: "setDynamicProps".to_string(),
       need_key: true,
-      accept_root: false,
     },
     _ => panic!("Unsupported helper name"),
   }

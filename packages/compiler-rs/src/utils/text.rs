@@ -1,10 +1,7 @@
 use napi_derive::napi;
 use std::{rc::Rc, sync::LazyLock};
 
-use napi::{
-  JsValue,
-  bindgen_prelude::{JsObjectValue, Object},
-};
+use napi::bindgen_prelude::Object;
 use regex::{Captures, Regex};
 
 use crate::transform::TransformContext;

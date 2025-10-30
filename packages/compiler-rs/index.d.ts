@@ -188,6 +188,8 @@ export declare function genEventHandler(context: object, value: SimpleExpression
 
 export declare function genExpression(node: SimpleExpressionNode, context: object, assignment?: string | undefined | null, needWrap?: boolean | undefined | null): Array<CodeFragment>
 
+export declare function genFor(oper: ForIRNode, context: object): Array<CodeFragment>
+
 export declare function genGetTextChild(oper: GetTextChildIRNode, context: object): Array<CodeFragment>
 
 export declare function genIf(oper: IfIRNode, context: object, isNested: boolean): Array<CodeFragment>

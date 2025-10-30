@@ -75,6 +75,7 @@ export const genDynamicProps = __napiModule.exports.genDynamicProps
 export const genEffect = __napiModule.exports.genEffect
 export const genEventHandler = __napiModule.exports.genEventHandler
 export const genExpression = __napiModule.exports.genExpression
+export const genFor = __napiModule.exports.genFor
 export const genGetTextChild = __napiModule.exports.genGetTextChild
 export const genIf = __napiModule.exports.genIf
 export const genInsertionState = __napiModule.exports.genInsertionState

@@ -1,11 +1,8 @@
-use std::{
-  collections::{HashMap, HashSet},
-  sync::LazyLock,
-};
+use std::{collections::HashSet, sync::LazyLock};
 
 use napi::{
   Env, JsValue, Result, ValueType,
-  bindgen_prelude::{BigInt, FnArgs, Function, JsObjectValue, JsValuesTuple, Object},
+  bindgen_prelude::{BigInt, JsObjectValue, Object},
 };
 use napi_derive::napi;
 use regex::Regex;

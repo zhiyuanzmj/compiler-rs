@@ -39,7 +39,7 @@ use crate::utils::text::camelize;
 pub fn gen_create_component(
   env: Env,
   operation: CreateComponentIRNode,
-  context: Object,
+  context: Object<'static>,
 ) -> Result<Vec<CodeFragment>> {
   let helper = context.get_named_property::<Function<String, String>>("helper")?;
   let CreateComponentIRNode {

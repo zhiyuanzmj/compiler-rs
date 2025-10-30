@@ -1,6 +1,3 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use napi::bindgen_prelude::{Either3, Either4, Object};
 use napi::bindgen_prelude::{Function, JsObjectValue};
 use napi::{Either, Env, Result};
@@ -21,7 +18,7 @@ use crate::{generate::utils::CodeFragment, ir::index::BlockIRNode};
 pub fn gen_block(
   env: Env,
   oper: BlockIRNode,
-  context: Object,
+  context: Object<'static>,
   args: Vec<CodeFragment>,
   root: bool,
 ) -> Result<Vec<CodeFragment>> {
@@ -39,7 +36,7 @@ pub fn gen_block(
 pub fn gen_block_content(
   env: Env,
   block: BlockIRNode,
-  context: Object,
+  context: Object<'static>,
   root: bool,
   gen_effects_extra_frag: Option<Box<dyn FnOnce() -> Vec<CodeFragment>>>,
 ) -> Result<Vec<CodeFragment>> {

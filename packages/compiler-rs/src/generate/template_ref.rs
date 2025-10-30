@@ -3,8 +3,6 @@ use napi::Env;
 use napi::Result;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
-use napi::bindgen_prelude::Function;
-use napi::bindgen_prelude::JsObjectValue;
 use napi::bindgen_prelude::Object;
 use napi_derive::napi;
 
