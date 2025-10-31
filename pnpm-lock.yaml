@@ -17,9 +17,12 @@ importers:
       '@vue-jsx-vapor/compiler':
         specifier: ^2.6.8
         version: 2.6.8
-      '@vue-jsx-vapor/compiler-oxc':
+      '@vue-jsx-vapor/compiler-napi':
         specifier: workspace:*
         version: link:packages/compiler
+      '@vue-jsx-vapor/compiler-oxc':
+        specifier: workspace:*
+        version: link:packages/compiler-oxc
       '@vue-jsx-vapor/compiler-rs':
         specifier: workspace:*
         version: link:packages/compiler-rs
@@ -56,6 +59,18 @@ importers:
       '@vue-jsx-vapor/compiler-rs':
         specifier: workspace:*
         version: link:../compiler-rs
+      '@vue/shared':
+        specifier: 3.6.0-alpha.2
+        version: 3.6.0-alpha.2
+      oxc-parser:
+        specifier: ^0.92.0
+        version: 0.92.0
+      source-map-js:
+        specifier: ^1.2.1
+        version: 1.2.1
+
+  packages/compiler-oxc:
+    dependencies:
       '@vue/shared':
         specifier: 3.6.0-alpha.2
         version: 3.6.0-alpha.2

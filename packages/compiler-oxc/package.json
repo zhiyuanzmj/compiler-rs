@@ -1,5 +1,5 @@
 {
-  "name": "@vue-jsx-vapor/compiler-napi",
+  "name": "@vue-jsx-vapor/compiler-oxc",
   "version": "2.6.6",
   "description": "Vue JSX Vapor Compiler",
   "type": "module",
@@ -40,7 +40,6 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@vue-jsx-vapor/compiler-rs": "workspace:*",
     "@vue/shared": "3.6.0-alpha.2",
     "oxc-parser": "^0.92.0",
     "source-map-js": "^1.2.1"
