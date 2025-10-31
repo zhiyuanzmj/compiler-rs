@@ -4,10 +4,12 @@ import { Bench } from 'tinybench'
 
 const bench = new Bench()
 
-const source = `<Comp v-test>
-<div v-if="true">
-  <Bar v-hello_world />
-</div>
+let source = `<Comp v-test>
+  <div v-for={i in 4} v-if={true} v-test>
+    <Bar v-hello_world v-slot:name={foo} >
+      {foo}
+    </Bar>
+  </div>
 </Comp>`
 
 const options = {

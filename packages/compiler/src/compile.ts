@@ -1,5 +1,5 @@
+import { generate, type VaporCodegenResult } from '@vue-jsx-vapor/compiler-rs'
 import { extend, isString } from '@vue/shared'
-import { generate, type VaporCodegenResult } from './generate'
 import { IRNodeTypes } from './ir'
 import { transform, type TransformOptions } from './transform'
 import { parseExpression } from './utils'
@@ -10,7 +10,20 @@ export function compile(
   source: JSXElement | JSXFragment | string,
   options: CompilerOptions = {},
 ): VaporCodegenResult {
-  const resolvedOptions = extend({ filename: 'index.tsx' }, options)
+  const resolvedOptions = extend(
+    {
+      filename: 'index.tsx',
+      templates: [],
+      withFallback: false,
+      isTS: true,
+      sourceMap: false,
+      isCustomElement: () => false,
+      onError: (e: any) => {
+        throw e
+      },
+    },
+    options,
+  )
   if (!resolvedOptions.source && isString(source)) {
     resolvedOptions.source = source
   }

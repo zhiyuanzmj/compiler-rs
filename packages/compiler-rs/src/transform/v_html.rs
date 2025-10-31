@@ -39,6 +39,7 @@ pub fn transform_v_html(
     context_block,
     context.is_operation(vec![&exp]),
     Either16::I(SetHtmlIRNode {
+      set_html: true,
       _type: IRNodeTypes::SET_HTML,
       element,
       value: exp,

@@ -1,4 +1,8 @@
-import { generate, transform, type CompilerOptions } from '../../src'
+import {
+  generate,
+  transform,
+  type CompilerOptions,
+} from '@vue-jsx-vapor/compiler-rs'
 import { IRNodeTypes } from '../../src/ir'
 import { parseExpression } from '../../src/utils'
 

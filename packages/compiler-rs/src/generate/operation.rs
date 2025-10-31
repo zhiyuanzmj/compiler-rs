@@ -1,14 +1,11 @@
 use napi::Either;
-use napi::Env;
 use napi::Result;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
 use napi::bindgen_prelude::Either16;
-use napi::bindgen_prelude::Function;
-use napi::bindgen_prelude::JsObjectValue;
-use napi::bindgen_prelude::Object;
-use napi_derive::napi;
+use std::mem;
 
+use crate::generate::CodegenContext;
 use crate::generate::component::gen_create_component;
 use crate::generate::directive::gen_builtin_directive;
 use crate::generate::dom::gen_insert_node;
@@ -29,27 +26,42 @@ use crate::generate::utils::FragmentSymbol::Newline;
 use crate::generate::utils::gen_call;
 use crate::generate::v_for::gen_for;
 use crate::generate::v_if::gen_if;
-use crate::ir::index::IREffect;
+use crate::ir::index::BlockIRNode;
 use crate::ir::index::OperationNode;
+use crate::ir::index::SetEventIRNode;
 
-#[napi]
 pub fn gen_operations(
-  env: Env,
   opers: Vec<OperationNode>,
-  context: Object<'static>,
+  context: &CodegenContext,
+  context_block: &mut BlockIRNode,
 ) -> Result<Vec<CodeFragment>> {
   let mut frag = vec![];
+  let event_opers = opers
+    .iter()
+    .filter_map(|op| {
+      if let Either16::H(op) = op {
+        Some(op.clone())
+      } else {
+        None
+      }
+    })
+    .collect::<Vec<_>>();
   for operation in opers {
-    frag.extend(gen_operation_with_insertion_state(env, operation, context)?);
+    frag.extend(gen_operation_with_insertion_state(
+      operation,
+      context,
+      context_block,
+      &event_opers,
+    )?);
   }
   return Ok(frag);
 }
 
-#[napi]
 pub fn gen_operation_with_insertion_state(
-  env: Env,
   oper: OperationNode,
-  context: Object<'static>,
+  context: &CodegenContext,
+  context_block: &mut BlockIRNode,
+  event_opers: &Vec<SetEventIRNode>,
 ) -> Result<Vec<CodeFragment>> {
   let mut frag = vec![];
   match &oper {
@@ -75,50 +87,45 @@ pub fn gen_operation_with_insertion_state(
     _ => (),
   };
 
-  frag.extend(gen_operation(env, oper, context)?);
+  frag.extend(gen_operation(oper, context, context_block, event_opers)?);
 
   Ok(frag)
 }
 
-#[napi]
 pub fn gen_operation(
-  env: Env,
   oper: OperationNode,
-  context: Object<'static>,
+  context: &CodegenContext,
+  context_block: &mut BlockIRNode,
+  event_opers: &Vec<SetEventIRNode>,
 ) -> Result<Vec<CodeFragment>> {
   match oper {
-    Either16::A(oper) => gen_if(env, oper, context, false),
-    Either16::B(oper) => gen_for(env, oper, context),
-    Either16::C(oper) => gen_set_text(env, oper, context),
-    Either16::D(oper) => gen_set_prop(env, oper, context),
-    Either16::E(oper) => gen_dynamic_props(env, oper, context),
-    Either16::F(oper) => gen_set_dynamic_events(env, oper, context),
-    Either16::G(oper) => gen_set_nodes(env, oper, context),
-    Either16::H(oper) => gen_set_event(env, oper, context),
-    Either16::I(oper) => gen_set_html(env, oper, context),
-    Either16::J(oper) => gen_set_template_ref(env, oper, context),
-    Either16::K(oper) => gen_create_nodes(env, oper, context),
+    Either16::A(oper) => gen_if(oper, context, context_block, false),
+    Either16::B(oper) => gen_for(oper, context, context_block),
+    Either16::C(oper) => gen_set_text(oper, context),
+    Either16::D(oper) => gen_set_prop(oper, context),
+    Either16::E(oper) => gen_dynamic_props(oper, context),
+    Either16::F(oper) => gen_set_dynamic_events(oper, context),
+    Either16::G(oper) => gen_set_nodes(oper, context),
+    Either16::H(oper) => gen_set_event(oper, context, event_opers),
+    Either16::I(oper) => gen_set_html(oper, context),
+    Either16::J(oper) => gen_set_template_ref(oper, context),
+    Either16::K(oper) => gen_create_nodes(oper, context),
     Either16::L(oper) => gen_insert_node(oper, context),
-    Either16::M(oper) => gen_builtin_directive(env, oper, context),
-    Either16::N(oper) => gen_create_component(env, oper, context),
+    Either16::M(oper) => gen_builtin_directive(oper, context),
+    Either16::N(oper) => gen_create_component(oper, context, context_block),
     Either16::O(oper) => Ok(gen_declare_old_ref(oper)),
     Either16::P(oper) => gen_get_text_child(oper, context),
   }
 }
 
-#[napi]
 pub fn gen_insertion_state(
   parent: i32,
   anchor: Option<i32>,
-  context: Object,
+  context: &CodegenContext,
 ) -> Result<Vec<CodeFragment>> {
   let mut result = vec![Either3::A(Newline)];
   result.extend(gen_call(
-    Either::A(
-      context
-        .get_named_property::<Function<String, String>>("helper")?
-        .call("setInsertionState".to_string())?,
-    ),
+    Either::A(context.helper("setInsertionState")),
     vec![
       Either4::C(Some(format!("n{}", parent))),
       Either4::C(if let Some(anchor) = anchor {
@@ -137,18 +144,18 @@ pub fn gen_insertion_state(
 }
 
 pub fn gen_effects(
-  env: Env,
-  effects: Vec<IREffect>,
-  context: Object<'static>,
+  context: &CodegenContext,
+  context_block: &mut BlockIRNode,
 ) -> Result<Vec<CodeFragment>> {
   let mut frag: Vec<CodeFragment> = vec![];
   let mut operations_count = 0;
 
   let mut i = 0;
+  let effects = mem::take(&mut context_block.effect);
   let effects_len = effects.len();
   for effect in effects {
     operations_count += effect.operations.len();
-    let frags = gen_effect(env, effect.operations, context)?;
+    let frags = gen_effect(effect.operations, context, context_block)?;
     if i > 0 {
       frag.push(Either3::A(Newline));
     }
@@ -180,12 +187,7 @@ pub fn gen_effects(
   if effects_len > 0 {
     frag.insert(
       0,
-      Either3::C(Some(format!(
-        "{}(() => ",
-        context
-          .get_named_property::<Function<String, String>>("helper")?
-          .call("renderEffect".to_string())?
-      ))),
+      Either3::C(Some(format!("{}(() => ", context.helper("renderEffect")))),
     );
     frag.insert(0, Either3::A(FragmentSymbol::Newline));
     frag.push(Either3::C(Some(")".to_string())))
@@ -194,14 +196,13 @@ pub fn gen_effects(
   Ok(frag)
 }
 
-#[napi]
 pub fn gen_effect(
-  env: Env,
   operations: Vec<OperationNode>,
-  context: Object<'static>,
+  context: &CodegenContext,
+  context_block: &mut BlockIRNode,
 ) -> Result<Vec<CodeFragment>> {
   let mut frag = vec![];
-  let operations_exps = gen_operations(env, operations, context)?;
+  let operations_exps = gen_operations(operations, context, context_block)?;
   let newline_count = operations_exps
     .iter()
     .filter(|frag| matches!(frag, Either3::A(FragmentSymbol::Newline)))

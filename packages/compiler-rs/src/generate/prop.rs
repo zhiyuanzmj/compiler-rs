@@ -2,16 +2,12 @@ use std::mem;
 use std::sync::LazyLock;
 
 use napi::Either;
-use napi::Env;
 use napi::Result;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
-use napi::bindgen_prelude::Function;
-use napi::bindgen_prelude::JsObjectValue;
-use napi::bindgen_prelude::Object;
-use napi_derive::napi;
 use regex::Regex;
 
+use crate::generate::CodegenContext;
 use crate::generate::expression::gen_expression;
 use crate::generate::utils::CodeFragment;
 use crate::generate::utils::FragmentSymbol::Newline;
@@ -74,8 +70,7 @@ fn helpers(name: &str) -> HelperConfig {
   }
 }
 
-#[napi]
-pub fn gen_set_prop(env: Env, oper: SetPropIRNode, context: Object) -> Result<Vec<CodeFragment>> {
+pub fn gen_set_prop(oper: SetPropIRNode, context: &CodegenContext) -> Result<Vec<CodeFragment>> {
   let SetPropIRNode {
     prop: IRProp {
       key,
@@ -87,19 +82,14 @@ pub fn gen_set_prop(env: Env, oper: SetPropIRNode, context: Object) -> Result<Ve
     ..
   } = oper;
   let resolved_helper = get_runtime_helper(&tag, &key.content, modifier);
-  let prop_value = gen_prop_value(env, values, context)?;
+  let prop_value = gen_prop_value(values, context)?;
   let mut result = vec![Either3::A(Newline)];
   result.extend(gen_call(
-    Either::B((
-      context
-        .get_named_property::<Function<String, String>>("helper")?
-        .call(resolved_helper.name)?,
-      None,
-    )),
+    Either::B((context.helper(resolved_helper.name.as_str()), None)),
     vec![
       Either4::C(Some(format!("n{}", oper.element))),
       if resolved_helper.need_key {
-        Either4::D(gen_expression(env, key, context, None, None)?)
+        Either4::D(gen_expression(key, context, None, None)?)
       } else {
         Either4::C(None)
       },
@@ -203,12 +193,10 @@ fn get_special_helper(key_name: &str, tag_name: &str) -> Option<HelperConfig> {
   }
 }
 
-#[napi]
 // dynamic key props and {...obj} will reach here
 pub fn gen_dynamic_props(
-  env: Env,
   oper: SetDynamicPropsIRNode,
-  context: Object,
+  context: &CodegenContext,
 ) -> Result<Vec<CodeFragment>> {
   let values = oper
     .props
@@ -216,20 +204,16 @@ pub fn gen_dynamic_props(
     .map(|props| {
       Either4::D(match props {
         // static and dynamic arg props
-        Either3::A(props) => gen_literal_object_props(env, props, context), // static and dynamic arg props
-        Either3::B(props) => gen_literal_object_props(env, vec![props], context), // dynamic arg props
-        Either3::C(props) => gen_expression(env, props.value, context, None, None).unwrap(), // {...obj}
+        Either3::A(props) => gen_literal_object_props(props, context), // static and dynamic arg props
+        Either3::B(props) => gen_literal_object_props(vec![props], context), // dynamic arg props
+        Either3::C(props) => gen_expression(props.value, context, None, None).unwrap(), // {...obj}
       })
     })
     .collect::<Vec<_>>();
 
   let mut result = vec![Either3::A(Newline)];
   result.extend(gen_call(
-    Either::A(
-      context
-        .get_named_property::<Function<String, String>>("helper")?
-        .call("setDynamicProps".to_string())?,
-    ),
+    Either::A(context.helper("setDynamicProps")),
     vec![
       Either4::C(Some(format!("n{}", oper.element))),
       Either4::D(gen_multi(get_delimiters_array(), values)),
@@ -243,24 +227,23 @@ pub fn gen_dynamic_props(
   Ok(result)
 }
 
-fn gen_literal_object_props(env: Env, props: Vec<IRProp>, context: Object) -> Vec<CodeFragment> {
+fn gen_literal_object_props(props: Vec<IRProp>, context: &CodegenContext) -> Vec<CodeFragment> {
   gen_multi(
     get_delimiters_object(),
     props
       .into_iter()
       .map(|mut prop| {
         let values = mem::take(&mut prop.values);
-        let mut result = gen_prop_key(env, prop, context).unwrap();
+        let mut result = gen_prop_key(prop, context).unwrap();
         result.push(Either3::C(Some(": ".to_string())));
-        result.extend(gen_prop_value(env, values, context).unwrap());
+        result.extend(gen_prop_value(values, context).unwrap());
         Either4::D(result)
       })
       .collect::<Vec<_>>(),
   )
 }
 
-#[napi]
-pub fn gen_prop_key(env: Env, oper: IRProp, context: Object) -> Result<Vec<CodeFragment>> {
+pub fn gen_prop_key(oper: IRProp, context: &CodegenContext) -> Result<Vec<CodeFragment>> {
   let IRProp {
     key: node,
     modifier,
@@ -303,17 +286,13 @@ pub fn gen_prop_key(env: Env, oper: IRProp, context: Object) -> Result<Vec<CodeF
     ))]);
   }
 
-  let helper = context.get_named_property::<Function<String, String>>("helper")?;
-  let mut key = gen_expression(env, node, context, None, None)?;
+  let mut key = gen_expression(node, context, None, None)?;
   if runtime_camelize.unwrap_or_default() {
-    key = gen_call(
-      Either::A(helper.call("camelize".to_string())?),
-      vec![Either4::D(key)],
-    )
+    key = gen_call(Either::A(context.helper("camelize")), vec![Either4::D(key)])
   }
   if handler.unwrap_or_default() {
     key = gen_call(
-      Either::A(helper.call("toHandlerKey".to_string())?),
+      Either::A(context.helper("toHandlerKey")),
       vec![Either4::D(key)],
     )
   }
@@ -335,20 +314,18 @@ pub fn gen_prop_key(env: Env, oper: IRProp, context: Object) -> Result<Vec<CodeF
   Ok(result)
 }
 
-#[napi]
 pub fn gen_prop_value(
-  env: Env,
   mut values: Vec<SimpleExpressionNode>,
-  context: Object,
+  context: &CodegenContext,
 ) -> Result<Vec<CodeFragment>> {
   if (&values).len() == 1 {
-    return gen_expression(env, values.remove(0), context, None, None);
+    return gen_expression(values.remove(0), context, None, None);
   }
   Ok(gen_multi(
     get_delimiters_array(),
     values
       .into_iter()
-      .map(|expr| Either4::D(gen_expression(env, expr, context, None, None).unwrap()))
+      .map(|expr| Either4::D(gen_expression(expr, context, None, None).unwrap()))
       .collect::<Vec<_>>(),
   ))
 }

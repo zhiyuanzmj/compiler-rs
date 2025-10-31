@@ -52,6 +52,7 @@ export interface CompilerError extends SyntaxError {
 }
 
 export interface CreateComponentIRNode {
+  createComponent: boolean
   type: IRNodeTypes.CREATE_COMPONENT_NODE
   id: number
   tag: string
@@ -66,6 +67,7 @@ export interface CreateComponentIRNode {
 }
 
 export interface CreateNodesIRNode {
+  createNodes: boolean
   type: IRNodeTypes.CREATE_NODES
   id: number
   once: boolean
@@ -75,11 +77,13 @@ export interface CreateNodesIRNode {
 export declare function createSimpleExpression(content: string, isStatic?: boolean | undefined | null, ast?: object | undefined | null, loc?: SourceLocation | undefined | null): SimpleExpressionNode
 
 export interface DeclareOldRefIRNode {
+  declareOlderRef: boolean
   type: IRNodeTypes.DECLARE_OLD_REF
   id: number
 }
 
 export interface DirectiveIRNode {
+  directive: boolean
   type: IRNodeTypes.DIRECTIVE
   element: number
   dir: DirectiveNode
@@ -160,83 +164,13 @@ export declare const enum FragmentSymbol {
   IndentEnd = 3
 }
 
-export declare function genBlock(oper: BlockIRNode, context: object, args: Array<CodeFragment>, root: boolean): Array<CodeFragment>
-
-export declare function genBuiltinDirective(oper: DirectiveIRNode, context: object): Array<CodeFragment>
-
 export declare function genCall(node: string | [string, CodeFragment | undefined | null], frags: Array<CodeFragments>): Array<CodeFragment>
-
-export declare function genCreateComponent(operation: CreateComponentIRNode, context: object): Array<CodeFragment>
-
-export declare function genCreateNodes(oper: CreateNodesIRNode, context: object): Array<CodeFragment>
 
 export declare function genDeclareOldRef(oper: DeclareOldRefIRNode): Array<CodeFragment>
 
 export declare function genDirectiveModifiers(modifiers: Array<string>): string
 
-/** * user directives via `withVaporDirectives`
- * TODO the compiler side is implemented but no runtime support yet
- * it was removed due to perf issues
- */
-export declare function genDirectivesForElement(id: number, context: object): Array<CodeFragment>
-
-export declare function genDynamicProps(oper: SetDynamicPropsIRNode, context: object): Array<CodeFragment>
-
-export declare function genEffect(operations: Array<OperationNode>, context: object): Array<CodeFragment>
-
-export declare function genEventHandler(context: object, value: SimpleExpressionNode | undefined | null, modifiers: Modifiers | undefined | null, extraWrap: boolean): Array<CodeFragment>
-
-export declare function genExpression(node: SimpleExpressionNode, context: object, assignment?: string | undefined | null, needWrap?: boolean | undefined | null): Array<CodeFragment>
-
-export declare function genFor(oper: ForIRNode, context: object): Array<CodeFragment>
-
-export declare function genGetTextChild(oper: GetTextChildIRNode, context: object): Array<CodeFragment>
-
-export declare function genIf(oper: IfIRNode, context: object, isNested: boolean): Array<CodeFragment>
-
-export declare function genInsertionState(parent: number, anchor: number | undefined | null, context: object): Array<CodeFragment>
-
-export declare function genInsertNode(oper: InsertNodeIRNode, context: object): Array<CodeFragment>
-
-export declare function genModelHandler(exp: SimpleExpressionNode, context: object): Array<CodeFragment>
-
-export declare function genMulti([left, right, seg, placeholder]: CodeFragmentDelimiters, frags: Array<CodeFragments>): Array<CodeFragment>
-
-export declare function genOperation(oper: OperationNode, context: object): Array<CodeFragment>
-
-export declare function genOperations(opers: Array<OperationNode>, context: object): Array<CodeFragment>
-
-export declare function genOperationWithInsertionState(oper: OperationNode, context: object): Array<CodeFragment>
-
-export declare function genPropKey(oper: IRProp, context: object): Array<CodeFragment>
-
-export declare function genPropValue(values: Array<SimpleExpressionNode>, context: object): Array<CodeFragment>
-
-export declare function genRawProps(props: Array<IRProps>, context: object): Array<CodeFragment> | null
-
-export declare function genRawSlots(slots: Array<IRSlots>, context: object): Array<CodeFragment> | null
-
-export declare function genSelf(dynamic: IRDynamicInfo, context: object): Array<CodeFragment>
-
-export declare function genSetDynamicEvents(oper: SetDynamicEventsIRNode, context: object): Array<CodeFragment>
-
-export declare function genSetEvent(oper: SetEventIRNode, context: object): Array<CodeFragment>
-
-export declare function genSetHtml(oper: SetHtmlIRNode, context: object): Array<CodeFragment>
-
-export declare function genSetNodes(oper: SetNodesIRNode, context: object): Array<CodeFragment>
-
-export declare function genSetProp(oper: SetPropIRNode, context: object): Array<CodeFragment>
-
-export declare function genSetTemplateRef(oper: SetTemplateRefIRNode, context: object): Array<CodeFragment>
-
-export declare function genSetText(oper: SetTextIRNode, context: object): Array<CodeFragment>
-
-export declare function genTemplates(templates: Array<string>, rootIndex: number | undefined | null, context: object): Array<string>
-
-export declare function genVModel(oper: DirectiveIRNode, context: object): Array<CodeFragment>
-
-export declare function genVShow(oper: DirectiveIRNode, context: object): Array<CodeFragment>
+export declare function generate(ir: RootIRNode, options: CodegenOptions): VaporCodegenResult
 
 export declare function getDelimitersArray(): CodeFragmentDelimiters
 
@@ -251,6 +185,7 @@ export declare function getExpression(node: import('oxc-parser').Node): import('
 export declare function getLiteralExpressionValue(exp: SimpleExpressionNode): string | null
 
 export interface GetTextChildIRNode {
+  getTextChild: boolean
   type: IRNodeTypes.GET_TEXT_CHILD
   parent: number
 }
@@ -269,6 +204,7 @@ export interface IfIRNode {
 }
 
 export interface InsertNodeIRNode {
+  insertNode: boolean
   type: IRNodeTypes.INSERT_NODE
   elements: Array<number>
   parent: number
@@ -461,12 +397,14 @@ export interface RootIRNode {
 }
 
 export interface SetDynamicEventsIRNode {
-  type: IRNodeTypes.SET_DYNAMIC_EVENTS
+  setDynamicEvents: IRNodeTypes.SET_DYNAMIC_EVENTS
+  type: IRNodeTypes
   element: number
   value: SimpleExpressionNode
 }
 
 export interface SetDynamicPropsIRNode {
+  setDynamicProps: boolean
   type: IRNodeTypes.SET_DYNAMIC_PROPS
   element: number
   props: Array<IRProps>
@@ -474,7 +412,8 @@ export interface SetDynamicPropsIRNode {
 }
 
 export interface SetEventIRNode {
-  type: IRNodeTypes.SET_EVENT
+  setEvent: boolean
+  type: IRNodeTypes
   element: number
   key: SimpleExpressionNode
   value?: SimpleExpressionNode
@@ -485,14 +424,15 @@ export interface SetEventIRNode {
 }
 
 export interface SetHtmlIRNode {
+  setHtml: boolean
   type: IRNodeTypes.SET_HTML
   element: number
   value: SimpleExpressionNode
 }
 
 export interface SetNodesIRNode {
-  type: IRNodeTypes.SET_NODES
   setNodes: boolean
+  type: IRNodeTypes.SET_NODES
   element: number
   once: boolean
   values: Array<SimpleExpressionNode>
@@ -500,6 +440,7 @@ export interface SetNodesIRNode {
 }
 
 export interface SetPropIRNode {
+  setProp: boolean
   type: IRNodeTypes.SET_PROP
   element: number
   prop: IRProp
@@ -508,7 +449,8 @@ export interface SetPropIRNode {
 }
 
 export interface SetTemplateRefIRNode {
-  type: IRNodeTypes.SET_TEMPLATE_REF
+  setTemplateRef: IRNodeTypes.SET_TEMPLATE_REF
+  type: IRNodeTypes
   element: number
   value: SimpleExpressionNode
   refFor: boolean
@@ -516,8 +458,8 @@ export interface SetTemplateRefIRNode {
 }
 
 export interface SetTextIRNode {
-  type: IRNodeTypes.SET_TEXT
   setText: boolean
+  type: IRNodeTypes.SET_TEXT
   element: number
   values: Array<SimpleExpressionNode>
   generated?: boolean
@@ -568,6 +510,13 @@ export interface TransformOptions {
 export const TS_NODE_TYPES: string[]
 
 export declare function unwrapTSNode(node: import('oxc-parser').Node): import('oxc-parser').Node
+
+export interface VaporCodegenResult {
+  helpers: Set<string>
+  templates: Array<string>
+  delegates: Set<string>
+  code: string
+}
 
 export declare function walk(ast: object, options: WalkOptions): object | null
 

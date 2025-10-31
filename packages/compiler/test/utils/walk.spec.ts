@@ -33,6 +33,40 @@ describe('sync estree-walker', () => {
     assert.equal(answer, block[1].answer)
   })
 
+  it('skip', () => {
+    const block = [
+      {
+        type: 'Foo',
+        answer: undefined,
+        children: [
+          {
+            type: 'Foo',
+            answer: {
+              type: 'Answer',
+              value: 42,
+            },
+          },
+        ],
+      },
+    ]
+
+    let answer
+
+    walk(
+      { type: 'Test', block },
+      {
+        enter(node) {
+          if (node.type === 'Foo') {
+            return true
+          }
+          if (node.type === 'Answer') answer = node.value
+        },
+      },
+    )
+
+    assert.notEqual(answer, 42)
+  })
+
   it('walks an AST', () => {
     const ast = {
       type: 'Program',

@@ -126,6 +126,7 @@ pub fn transform_v_on(
     context_block,
     context.is_operation(vec![&arg]),
     Either16::H(SetEventIRNode {
+      set_event: true,
       _type: IRNodeTypes::SET_EVENT,
       element,
       value: exp,

@@ -2,7 +2,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use napi::{
   Either,
-  bindgen_prelude::{Either3, Either4, JsObjectValue, Object, Result},
+  bindgen_prelude::{Either4, JsObjectValue, Object, Result},
 };
 
 use crate::{

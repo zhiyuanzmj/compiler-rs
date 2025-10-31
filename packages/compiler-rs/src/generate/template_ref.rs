@@ -1,11 +1,10 @@
 use napi::Either;
-use napi::Env;
 use napi::Result;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
-use napi::bindgen_prelude::Object;
 use napi_derive::napi;
 
+use crate::generate::CodegenContext;
 use crate::generate::expression::gen_expression;
 use crate::generate::utils::CodeFragment;
 use crate::generate::utils::FragmentSymbol::Newline;
@@ -13,11 +12,9 @@ use crate::generate::utils::gen_call;
 use crate::ir::index::DeclareOldRefIRNode;
 use crate::ir::index::SetTemplateRefIRNode;
 
-#[napi]
 pub fn gen_set_template_ref(
-  env: Env,
   oper: SetTemplateRefIRNode,
-  context: Object,
+  context: &CodegenContext,
 ) -> Result<Vec<CodeFragment>> {
   let SetTemplateRefIRNode {
     effect,
@@ -39,7 +36,7 @@ pub fn gen_set_template_ref(
     Either::A("_setTemplateRef".to_string()), // will be generated in root scope
     vec![
       Either4::C(Some(format!("n{element}"))),
-      Either4::D(gen_expression(env, value, context, None, None)?),
+      Either4::D(gen_expression(value, context, None, None)?),
       Either4::C(if effect {
         Some(format!("r{element}"))
       } else if ref_for {

@@ -1,8 +1,9 @@
-use napi::bindgen_prelude::{Either3, Either4, Object};
-use napi::bindgen_prelude::{Function, JsObjectValue};
-use napi::{Either, Env, Result};
-use napi_derive::napi;
+use std::mem;
 
+use napi::bindgen_prelude::{Either3, Either4};
+use napi::{Either, Result};
+
+use crate::generate::CodegenContext;
 use crate::generate::operation::{gen_effects, gen_operations};
 use crate::generate::template::gen_self;
 use crate::generate::utils::FragmentSymbol::IndentEnd;
@@ -11,14 +12,12 @@ use crate::generate::utils::FragmentSymbol::Newline;
 use crate::generate::utils::{
   CodeFragments, gen_call, gen_multi, get_delimiters_array, to_valid_asset_id,
 };
-use crate::ir::index::RootIRNode;
 use crate::{generate::utils::CodeFragment, ir::index::BlockIRNode};
 
-#[napi]
 pub fn gen_block(
-  env: Env,
   oper: BlockIRNode,
-  context: Object<'static>,
+  context: &CodegenContext,
+  context_block: &mut BlockIRNode,
   args: Vec<CodeFragment>,
   root: bool,
 ) -> Result<Vec<CodeFragment>> {
@@ -26,83 +25,79 @@ pub fn gen_block(
   result.extend(args);
   result.push(Either3::C(Some(") => {".to_string())));
   result.push(Either3::A(IndentStart));
-  result.extend(gen_block_content(env, oper, context, root, None)?);
+  result.extend(gen_block_content(
+    Some(oper),
+    context,
+    context_block,
+    root,
+    None,
+  )?);
   result.push(Either3::A(IndentEnd));
   result.push(Either3::A(Newline));
   result.push(Either3::C(Some("}".to_string())));
   Ok(result)
 }
 
-pub fn gen_block_content(
-  env: Env,
-  block: BlockIRNode,
-  context: Object<'static>,
+pub fn gen_block_content<'a>(
+  block: Option<BlockIRNode>,
+  context: &'a CodegenContext,
+  context_block: &'a mut BlockIRNode,
   root: bool,
-  gen_effects_extra_frag: Option<Box<dyn FnOnce() -> Vec<CodeFragment>>>,
+  gen_effects_extra_frag: Option<Box<dyn FnOnce(&'a mut BlockIRNode) -> Vec<CodeFragment> + 'a>>,
 ) -> Result<Vec<CodeFragment>> {
   let mut frag = vec![];
-  let reset_block = context
-    .get_named_property::<Function<BlockIRNode, Function<(), BlockIRNode>>>("enterBlock")?
-    .apply(context, block)?;
-  let BlockIRNode {
-    _type,
-    dynamic,
-    effect,
-    operation,
-    returns,
-    ..
-  } = context.get_named_property::<BlockIRNode>("block")?;
+  let mut reset_block = None;
+  if let Some(block) = block {
+    let context_block = context_block as *mut BlockIRNode;
+    reset_block = Some(context.enter_block(block, unsafe { &mut *context_block }));
+  }
 
   if root {
-    let ir = context.get_named_property::<RootIRNode>("ir")?;
-    for name in ir.component {
-      let id = to_valid_asset_id(name.clone(), "component".to_string());
+    for name in &context.ir.component {
+      let id = to_valid_asset_id(name.to_string(), "component".to_string());
       frag.push(Either3::A(Newline));
       frag.push(Either3::C(Some(format!("const {id} = "))));
       frag.extend(gen_call(
-        Either::A(
-          context
-            .get_named_property::<Function<String, String>>("helper")?
-            .call("resolveComponent".to_string())?,
-        ),
+        Either::A(context.helper("resolveComponent")),
         vec![Either4::C(Some(format!("\"{name}\"")))],
       ))
     }
-    for name in ir.directive {
+    for name in &context.ir.directive {
       frag.push(Either3::A(Newline));
       frag.push(Either3::C(Some(format!(
         "const {} = ",
         to_valid_asset_id(name.clone(), "directive".to_string())
       ))));
       frag.extend(gen_call(
-        Either::A(
-          context
-            .get_named_property::<Function<String, String>>("helper")?
-            .call("resolveDirective".to_string())?,
-        ),
+        Either::A(context.helper("resolveDirective")),
         vec![Either4::C(Some(format!("\"{name}\"")))],
       ));
     }
   }
 
-  for child in dynamic.children {
-    frag.extend(gen_self(env, child, context)?);
+  for child in mem::take(&mut context_block.dynamic.children) {
+    frag.extend(gen_self(child, context, context_block)?);
   }
 
-  frag.extend(gen_operations(env, operation, context)?);
-  let mut effects_frag = gen_effects(env, effect, context)?;
+  frag.extend(gen_operations(
+    mem::take(&mut context_block.operation),
+    context,
+    context_block,
+  )?);
+  let return_nodes = context_block
+    .returns
+    .iter()
+    .map(|n| Either4::C(Some(format!("n{n}"))))
+    .collect::<Vec<CodeFragments>>();
+  let mut effects_frag = gen_effects(context, context_block)?;
   if let Some(gen_extra_frag) = gen_effects_extra_frag {
-    effects_frag.extend(gen_extra_frag())
+    effects_frag.extend(gen_extra_frag(context_block))
   }
   frag.extend(effects_frag);
 
   frag.push(Either3::A(Newline));
   frag.push(Either3::C(Some("return ".to_string())));
 
-  let return_nodes = returns
-    .iter()
-    .map(|n| Either4::C(Some(format!("n{n}"))))
-    .collect::<Vec<CodeFragments>>();
   let returns_code = if &return_nodes.len() > &1 {
     gen_multi(get_delimiters_array(), return_nodes)
   } else {
@@ -118,6 +113,8 @@ pub fn gen_block_content(
   };
   frag.extend(returns_code);
 
-  reset_block.call(())?;
+  if let Some(reset_block) = reset_block {
+    reset_block();
+  }
   Ok(frag)
 }

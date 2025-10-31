@@ -56,6 +56,7 @@ pub fn transform_v_text(
     context.register_operation(
       context_block,
       Either16::P(GetTextChildIRNode {
+        get_text_child: true,
         _type: IRNodeTypes::GET_TEXT_CHILD,
         parent,
       }),

@@ -143,6 +143,7 @@ pub fn transform_native_element<'a>(
         context_block,
         false,
         Either16::E(SetDynamicPropsIRNode {
+          set_dynamic_props: true,
           _type: IRNodeTypes::SET_DYNAMIC_PROPS,
           props,
           element,
@@ -169,6 +170,7 @@ pub fn transform_native_element<'a>(
             context_block,
             context.is_operation(values.iter().collect::<Vec<&SimpleExpressionNode>>()),
             Either16::D(SetPropIRNode {
+              set_prop: true,
               _type: IRNodeTypes::SET_PROP,
               prop,
               element,
@@ -245,6 +247,7 @@ pub fn transform_component_element(
   dynamic.flags = dynamic.flags | DynamicFlag::NON_TEMPLATE as i32 | DynamicFlag::INSERT as i32;
 
   dynamic.operation = Some(MyBox(Box::new(Either16::N(CreateComponentIRNode {
+    create_component: true,
     _type: IRNodeTypes::CREATE_COMPONENT_NODE,
     id: context.reference(dynamic)?,
     tag,
@@ -329,6 +332,7 @@ pub fn build_props<'a>(
             context_block,
             context.is_operation(vec![&value]),
             Either16::F(SetDynamicEventsIRNode {
+              set_dynamic_events: true,
               _type: IRNodeTypes::SET_DYNAMIC_EVENTS,
               element,
               value,
@@ -472,6 +476,7 @@ pub fn transform_prop<'a>(
     context.register_operation(
       context_block,
       Either16::M(DirectiveIRNode {
+        directive: true,
         _type: IRNodeTypes::DIRECTIVE,
         element,
         dir: resolve_directive(prop, context)?,

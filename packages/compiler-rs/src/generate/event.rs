@@ -1,13 +1,10 @@
 use napi::Either;
-use napi::Env;
 use napi::Result;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
-use napi::bindgen_prelude::Function;
 use napi::bindgen_prelude::JsObjectValue;
-use napi::bindgen_prelude::Object;
-use napi_derive::napi;
 
+use crate::generate::CodegenContext;
 use crate::generate::expression::gen_expression;
 use crate::generate::utils::CodeFragment;
 use crate::generate::utils::FragmentSymbol::Newline;
@@ -21,8 +18,11 @@ use crate::ir::index::SimpleExpressionNode;
 use crate::utils::check::is_fn_expression;
 use crate::utils::check::is_member_expression;
 
-#[napi]
-pub fn gen_set_event(env: Env, oper: SetEventIRNode, context: Object) -> Result<Vec<CodeFragment>> {
+pub fn gen_set_event(
+  oper: SetEventIRNode,
+  context: &CodegenContext,
+  event_opers: &Vec<SetEventIRNode>,
+) -> Result<Vec<CodeFragment>> {
   let SetEventIRNode {
     element,
     key,
@@ -40,14 +40,14 @@ pub fn gen_set_event(env: Env, oper: SetEventIRNode, context: Object) -> Result<
     let find = format!("\"{}\"", key_override.0);
     let replacement = format!("\"{}\"", key_override.1);
     let mut wrapped = vec![Either3::C(Some("(".to_string()))];
-    wrapped.extend(gen_expression(env, key, context, None, None)?);
+    wrapped.extend(gen_expression(key, context, None, None)?);
     wrapped.push(Either3::C(Some(")".to_string())));
     let cloned = wrapped.clone();
     wrapped.push(Either3::C(Some(format!(" === {find} ? {replacement} : "))));
     wrapped.extend(cloned);
     wrapped
   } else {
-    gen_expression(env, key, context, None, None)?
+    gen_expression(key, context, None, None)?
   };
   let event_options = if modifiers.options.len() == 0 && !effect {
     Either4::C(None)
@@ -65,43 +65,31 @@ pub fn gen_set_event(env: Env, oper: SetEventIRNode, context: Object) -> Result<
     );
     Either4::D(gen_multi(get_delimiters_object_newline(), result))
   };
-  let handler = gen_event_handler(env, context, value, Some(modifiers), false)?;
+  let handler = gen_event_handler(context, value, Some(modifiers), false)?;
 
   if delegate {
     // key is static
-    let delegates = context.get_named_property::<Object>("delegates")?;
-    delegates
-      .get_named_property::<Function<String, Object>>("add")?
-      .apply(delegates, key_content.clone())?;
+    context.delegates.borrow_mut().insert(key_content.clone());
     // if this is the only delegated event of this name on this element,
     // we can generate optimized handler attachment code
     // e.g. n1.$evtclick = () => {}
-    if !context
-      .get_named_property::<Object>("block")?
-      .get_named_property::<Vec<Object>>("operation")?
-      .iter()
-      .any(|op| {
-        op.get_named_property::<String>("type")
-          .unwrap()
-          .eq("SET_EVENT")
-          && op
-            .get_named_property::<Object>("key")
-            .unwrap()
-            .get_named_property::<Object>("ast")
-            .unwrap()
-            .get_named_property::<u32>("start")
-            .unwrap()
-            != oper_key_strat
-          && op.get_named_property::<bool>("delegate").unwrap()
-          && op.get_named_property::<i32>("element").unwrap() == oper.element
-          && op
-            .get_named_property::<Object>("key")
-            .unwrap()
-            .get_named_property::<String>("content")
-            .unwrap()
-            == key_content
-      })
-    {
+    if !event_opers.iter().any(|op| {
+      if op
+        .key
+        .ast
+        .unwrap()
+        .get_named_property::<u32>("start")
+        .unwrap()
+        != oper_key_strat
+        && op.delegate
+        && op.element == oper.element
+        && op.key.content == key_content
+      {
+        true
+      } else {
+        false
+      }
+    }) {
       let mut result = vec![
         Either3::A(Newline),
         Either3::C(Some(format!("n{element}.$evt{} = ", key_content))),
@@ -113,15 +101,7 @@ pub fn gen_set_event(env: Env, oper: SetEventIRNode, context: Object) -> Result<
 
   let mut result = vec![Either3::A(Newline)];
   result.extend(gen_call(
-    Either::A(
-      context
-        .get_named_property::<Function<String, String>>("helper")?
-        .call(if delegate {
-          "delegate".to_string()
-        } else {
-          "on".to_string()
-        })?,
-    ),
+    Either::A(context.helper(if delegate { "delegate" } else { "on" })),
     vec![
       Either4::C(Some(format!("n{element}"))),
       Either4::D(name),
@@ -133,10 +113,8 @@ pub fn gen_set_event(env: Env, oper: SetEventIRNode, context: Object) -> Result<
   Ok(result)
 }
 
-#[napi]
 pub fn gen_event_handler(
-  env: Env,
-  context: Object,
+  context: &CodegenContext,
   value: Option<SimpleExpressionNode>,
   modifiers: Option<Modifiers>,
   // passed as component prop - need additional wrap
@@ -150,7 +128,7 @@ pub fn gen_event_handler(
     // latest value when invoked.
     if is_member_expression(&value) {
       // e.g. @click="foo.bar"
-      handler_exp = gen_expression(env, value, context, None, None)?;
+      handler_exp = gen_expression(value, context, None, None)?;
       if !extra_wrap {
         // non constant, wrap with invocation as `e => foo.bar(e)`
         // when passing as component handler, access is always dynamic so we
@@ -161,7 +139,7 @@ pub fn gen_event_handler(
     } else if is_fn_expression(&value) {
       // Fn expression: @click="e => foo(e)"
       // no need to wrap in this case
-      handler_exp = gen_expression(env, value, context, None, None)?
+      handler_exp = gen_expression(value, context, None, None)?
     } else {
       // inline statement
       let has_multiple_statements = value.content.contains(";");
@@ -173,7 +151,7 @@ pub fn gen_event_handler(
           "(".to_string()
         })),
       ];
-      handler_exp.extend(gen_expression(env, value, context, None, None)?);
+      handler_exp.extend(gen_expression(value, context, None, None)?);
       handler_exp.push(Either3::C(Some(if has_multiple_statements {
         "}".to_string()
       } else {
@@ -189,11 +167,7 @@ pub fn gen_event_handler(
   });
   if non_keys.len() > 0 {
     handler_exp = gen_call(
-      Either::A(
-        context
-          .get_named_property::<Function<String, String>>("helper")?
-          .call("withModifiers".to_string())?,
-      ),
+      Either::A(context.helper("withModifiers")),
       vec![
         Either4::D(handler_exp),
         Either4::C(Some(format!(
@@ -210,11 +184,7 @@ pub fn gen_event_handler(
 
   if keys.len() > 0 {
     handler_exp = gen_call(
-      Either::A(
-        context
-          .get_named_property::<Function<String, String>>("helper")?
-          .call("withKeys".to_string())?,
-      ),
+      Either::A(context.helper("withKeys")),
       vec![
         Either4::D(handler_exp),
         Either4::C(Some(format!(
@@ -235,22 +205,16 @@ pub fn gen_event_handler(
   Ok(handler_exp)
 }
 
-#[napi]
 pub fn gen_set_dynamic_events(
-  env: Env,
   oper: SetDynamicEventsIRNode,
-  context: Object,
+  context: &CodegenContext,
 ) -> Result<Vec<CodeFragment>> {
   let mut result = vec![Either3::A(Newline)];
   result.extend(gen_call(
-    Either::A(
-      context
-        .get_named_property::<Function<String, String>>("helper")?
-        .call("setDynamicEvents".to_string())?,
-    ),
+    Either::A(context.helper("setDynamicEvents")),
     vec![
       Either4::C(Some(format!("n{}", oper.element))),
-      Either4::D(gen_expression(env, oper.value, context, None, None)?),
+      Either4::D(gen_expression(oper.value, context, None, None)?),
     ],
   ));
   Ok(result)

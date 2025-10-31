@@ -120,6 +120,7 @@ pub fn transform_v_model(
     context.register_operation(
       context_block,
       Either16::M(DirectiveIRNode {
+        directive: true,
         _type: IRNodeTypes::DIRECTIVE,
         element,
         dir,

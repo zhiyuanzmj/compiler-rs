@@ -143,6 +143,7 @@ pub fn register_insertion(
       context.register_operation(
         context_block,
         Either16::L(InsertNodeIRNode {
+          insert_node: true,
           _type: IRNodeTypes::INSERT_NODE,
           elements: ids.clone(),
           parent,

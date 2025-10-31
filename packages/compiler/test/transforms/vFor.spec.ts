@@ -68,7 +68,6 @@ describe('compiler: v-for', () => {
       `,
       ).code,
     ).matchSnapshot()
-
     expect(
       compileWithVFor(
         `
@@ -80,7 +79,6 @@ describe('compiler: v-for', () => {
       `,
       ).code,
     ).matchSnapshot()
-
     // Should not be optimized because row.label is not from parent scope
     expect(
       compileWithVFor(
@@ -93,7 +91,6 @@ describe('compiler: v-for', () => {
       `,
       ).code,
     ).matchSnapshot()
-
     expect(
       compileWithVFor(
         `

@@ -2,19 +2,18 @@ use std::collections::HashMap;
 
 use napi::{
   Either, Env, Result,
-  bindgen_prelude::{Either3, Either4, Either16, Function, JsObjectValue, Object},
+  bindgen_prelude::{Either3, Either4, Either16, JsObjectValue, Object},
 };
-use napi_derive::napi;
 
 use crate::{
   generate::{
+    CodegenContext,
     block::gen_block_content,
     expression::gen_expression,
     operation::gen_operation,
     utils::{CodeFragment, FragmentSymbol, gen_call, gen_multi},
-    with_id,
   },
-  ir::index::{BlockIRNode, ForIRNode, IREffect, RootIRNode, SimpleExpressionNode},
+  ir::index::{BlockIRNode, ForIRNode, IREffect, SimpleExpressionNode},
   utils::{
     check::is_string_literal,
     expression::is_globally_allowed,
@@ -43,10 +42,11 @@ pub enum VaporVForFlags {
   Once = 1 << 2,
 }
 
-#[napi]
-pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Vec<CodeFragment>> {
-  let context_helper = context.get_named_property::<Function<String, String>>("helper")?;
-  let ir = context.get_named_property::<RootIRNode>("ir")?;
+pub fn gen_for(
+  oper: ForIRNode,
+  context: &CodegenContext,
+  context_block: &mut BlockIRNode,
+) -> Result<Vec<CodeFragment>> {
   let ForIRNode {
     source,
     value,
@@ -67,7 +67,7 @@ pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Ve
   let raw_index = index.and_then(|index| Some(index.content));
 
   let mut source_expr = vec![Either3::C(Some("() => (".to_string()))];
-  source_expr.extend(gen_expression(env, source, context, None, None)?);
+  source_expr.extend(gen_expression(source, context, None, None)?);
   source_expr.push(Either3::C(Some(")".to_string())));
   let id_to_path_map = {
     // construct a id -> accessor path map.
@@ -79,7 +79,7 @@ pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Ve
         && !ast.get_named_property::<String>("type")?.eq("Identifier")
       {
         _walk_identifiers(
-          env,
+          context.env,
           ast,
           |id, _, parent_stack, is_reference, is_local| {
             if is_reference && !is_local {
@@ -94,7 +94,9 @@ pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Ve
                 let parent_type = parent.get_named_property::<String>("type")?;
                 let child_type = child.get_named_property::<String>("type")?;
                 if parent_type.eq("Property")
-                  && env.strict_equals(parent.get_named_property::<Object>("value")?, *child)?
+                  && context
+                    .env
+                    .strict_equals(parent.get_named_property::<Object>("value")?, *child)?
                   && let Ok(key) = parent.get_named_property::<Object>("key")
                 {
                   if is_string_literal(Some(key)) {
@@ -107,7 +109,7 @@ pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Ve
                   let index = parent
                     .get_named_property::<Vec<Object>>("elements")?
                     .iter()
-                    .position(|element| env.strict_equals(*element, *child).unwrap())
+                    .position(|element| context.env.strict_equals(*element, *child).unwrap())
                     .unwrap();
                   if child
                     .get_named_property::<String>("type")?
@@ -118,7 +120,7 @@ pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Ve
                     path += &format!("[{index}]");
                   }
                 } else if parent_type == "ObjectExpression" && child_type == "SpreadElement" {
-                  helper = Some(context_helper.call("getRestElement".to_string())?);
+                  helper = Some(context.helper("getRestElement"));
                   helper_args = Some(format!(
                     "[{}]",
                     parent
@@ -176,9 +178,7 @@ pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Ve
     map
   };
 
-  let (depth, exit_scope) = context
-    .get_named_property::<Function<(), (i32, Function<(), i32>)>>("enterScope")?
-    .apply(context, ())?;
+  let (depth, exit_scope) = context.enter_scope();
   let mut id_map = HashMap::new();
   let item_var = format!("_for_item{depth}");
   id_map.insert(item_var.clone(), String::new());
@@ -216,8 +216,13 @@ pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Ve
     id_map.insert(index_var.to_string(), String::new());
   }
 
-  let (selector_patterns, key_only_binding_patterns) =
-    match_patterns(env, &mut render, &key_prop, &mut id_map, ir.source)?;
+  let (selector_patterns, key_only_binding_patterns) = match_patterns(
+    context.env,
+    &mut render,
+    &key_prop,
+    &mut id_map,
+    &context.ir.source,
+  )?;
   let mut selector_declarations = vec![];
   let mut selector_setup = vec![];
 
@@ -228,13 +233,13 @@ pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Ve
     selector_declarations.push(Either3::A(FragmentSymbol::Newline));
     if i == 0 {
       selector_setup.push(Either3::C(Some("({ createSelector }) => {".to_string())));
-      selector_declarations.push(Either3::A(FragmentSymbol::IndentStart));
+      selector_setup.push(Either3::A(FragmentSymbol::IndentStart));
     }
-    selector_declarations.push(Either3::A(FragmentSymbol::Newline));
-    selector_declarations.push(Either3::C(Some(format!("{selector_name} = "))));
+    selector_setup.push(Either3::A(FragmentSymbol::Newline));
+    selector_setup.push(Either3::C(Some(format!("{selector_name} = "))));
     let mut body = vec![Either3::C(Some("() => ".to_string()))];
-    body.extend(gen_expression(env, selector.clone(), context, None, None)?);
-    selector_declarations.extend(gen_call(
+    body.extend(gen_expression(selector.clone(), context, None, None)?);
+    selector_setup.extend(gen_call(
       Either::A("createSelector".to_string()),
       vec![Either4::D(body)],
     ));
@@ -249,9 +254,7 @@ pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Ve
     i += 1;
   }
 
-  let block_fn = with_id(
-    env,
-    context,
+  let block_fn = context.with_id(
     move || {
       let mut frag = vec![];
       frag.push(Either3::C(Some("(".to_string())));
@@ -260,11 +263,11 @@ pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Ve
       frag.push(Either3::A(FragmentSymbol::IndentStart));
       if selector_patterns.len() > 0 || key_only_binding_patterns.len() > 0 {
         frag.extend(gen_block_content(
-          env,
-          render,
+          Some(render),
           context,
+          context_block,
           false,
-          Some(Box::new(move || {
+          Some(Box::new(move |context_block| {
             let mut pattern_frag: Vec<CodeFragment> = vec![];
 
             let mut i = 0;
@@ -275,7 +278,7 @@ pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Ve
                 Either3::A(FragmentSymbol::IndentStart),
               ]);
               for oper in effect.operations {
-                pattern_frag.extend(gen_operation(env, oper, context).unwrap());
+                pattern_frag.extend(gen_operation(oper, context, context_block, &vec![]).unwrap());
               }
               pattern_frag.extend(vec![
                 Either3::A(FragmentSymbol::IndentEnd),
@@ -287,14 +290,14 @@ pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Ve
 
             for effect in key_only_binding_patterns {
               for oper in effect.operations {
-                pattern_frag.extend(gen_operation(env, oper, context).unwrap())
+                pattern_frag.extend(gen_operation(oper, context, context_block, &vec![]).unwrap())
               }
             }
             pattern_frag
           })),
         )?)
       } else {
-        frag.extend(gen_block_content(env, render, context, false, None).unwrap())
+        frag.extend(gen_block_content(Some(render), context, context_block, false, None).unwrap())
       }
       frag.extend(vec![
         Either3::A(FragmentSymbol::IndentEnd),
@@ -305,7 +308,7 @@ pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Ve
     },
     &id_map,
   )?;
-  exit_scope.call(())?;
+  exit_scope();
 
   let mut flags = 0;
   if only_child {
@@ -334,13 +337,9 @@ pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Ve
       id_map.insert(id, String::new());
     }
 
-    let res = with_id(
-      env,
-      context,
-      || gen_expression(env, expr, context, None, None),
-      &id_map,
-    )
-    .unwrap();
+    let res = context
+      .with_id(|| gen_expression(expr, context, None, None), &id_map)
+      .unwrap();
 
     let mut frags = gen_multi(
       (
@@ -378,7 +377,7 @@ pub fn gen_for(env: Env, oper: ForIRNode, context: Object<'static>) -> Result<Ve
   frags.push(Either3::C(Some(format!("const n{id} = "))));
   frags.extend(gen_call(
     Either::B((
-      context_helper.call("createFor".to_string())?,
+      context.helper("createFor"),
       Some(Either3::C(Some("void 0".to_string()))),
     )),
     vec![
@@ -406,7 +405,7 @@ fn match_patterns(
   render: &mut BlockIRNode,
   key_prop: &Option<SimpleExpressionNode>,
   id_map: &mut HashMap<String, String>,
-  source: String,
+  source: &str,
 ) -> Result<(Vec<(IREffect, SimpleExpressionNode)>, Vec<IREffect>)> {
   let mut selector_patterns = vec![];
   let mut key_only_binding_patterns = vec![];
@@ -556,14 +555,14 @@ fn analyze_variable_scopes(
 fn is_key_only_binding(expr: Object<'static>, key: &str, source: &str) -> bool {
   let mut _only = true;
   SyncWalker::new(
-    Some(Box::new(move |node, _, _, _| {
+    Some(Box::new(|node, _, _, _| {
       let start = node.get_named_property::<u32>("start")? as usize;
       let end = node.get_named_property::<u32>("end")? as usize;
       if source[start..end].to_string() == key {
         return Ok(Some(Either::A(true)));
       }
       if node.get_named_property::<String>("type")?.eq("Identifier") {
-        _only = false
+        _only = false;
       };
       Ok(None)
     })),

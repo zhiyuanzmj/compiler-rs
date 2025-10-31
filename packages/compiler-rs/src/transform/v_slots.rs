@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use napi::{
   Result,
-  bindgen_prelude::{Either3, Either4, JsObjectValue, Object},
+  bindgen_prelude::{Either4, JsObjectValue, Object},
 };
 
 use crate::{

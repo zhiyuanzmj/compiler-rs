@@ -45,6 +45,7 @@ pub fn transform_template_ref<'a>(
       context.register_operation(
         context_block,
         Either16::O(DeclareOldRefIRNode {
+          declare_older_ref: true,
           _type: IRNodeTypes::DECLARE_OLD_REF,
           id,
         }),
@@ -56,6 +57,7 @@ pub fn transform_template_ref<'a>(
       context_block,
       context.is_operation(vec![&value]),
       Either16::J(SetTemplateRefIRNode {
+        set_template_ref: true,
         _type: IRNodeTypes::SET_TEMPLATE_REF,
         element: id,
         value,

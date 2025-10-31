@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 
 use napi::{
-  Env, Result,
+  Result,
   bindgen_prelude::{Either3, JsObjectValue, Object},
 };
-use napi_derive::napi;
 
 use crate::{
-  generate::utils::{CodeFragment, NewlineType},
+  generate::{
+    CodegenContext,
+    utils::{CodeFragment, NewlineType},
+  },
   ir::index::{SimpleExpressionNode, SourceLocation},
   utils::{
     check::is_static_property, expression::is_constant_expression, utils::TS_NODE_TYPES,
@@ -15,16 +17,14 @@ use crate::{
   },
 };
 
-#[napi]
 pub fn gen_expression(
-  env: Env,
   node: SimpleExpressionNode,
-  context: Object,
+  context: &CodegenContext,
   assignment: Option<String>,
   need_wrap: Option<bool>,
 ) -> Result<Vec<CodeFragment>> {
   let is_constant = is_constant_expression(&node);
-  let content = node.content;
+  let content = node.content.clone();
   let loc = node.loc;
   let need_wrap = need_wrap.unwrap_or(false);
 
@@ -62,7 +62,7 @@ pub fn gen_expression(
   let ids1 = &mut ids;
   let parent_map1 = &mut parent_map;
   _walk_identifiers(
-    env,
+    context.env,
     ast,
     move |id, parent, _, _, _| {
       ids1.push(id);
@@ -168,13 +168,12 @@ pub fn gen_expression(
 
 pub fn gen_identifier(
   mut name: String,
-  context: Object,
+  context: &CodegenContext,
   loc: Option<SourceLocation>,
   assignment: Option<&String>,
   parent: Option<&Object>,
 ) -> Result<Vec<CodeFragment>> {
-  let identifiers = context.get_named_property::<HashMap<String, Vec<String>>>("identifiers")?;
-  if let Some(id_map) = identifiers.get(&name)
+  if let Some(id_map) = context.identifiers.borrow().get(&name)
     && id_map.len() > 0
   {
     if let Some(replacement) = id_map.get(0) {

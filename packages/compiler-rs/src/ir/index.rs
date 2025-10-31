@@ -13,7 +13,7 @@ use crate::{
 };
 
 #[napi(string_enum)]
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum IRNodeTypes {
   ROOT,
   BLOCK,
@@ -154,6 +154,7 @@ pub struct ForIRNode {
 
 #[napi(object, js_name = "SetPropIRNode")]
 pub struct SetPropIRNode {
+  pub set_prop: bool,
   #[napi(ts_type = "IRNodeTypes.SET_PROP")]
   pub _type: IRNodeTypes,
   pub element: i32,
@@ -164,6 +165,7 @@ pub struct SetPropIRNode {
 
 #[napi(object, js_name = "SetDynamicPropsIRNode")]
 pub struct SetDynamicPropsIRNode {
+  pub set_dynamic_props: bool,
   #[napi(ts_type = "IRNodeTypes.SET_DYNAMIC_PROPS")]
   pub _type: IRNodeTypes,
   pub element: i32,
@@ -174,6 +176,7 @@ pub struct SetDynamicPropsIRNode {
 #[napi(object, js_name = "SetDynamicEventsIRNode")]
 pub struct SetDynamicEventsIRNode {
   #[napi(ts_type = "IRNodeTypes.SET_DYNAMIC_EVENTS")]
+  pub set_dynamic_events: bool,
   pub _type: IRNodeTypes,
   pub element: i32,
   pub value: SimpleExpressionNode,
@@ -181,9 +184,9 @@ pub struct SetDynamicEventsIRNode {
 
 #[napi(object, js_name = "SetTextIRNode")]
 pub struct SetTextIRNode {
+  pub set_text: bool,
   #[napi(ts_type = "IRNodeTypes.SET_TEXT")]
   pub _type: IRNodeTypes,
-  pub set_text: bool,
   pub element: i32,
   pub values: Vec<SimpleExpressionNode>,
   pub generated: Option<bool>,
@@ -191,9 +194,9 @@ pub struct SetTextIRNode {
 
 #[napi(object, js_name = "SetNodesIRNode")]
 pub struct SetNodesIRNode {
+  pub set_nodes: bool,
   #[napi(ts_type = "IRNodeTypes.SET_NODES")]
   pub _type: IRNodeTypes,
-  pub set_nodes: bool,
   pub element: i32,
   pub once: bool,
   pub values: Vec<SimpleExpressionNode>,
@@ -212,8 +215,9 @@ pub struct Modifiers {
 }
 
 #[napi(object, js_name = "SetEventIRNode")]
+#[derive(Clone)]
 pub struct SetEventIRNode {
-  #[napi(ts_type = "IRNodeTypes.SET_EVENT")]
+  pub set_event: bool,
   pub _type: IRNodeTypes,
   pub element: i32,
   pub key: SimpleExpressionNode,
@@ -227,6 +231,7 @@ pub struct SetEventIRNode {
 
 #[napi(object, js_name = "SetHtmlIRNode")]
 pub struct SetHtmlIRNode {
+  pub set_html: bool,
   #[napi(ts_type = "IRNodeTypes.SET_HTML")]
   pub _type: IRNodeTypes,
   pub element: i32,
@@ -236,6 +241,7 @@ pub struct SetHtmlIRNode {
 #[napi(object, js_name = "SetTemplateRefIRNode")]
 pub struct SetTemplateRefIRNode {
   #[napi(ts_type = "IRNodeTypes.SET_TEMPLATE_REF")]
+  pub set_template_ref: bool,
   pub _type: IRNodeTypes,
   pub element: i32,
   pub value: SimpleExpressionNode,
@@ -245,6 +251,7 @@ pub struct SetTemplateRefIRNode {
 
 #[napi(object, js_name = "CreateNodesIRNode")]
 pub struct CreateNodesIRNode {
+  pub create_nodes: bool,
   #[napi(ts_type = "IRNodeTypes.CREATE_NODES")]
   pub _type: IRNodeTypes,
   pub id: i32,
@@ -254,6 +261,7 @@ pub struct CreateNodesIRNode {
 
 #[napi(object, js_name = "InsertNodeIRNode")]
 pub struct InsertNodeIRNode {
+  pub insert_node: bool,
   #[napi(ts_type = "IRNodeTypes.INSERT_NODE")]
   pub _type: IRNodeTypes,
   pub elements: Vec<i32>,
@@ -263,6 +271,7 @@ pub struct InsertNodeIRNode {
 
 #[napi(object, js_name = "DirectiveIRNode")]
 pub struct DirectiveIRNode {
+  pub directive: bool,
   #[napi(ts_type = "IRNodeTypes.DIRECTIVE")]
   pub _type: IRNodeTypes,
   pub element: i32,
@@ -276,6 +285,7 @@ pub struct DirectiveIRNode {
 
 #[napi(object, js_name = "CreateComponentIRNode")]
 pub struct CreateComponentIRNode {
+  pub create_component: bool,
   #[napi(ts_type = "IRNodeTypes.CREATE_COMPONENT_NODE")]
   pub _type: IRNodeTypes,
   pub id: i32,
@@ -292,6 +302,7 @@ pub struct CreateComponentIRNode {
 
 #[napi(object, js_name = "DeclareOldRefIRNode")]
 pub struct DeclareOldRefIRNode {
+  pub declare_older_ref: bool,
   #[napi(ts_type = "IRNodeTypes.DECLARE_OLD_REF")]
   pub _type: IRNodeTypes,
   pub id: i32,
@@ -299,6 +310,7 @@ pub struct DeclareOldRefIRNode {
 
 #[napi(object, js_name = "GetTextChildIRNode")]
 pub struct GetTextChildIRNode {
+  pub get_text_child: bool,
   #[napi(ts_type = "IRNodeTypes.GET_TEXT_CHILD")]
   pub _type: IRNodeTypes,
   pub parent: i32,

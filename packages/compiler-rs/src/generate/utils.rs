@@ -6,7 +6,7 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::ir::index::SourceLocation;
+use crate::{generate::CodegenContext, ir::index::SourceLocation};
 
 #[napi]
 #[derive(Clone)]
@@ -103,7 +103,6 @@ pub fn get_delimiters_object_newline() -> CodeFragmentDelimiters {
   )
 }
 
-#[napi]
 pub fn gen_multi(
   (left, right, seg, placeholder): CodeFragmentDelimiters,
   mut frags: Vec<CodeFragments>,
@@ -208,4 +207,40 @@ pub fn to_valid_asset_id(name: String, _type: String) -> String {
     .to_string();
 
   format!("_{_type}_{name}")
+}
+
+pub fn code_fragment_to_string(code: Vec<CodeFragment>, _: &CodegenContext) -> String {
+  let mut codegen = String::new();
+  let mut ident_level = 0;
+
+  for frag in code {
+    let frag: Fragment = match frag {
+      Either3::A(frag) => match frag {
+        FragmentSymbol::Newline => (
+          format!("\n{}", "  ".repeat(ident_level)),
+          NewlineType::Start,
+          None,
+          None,
+        ),
+        FragmentSymbol::IndentStart => {
+          ident_level += 1;
+          continue;
+        }
+        FragmentSymbol::IndentEnd => {
+          ident_level -= 1;
+          continue;
+        }
+      },
+      Either3::B(frag) => frag,
+      Either3::C(frag) => match frag {
+        Some(frag) => (frag, NewlineType::None, None, None),
+        None => continue,
+      },
+    };
+
+    let (code, _, _, _) = frag;
+    codegen += &code;
+  }
+
+  return codegen;
 }
