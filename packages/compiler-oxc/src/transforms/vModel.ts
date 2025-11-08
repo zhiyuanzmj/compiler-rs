@@ -121,6 +121,7 @@ export const transformVModel: DirectiveTransform = (_dir, node, context) => {
     const value = findProp(node, 'value')
     if (value && !isStringLiteral(value.value)) {
       context.options.onError(
+        // @ts-ignore
         createCompilerError(ErrorCodes.X_V_MODEL_UNNECESSARY_VALUE, value.loc),
       )
     }

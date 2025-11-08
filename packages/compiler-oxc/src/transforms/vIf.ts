@@ -83,6 +83,7 @@ export function processIf(
       lastIfNode.type !== IRNodeTypes.IF
     ) {
       context.options.onError(
+        // @ts-ignore
         createCompilerError(ErrorCodes.X_V_ELSE_NO_ADJACENT_IF, node.loc),
       )
       return
@@ -95,6 +96,7 @@ export function processIf(
     // Check if v-else was followed by v-else-if
     if (dir.name === 'else-if' && lastIfNode.negative) {
       context.options.onError(
+        // @ts-ignore
         createCompilerError(ErrorCodes.X_V_ELSE_NO_ADJACENT_IF, node.loc),
       )
     }

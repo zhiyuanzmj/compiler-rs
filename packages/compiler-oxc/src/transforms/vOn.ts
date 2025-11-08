@@ -19,6 +19,7 @@ const delegatedEvents = /*#__PURE__*/ makeMap(
 )
 
 export const transformVOn: DirectiveTransform = (dir, node, context) => {
+  // @ts-ignore
   const { name, loc, value } = dir
   if (!name) return
   const isComponent = isJSXComponent(node)

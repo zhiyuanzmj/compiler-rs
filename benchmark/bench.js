@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { compile as jsCompile } from '@vue-jsx-vapor/compiler'
 import { compile as oxcCompile } from '@vue-jsx-vapor/compiler-oxc'
 import { compile as rsCompile } from '@vue-jsx-vapor/compiler-rs'
@@ -8,14 +9,17 @@ const bench = new Bench()
 let source = `
 <Comp
   v-if={true}
-  foo={foo} ref={foo}
+  foo={foo}
+  ref={foo}
+  onClick={()=> alert(1)}
   v-show={true}
   v-model={foo}
-  onClick={()=> alert(1)}
   v-test
   v-slot={foo}
 >
-  <div v-once v-for={i in 4}>{foo}</div>
+  <div v-for={({item}, index) in list} key={key} v-once>
+    {item}
+  </div>
   <Foo v-if={foo}>
     default
     <template v-slot:bar={{ bar }}>
@@ -23,19 +27,19 @@ let source = `
     </template>
   </Foo>
 </Comp>`
-source = `<>${source.repeat(10)}</>`
+source = `<>${source.repeat(12)}</>`
 
-console.time('compiler-rs + oxc-parser')
+console.time('compiler.rs + oxc-parser')
 rsCompile(source)
-console.timeEnd('compiler-rs + oxc-parser')
+console.timeEnd('compiler.rs + oxc-parser')
 
-console.time('compiler-js + oxc-parser')
+console.time('compiler.js + oxc-parser')
 oxcCompile(source)
-console.timeEnd('compiler-js + oxc-parser')
+console.timeEnd('compiler.js + oxc-parser')
 
-console.time('compiler-js + babel-parser')
+console.time('compiler.js + babel-parser')
 jsCompile(source)
-console.timeEnd('compiler-js + babel-parser')
+console.timeEnd('compiler.js + babel-parser')
 
 bench.add('compiler-rs + oxc-parser', () => {
   rsCompile(source, {})
