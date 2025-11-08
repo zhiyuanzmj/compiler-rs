@@ -27,7 +27,7 @@ let source = `
     </template>
   </Foo>
 </Comp>`
-source = `<>${source.repeat(12)}</>`
+source = `<>${source.repeat(13)}</>`
 
 console.time('compiler.rs + oxc-parser')
 rsCompile(source)
@@ -41,15 +41,15 @@ console.time('compiler.js + babel-parser')
 jsCompile(source)
 console.timeEnd('compiler.js + babel-parser')
 
-bench.add('compiler-rs + oxc-parser', () => {
+bench.add('compiler.rs + oxc-parser', () => {
   rsCompile(source, {})
 })
 
-bench.add('compiler-js + oxc-parser', () => {
+bench.add('compiler.js + oxc-parser', () => {
   oxcCompile(source)
 })
 
-bench.add('compiler-js + babel-parser', () => {
+bench.add('compiler.js + babel-parser', () => {
   jsCompile(source)
 })
 
