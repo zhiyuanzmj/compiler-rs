@@ -3,7 +3,6 @@ use std::mem;
 use std::rc::Rc;
 
 use napi::Either;
-use napi::Result;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
 
@@ -16,46 +15,43 @@ use crate::generate::utils::gen_call;
 use crate::ir::index::BlockIRNode;
 use crate::ir::index::DynamicFlag;
 use crate::ir::index::IRDynamicInfo;
-use crate::utils::my_box::MyBox;
 
-pub fn gen_templates(
+pub fn gen_templates<'a>(
   templates: Vec<String>,
   root_index: Option<i32>,
-  context: &CodegenContext,
-) -> Result<Vec<String>> {
+  context: &'a CodegenContext<'a>,
+) -> Vec<String> {
   let mut i = 0;
-  Ok(
-    templates
-      .into_iter()
-      .map(|template| {
-        let result = if template.starts_with("_template") {
-          template
-        } else {
-          format!(
-            "{}(\"{}\"{})",
-            context.helper("template"),
-            template,
-            if let Some(root_index) = root_index
-              && i == root_index
-            {
-              ", true"
-            } else {
-              ""
-            }
-          )
-        };
-        i += 1;
-        result
-      })
-      .collect(),
-  )
+  templates
+    .into_iter()
+    .map(|template| {
+      let result = if template.starts_with("_template") {
+        template
+      } else {
+        format!(
+          "{}(\"{}\"{})",
+          context.helper("template"),
+          template,
+          if let Some(root_index) = root_index
+            && i == root_index
+          {
+            ", true"
+          } else {
+            ""
+          }
+        )
+      };
+      i += 1;
+      result
+    })
+    .collect()
 }
 
-pub fn gen_self(
-  dynamic: IRDynamicInfo,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
-) -> Result<Vec<CodeFragment>> {
+pub fn gen_self<'a>(
+  dynamic: IRDynamicInfo<'a>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Vec<CodeFragment> {
   let mut frag = vec![];
   let IRDynamicInfo {
     id,
@@ -70,16 +66,17 @@ pub fn gen_self(
   {
     frag.push(Either3::A(Newline));
     frag.push(Either3::C(Some(format!("const n{id} = t{template}()"))));
-    frag.extend(gen_directives_for_element(id, context, context_block)?);
+    frag.extend(gen_directives_for_element(id, context, context_block));
   }
 
-  if let Some(MyBox(operation)) = operation {
+  if let Some(operation) = operation {
+    let _context_block = context_block as *mut BlockIRNode;
     frag.extend(gen_operation_with_insertion_state(
       *operation,
       context,
-      context_block,
+      unsafe { &mut *_context_block },
       &vec![],
-    )?)
+    ))
   }
 
   let result = {
@@ -90,20 +87,19 @@ pub fn gen_self(
       context_block,
       Rc::new(RefCell::new(move |value| _frag.extend(value))),
       format!("n{}", id.unwrap_or(0)),
-    )?
+    )
   };
   frag.extend(result);
-
-  Ok(frag)
+  frag
 }
 
-fn gen_children(
-  children: Vec<IRDynamicInfo>,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
+fn gen_children<'a>(
+  children: Vec<IRDynamicInfo<'a>>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
   push_block: Rc<RefCell<impl FnMut(Vec<CodeFragment>)>>,
   from: String,
-) -> Result<Vec<CodeFragment>> {
+) -> Vec<CodeFragment> {
   let mut frag = vec![];
 
   let mut offset = 0;
@@ -112,12 +108,12 @@ fn gen_children(
   let mut index = 0;
   for mut child in children {
     let mut _push_block = push_block.borrow_mut();
-    if child.flags & DynamicFlag::NON_TEMPLATE as i32 != 0 {
+    if child.flags & DynamicFlag::NonTemplate as i32 != 0 {
       offset -= 1;
     }
 
-    let id = if child.flags & DynamicFlag::REFERENCED as i32 != 0 {
-      if child.flags & DynamicFlag::INSERT as i32 != 0 {
+    let id = if child.flags & DynamicFlag::Referenced as i32 != 0 {
+      if child.flags & DynamicFlag::Insert as i32 != 0 {
         child.anchor
       } else {
         child.id.clone()
@@ -126,8 +122,9 @@ fn gen_children(
       None
     };
 
+    let _context_block = context_block as *mut BlockIRNode;
     if id.is_none() && !child.has_dynamic_child.unwrap_or(false) {
-      frag.extend(gen_self(child, context, context_block)?);
+      frag.extend(gen_self(child, context, unsafe { &mut *_context_block }));
       index += 1;
       continue;
     }
@@ -189,11 +186,13 @@ fn gen_children(
 
     let child_children = mem::take(&mut child.children);
     if id.eq(&child.anchor) && !child.has_dynamic_child.unwrap_or(false) {
-      frag.extend(gen_self(child, context, context_block)?);
+      frag.extend(gen_self(child, context, unsafe { &mut *_context_block }));
     }
 
     if let Some(id) = id {
-      frag.extend(gen_directives_for_element(id, context, context_block)?);
+      frag.extend(gen_directives_for_element(id, context, unsafe {
+        &mut *_context_block
+      }));
     }
 
     prev = Some((variable.clone(), element_index));
@@ -201,12 +200,12 @@ fn gen_children(
     frag.extend(gen_children(
       child_children,
       context,
-      context_block,
+      unsafe { &mut *_context_block },
       Rc::clone(&push_block),
       variable,
-    )?);
+    ));
 
     index += 1;
   }
-  Ok(frag)
+  frag
 }

@@ -1,9 +1,7 @@
 use napi::Either;
-use napi::Result;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
 use napi::bindgen_prelude::Either16;
-use napi_derive::napi;
 
 use crate::generate::CodegenContext;
 use crate::generate::expression::gen_expression;
@@ -18,17 +16,14 @@ use crate::generate::v_model::gen_v_model;
 use crate::generate::v_show::gen_v_show;
 use crate::ir::index::BlockIRNode;
 use crate::ir::index::DirectiveIRNode;
+use crate::ir::index::SimpleExpressionNode;
 use crate::utils::check::is_simple_identifier;
-use crate::utils::expression::create_simple_expression;
 
-pub fn gen_builtin_directive(
-  oper: DirectiveIRNode,
-  context: &CodegenContext,
-) -> Result<Vec<CodeFragment>> {
+pub fn gen_builtin_directive(oper: DirectiveIRNode, context: &CodegenContext) -> Vec<CodeFragment> {
   match oper.name.as_str() {
     "show" => gen_v_show(oper, context),
     "model" => gen_v_model(oper, context),
-    _ => Ok(vec![]),
+    _ => vec![],
   }
 }
 
@@ -41,7 +36,7 @@ pub fn gen_directives_for_element(
   id: i32,
   context: &CodegenContext,
   context_block: &mut BlockIRNode,
-) -> Result<Vec<CodeFragment>> {
+) -> Vec<CodeFragment> {
   let mut element = String::new();
   let mut directive_items: Vec<CodeFragments> = vec![];
   for item in &mut context_block.operation {
@@ -57,25 +52,27 @@ pub fn gen_directives_for_element(
       let directive_var = if asset.unwrap_or(false) {
         Either4::C(Some(to_valid_asset_id(name, "directive".to_string())))
       } else {
-        Either4::D(
-          gen_expression(
-            create_simple_expression(name, None, None, None),
-            context,
-            None,
-            None,
-          )
-          .unwrap(),
-        )
+        Either4::D(gen_expression(
+          SimpleExpressionNode {
+            content: name,
+            is_static: false,
+            ast: None,
+            loc: None,
+          },
+          context,
+          None,
+          None,
+        ))
       };
       let value = if let Some(ref exp) = item.dir.exp {
-        let mut result = gen_expression(exp.clone(), context, None, None).unwrap();
+        let mut result = gen_expression(exp.clone(), context, None, None);
         result.insert(0, Either3::C(Some("() => ".to_string())));
         Either4::D(result)
       } else {
         Either4::C(None)
       };
       let argument = if let Some(ref arg) = item.dir.arg {
-        Either4::D(gen_expression(arg.clone(), context, None, None).unwrap())
+        Either4::D(gen_expression(arg.clone(), context, None, None))
       } else {
         Either4::C(None)
       };
@@ -108,7 +105,7 @@ pub fn gen_directives_for_element(
     }
   }
   if directive_items.len() == 0 {
-    return Ok(vec![]);
+    return vec![];
   }
   let directives = gen_multi(get_delimiters_array(), directive_items);
   let mut result = vec![Either3::A(Newline)];
@@ -119,10 +116,9 @@ pub fn gen_directives_for_element(
       Either4::D(directives),
     ],
   ));
-  Ok(result)
+  result
 }
 
-#[napi]
 pub fn gen_directive_modifiers(modifiers: Vec<String>) -> String {
   modifiers
     .into_iter()

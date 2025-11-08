@@ -1,8 +1,5 @@
 use napi::Either;
-use napi::Result;
-use napi::bindgen_prelude::Either3;
-use napi::bindgen_prelude::Either4;
-use napi::bindgen_prelude::Either16;
+use napi::bindgen_prelude::{Either3, Either4, Either16};
 use std::mem;
 
 use crate::generate::CodegenContext;
@@ -30,11 +27,11 @@ use crate::ir::index::BlockIRNode;
 use crate::ir::index::OperationNode;
 use crate::ir::index::SetEventIRNode;
 
-pub fn gen_operations(
-  opers: Vec<OperationNode>,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
-) -> Result<Vec<CodeFragment>> {
+pub fn gen_operations<'a>(
+  opers: Vec<OperationNode<'a>>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Vec<CodeFragment> {
   let mut frag = vec![];
   let event_opers = opers
     .iter()
@@ -46,33 +43,34 @@ pub fn gen_operations(
       }
     })
     .collect::<Vec<_>>();
+  let _context_block = context_block as *mut BlockIRNode;
   for operation in opers {
     frag.extend(gen_operation_with_insertion_state(
       operation,
       context,
-      context_block,
+      unsafe { &mut *_context_block },
       &event_opers,
-    )?);
+    ));
   }
-  return Ok(frag);
+  return frag;
 }
 
-pub fn gen_operation_with_insertion_state(
-  oper: OperationNode,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
+pub fn gen_operation_with_insertion_state<'a>(
+  oper: OperationNode<'a>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
   event_opers: &Vec<SetEventIRNode>,
-) -> Result<Vec<CodeFragment>> {
+) -> Vec<CodeFragment> {
   let mut frag = vec![];
   match &oper {
     Either16::A(if_ir_node) => {
       if let Some(parent) = if_ir_node.parent {
-        frag.extend(gen_insertion_state(parent, if_ir_node.anchor, context)?)
+        frag.extend(gen_insertion_state(parent, if_ir_node.anchor, context))
       }
     }
     Either16::B(for_ir_node) => {
       if let Some(parent) = for_ir_node.parent {
-        frag.extend(gen_insertion_state(parent, for_ir_node.anchor, context)?)
+        frag.extend(gen_insertion_state(parent, for_ir_node.anchor, context))
       }
     }
     Either16::N(create_component_ir_node) => {
@@ -81,23 +79,22 @@ pub fn gen_operation_with_insertion_state(
           parent,
           create_component_ir_node.anchor,
           context,
-        )?)
+        ))
       }
     }
     _ => (),
   };
 
-  frag.extend(gen_operation(oper, context, context_block, event_opers)?);
-
-  Ok(frag)
+  frag.extend(gen_operation(oper, context, context_block, event_opers));
+  frag
 }
 
-pub fn gen_operation(
-  oper: OperationNode,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
+pub fn gen_operation<'a>(
+  oper: OperationNode<'a>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
   event_opers: &Vec<SetEventIRNode>,
-) -> Result<Vec<CodeFragment>> {
+) -> Vec<CodeFragment> {
   match oper {
     Either16::A(oper) => gen_if(oper, context, context_block, false),
     Either16::B(oper) => gen_for(oper, context, context_block),
@@ -113,7 +110,7 @@ pub fn gen_operation(
     Either16::L(oper) => gen_insert_node(oper, context),
     Either16::M(oper) => gen_builtin_directive(oper, context),
     Either16::N(oper) => gen_create_component(oper, context, context_block),
-    Either16::O(oper) => Ok(gen_declare_old_ref(oper)),
+    Either16::O(oper) => gen_declare_old_ref(oper),
     Either16::P(oper) => gen_get_text_child(oper, context),
   }
 }
@@ -122,7 +119,7 @@ pub fn gen_insertion_state(
   parent: i32,
   anchor: Option<i32>,
   context: &CodegenContext,
-) -> Result<Vec<CodeFragment>> {
+) -> Vec<CodeFragment> {
   let mut result = vec![Either3::A(Newline)];
   result.extend(gen_call(
     Either::A(context.helper("setInsertionState")),
@@ -140,13 +137,13 @@ pub fn gen_insertion_state(
       }),
     ],
   ));
-  Ok(result)
+  result
 }
 
-pub fn gen_effects(
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
-) -> Result<Vec<CodeFragment>> {
+pub fn gen_effects<'a>(
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Vec<CodeFragment> {
   let mut frag: Vec<CodeFragment> = vec![];
   let mut operations_count = 0;
 
@@ -155,7 +152,8 @@ pub fn gen_effects(
   let effects_len = effects.len();
   for effect in effects {
     operations_count += effect.operations.len();
-    let frags = gen_effect(effect.operations, context, context_block)?;
+    let _context_block = context_block as *mut BlockIRNode;
+    let frags = gen_effect(effect.operations, context, unsafe { &mut *_context_block });
     if i > 0 {
       frag.push(Either3::A(Newline));
     }
@@ -193,16 +191,16 @@ pub fn gen_effects(
     frag.push(Either3::C(Some(")".to_string())))
   }
 
-  Ok(frag)
+  frag
 }
 
-pub fn gen_effect(
-  operations: Vec<OperationNode>,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
-) -> Result<Vec<CodeFragment>> {
+pub fn gen_effect<'a>(
+  operations: Vec<OperationNode<'a>>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Vec<CodeFragment> {
   let mut frag = vec![];
-  let operations_exps = gen_operations(operations, context, context_block)?;
+  let operations_exps = gen_operations(operations, context, context_block);
   let newline_count = operations_exps
     .iter()
     .filter(|frag| matches!(frag, Either3::A(FragmentSymbol::Newline)))
@@ -220,5 +218,5 @@ pub fn gen_effect(
     )
   }
 
-  Ok(frag)
+  frag
 }

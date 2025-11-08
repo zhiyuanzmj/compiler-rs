@@ -1,52 +1,43 @@
 use std::rc::Rc;
 
-use napi::{
-  Result,
-  bindgen_prelude::{Either16, JsObjectValue, Object},
-};
+use napi::bindgen_prelude::{Either3, Either16};
+use oxc_ast::ast::{JSXAttribute, JSXElement};
 
 use crate::{
-  ir::index::{BlockIRNode, IRNodeTypes, SetHtmlIRNode},
+  ir::index::{BlockIRNode, SetHtmlIRNode, SimpleExpressionNode},
   transform::{DirectiveTransformResult, TransformContext},
-  utils::{
-    error::{ErrorCodes, on_error},
-    expression::{EMPTY_EXPRESSION, get_value, resolve_expression},
-  },
+  utils::error::{ErrorCodes, on_error},
 };
 
-pub fn transform_v_html(
-  dir: Object,
-  node: Object,
-  context: &Rc<TransformContext>,
-  context_block: &mut BlockIRNode,
-) -> Result<Option<DirectiveTransformResult>> {
-  let exp = if let Some(value) = get_value::<Object>(dir) {
-    resolve_expression(value, context)
+pub fn transform_v_html<'a>(
+  dir: &JSXAttribute,
+  node: &JSXElement,
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Option<DirectiveTransformResult<'a>> {
+  let exp = if let Some(value) = &dir.value {
+    SimpleExpressionNode::new(Either3::C(value), context)
   } else {
-    on_error(ErrorCodes::X_V_HTML_NO_EXPRESSION, context);
-    EMPTY_EXPRESSION
+    on_error(ErrorCodes::VHtmlNoExpression, context);
+    SimpleExpressionNode::default()
   };
 
-  if let Some(children) = node.get_named_property::<Vec<Object>>("children").ok() {
-    if children.len() != 0 {
-      on_error(ErrorCodes::X_V_HTML_WITH_CHILDREN, context);
-    }
-    context.children_template.borrow_mut().clear();
+  if node.children.len() != 0 {
+    on_error(ErrorCodes::VHtmlWithChildren, context);
+    return None;
   }
 
-  let element = context.reference(&mut context_block.dynamic)?;
+  let element = context.reference(&mut context_block.dynamic);
   context.register_effect(
     context_block,
     context.is_operation(vec![&exp]),
     Either16::I(SetHtmlIRNode {
       set_html: true,
-      _type: IRNodeTypes::SET_HTML,
       element,
       value: exp,
     }),
     None,
     None,
-  )?;
-
-  Ok(None)
+  );
+  None
 }

@@ -1,5 +1,4 @@
 use napi::Either;
-use napi::Result;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
 
@@ -10,7 +9,7 @@ use crate::generate::utils::FragmentSymbol::Newline;
 use crate::generate::utils::gen_call;
 use crate::ir::index::SetHtmlIRNode;
 
-pub fn gen_set_html(oper: SetHtmlIRNode, context: &CodegenContext) -> Result<Vec<CodeFragment>> {
+pub fn gen_set_html(oper: SetHtmlIRNode, context: &CodegenContext) -> Vec<CodeFragment> {
   let SetHtmlIRNode { value, element, .. } = oper;
 
   let mut result = vec![Either3::A(Newline)];
@@ -18,8 +17,8 @@ pub fn gen_set_html(oper: SetHtmlIRNode, context: &CodegenContext) -> Result<Vec
     Either::A(context.helper("setHtml")),
     vec![
       Either4::C(Some(format!("n{element}"))),
-      Either4::D(gen_expression(value, context, None, None)?),
+      Either4::D(gen_expression(value, context, None, None)),
     ],
   ));
-  Ok(result)
+  result
 }

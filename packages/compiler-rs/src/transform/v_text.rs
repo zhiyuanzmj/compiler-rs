@@ -1,73 +1,61 @@
 use std::rc::Rc;
 
-use napi::{
-  Result,
-  bindgen_prelude::{Either16, JsObjectValue, Object},
-};
+use napi::bindgen_prelude::{Either3, Either16};
+use oxc_ast::ast::{JSXAttribute, JSXElement};
 
 use crate::{
-  ir::index::{BlockIRNode, GetTextChildIRNode, IRNodeTypes, SetTextIRNode},
+  ir::index::{BlockIRNode, GetTextChildIRNode, SetTextIRNode, SimpleExpressionNode},
   transform::{DirectiveTransformResult, TransformContext},
   utils::{
     check::is_void_tag,
     error::{ErrorCodes, on_error},
-    expression::{EMPTY_EXPRESSION, get_literal_expression_value, resolve_expression},
-    text::get_text,
   },
 };
 
-pub fn transform_v_text(
-  dir: Object,
-  node: Object,
-  context: &Rc<TransformContext>,
-  context_block: &mut BlockIRNode,
-) -> Result<Option<DirectiveTransformResult>> {
-  let exp = if let Ok(value) = dir.get_named_property::<Object>("value") {
-    resolve_expression(value, context)
+pub fn transform_v_text<'a>(
+  dir: &JSXAttribute,
+  node: &JSXElement,
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Option<DirectiveTransformResult<'a>> {
+  let exp = if let Some(value) = &dir.value {
+    SimpleExpressionNode::new(Either3::C(value), context)
   } else {
-    on_error(ErrorCodes::X_V_TEXT_NO_EXPRESSION, context);
-    EMPTY_EXPRESSION
+    on_error(ErrorCodes::VTextNoExpression, context);
+    SimpleExpressionNode::default()
   };
 
-  if !node
-    .get_named_property::<Vec<Object>>("children")?
-    .is_empty()
-  {
-    on_error(ErrorCodes::X_V_TEXT_WITH_CHILDREN, context);
-    context.children_template.borrow_mut().clear();
+  if node.children.len() != 0 {
+    on_error(ErrorCodes::VTextWithChildren, context);
+    return None;
   };
 
   // v-text on void tags do nothing
-  if is_void_tag(&get_text(
-    node
-      .get_named_property::<Object>("openingElement")?
-      .get_named_property("name")?,
-    context,
-  )) {
-    return Ok(None);
+  if let Some(name) = &node.opening_element.name.get_identifier_name()
+    && is_void_tag(name)
+  {
+    return None;
   }
 
-  let literal = get_literal_expression_value(&exp);
+  let literal = exp.get_literal_expression_value();
   if let Some(literal) = literal {
     *context.children_template.borrow_mut() = vec![literal];
   } else {
     *context.children_template.borrow_mut() = vec![" ".to_string()];
-    let parent = context.reference(&mut context_block.dynamic)?;
+    let parent = context.reference(&mut context_block.dynamic);
     context.register_operation(
       context_block,
       Either16::P(GetTextChildIRNode {
         get_text_child: true,
-        _type: IRNodeTypes::GET_TEXT_CHILD,
         parent,
       }),
       None,
-    )?;
-    let element = context.reference(&mut context_block.dynamic)?;
+    );
+    let element = context.reference(&mut context_block.dynamic);
     context.register_effect(
       context_block,
       context.is_operation(vec![&exp]),
       Either16::C(SetTextIRNode {
-        _type: IRNodeTypes::SET_TEXT,
         set_text: true,
         values: vec![exp],
         element,
@@ -75,8 +63,7 @@ pub fn transform_v_text(
       }),
       None,
       None,
-    )?;
+    );
   }
-
-  Ok(None)
+  None
 }

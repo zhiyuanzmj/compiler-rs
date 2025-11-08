@@ -4,11 +4,9 @@ use napi::{
   Either,
   bindgen_prelude::{Either3, Either4},
 };
-use napi_derive::napi;
 
 use crate::{generate::CodegenContext, ir::index::SourceLocation};
 
-#[napi]
 #[derive(Clone)]
 pub enum NewlineType {
   /** Start with `\n` */
@@ -21,10 +19,8 @@ pub enum NewlineType {
   Unknown = -3,
 }
 
-#[napi]
 pub type Fragment = (String, NewlineType, Option<SourceLocation>, Option<String>);
 
-#[napi]
 #[derive(Clone)]
 pub enum FragmentSymbol {
   Newline = 1,
@@ -32,16 +28,12 @@ pub enum FragmentSymbol {
   IndentEnd = 3,
 }
 
-#[napi]
 pub type CodeFragment = Either3<FragmentSymbol, Fragment, Option<String>>;
 
-#[napi]
 pub type CodeFragments = Either4<FragmentSymbol, Fragment, Option<String>, Vec<CodeFragment>>;
 
-#[napi]
 pub type CodeFragmentDelimiters = (CodeFragments, CodeFragments, CodeFragments, Option<String>);
 
-#[napi]
 pub fn get_delimiters_array() -> CodeFragmentDelimiters {
   (
     Either4::C(Some(String::from("["))),
@@ -51,7 +43,6 @@ pub fn get_delimiters_array() -> CodeFragmentDelimiters {
   )
 }
 
-#[napi]
 pub fn get_delimiters_array_newline() -> CodeFragmentDelimiters {
   (
     Either4::D(vec![
@@ -72,7 +63,6 @@ pub fn get_delimiters_array_newline() -> CodeFragmentDelimiters {
   )
 }
 
-#[napi]
 pub fn get_delimiters_object() -> CodeFragmentDelimiters {
   (
     Either4::C(Some(String::from("{ "))),
@@ -82,7 +72,6 @@ pub fn get_delimiters_object() -> CodeFragmentDelimiters {
   )
 }
 
-#[napi]
 pub fn get_delimiters_object_newline() -> CodeFragmentDelimiters {
   (
     Either4::D(vec![
@@ -161,7 +150,6 @@ pub fn gen_multi(
   frag
 }
 
-#[napi]
 pub fn gen_call(
   node: Either<String, (String, Option<CodeFragment>)>,
   frags: Vec<CodeFragments>,
@@ -193,7 +181,6 @@ pub fn gen_call(
 static VALID_ASSET_REGEX: LazyLock<regex::Regex> =
   LazyLock::new(|| regex::Regex::new(r"[^A-Za-z0-9_$]").unwrap());
 
-#[napi]
 pub fn to_valid_asset_id(name: String, _type: String) -> String {
   let name = VALID_ASSET_REGEX
     .replace_all(name.as_str(), |caps: &regex::Captures| {

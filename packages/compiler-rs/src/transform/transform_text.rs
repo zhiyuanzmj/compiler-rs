@@ -1,128 +1,166 @@
-use std::rc::Rc;
+use std::{collections::HashSet, rc::Rc};
 
 use napi::{
   Either,
-  bindgen_prelude::{Either16, JsObjectValue, Object, Result},
+  bindgen_prelude::{Either3, Either16},
 };
+use oxc_allocator::CloneIn;
+use oxc_ast::ast::{ConditionalExpression, Expression, JSXChild, LogicalExpression};
 
 use crate::{
   ir::index::{
-    BlockIRNode, CreateNodesIRNode, DynamicFlag, GetTextChildIRNode, IRDynamicInfo, IRNodeTypes,
-    IfIRNode, SetNodesIRNode, SimpleExpressionNode,
+    BlockIRNode, CreateNodesIRNode, DynamicFlag, GetTextChildIRNode, IfIRNode, SetNodesIRNode,
+    SimpleExpressionNode,
   },
-  transform::TransformContext,
+  transform::{ContextNode, TransformContext},
   utils::{
     check::{is_constant_node, is_fragment_node, is_jsx_component, is_template},
-    expression::{get_literal_expression_value, resolve_expression},
-    my_box::MyBox,
     text::{is_empty_text, resolve_jsx_text},
-    utils::{_get_expression, find_prop, get_expression},
+    utils::find_prop,
   },
 };
 
 pub fn transform_text<'a>(
-  node: Object<'static>,
-  context: &'a Rc<TransformContext>,
-  context_block: &'a mut BlockIRNode,
-  parent_dynamic: &'a mut IRDynamicInfo,
-) -> Result<Option<Box<dyn FnOnce() -> Result<()> + 'a>>> {
+  node: &JSXChild,
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Option<Box<dyn FnOnce() + 'a>> {
   let dynamic = &mut context_block.dynamic;
-  if let Ok(start) = node.get_named_property::<i32>("start") {
-    let seen = &mut context.seen.borrow_mut();
-    if seen.contains(&start) {
-      dynamic.flags |= DynamicFlag::NON_TEMPLATE as i32;
-      return Ok(None);
-    }
+  let start = match node {
+    JSXChild::Element(e) => e.span.start,
+    JSXChild::ExpressionContainer(e) => e.span.start,
+    JSXChild::Fragment(e) => e.span.start,
+    JSXChild::Spread(e) => e.span.start,
+    JSXChild::Text(e) => e.span.start,
+  };
+  let seen = &mut context.seen.borrow_mut();
+  if seen.contains(&start) {
+    dynamic.flags |= DynamicFlag::NonTemplate as i32;
+    return None;
   }
 
-  let children = node.get_named_property::<Vec<Object<'static>>>("children");
-  let is_fragment = is_fragment_node(&node);
-  let node_type = node.get_named_property::<String>("type")?;
-  if ((node_type.eq("JSXElement") && !is_template(&node) && !is_jsx_component(node)) || is_fragment)
-    && let Ok(children) = children
-    && children.len() > 0
-  {
+  match node {
+    JSXChild::Element(node) if !is_jsx_component(node) => process_children(
+      &node.children.iter().collect::<Vec<_>>(),
+      is_template(node),
+      context,
+      context_block,
+      seen,
+    ),
+    JSXChild::Fragment(node) => process_children(
+      &node.children.iter().collect::<Vec<_>>(),
+      true,
+      context,
+      context_block,
+      seen,
+    ),
+    JSXChild::ExpressionContainer(node) => {
+      if let Some(expression) = node.expression.as_expression() {
+        match expression.without_parentheses().get_inner_expression() {
+          Expression::ConditionalExpression(expression) => {
+            return Some(process_conditional_expression(
+              expression,
+              context,
+              context_block,
+            ));
+          }
+          Expression::LogicalExpression(expression) => {
+            return Some(process_logical_expression(
+              expression,
+              context,
+              context_block,
+            ));
+          }
+          _ => process_interpolation(context, context_block, seen),
+        }
+      } else {
+        dynamic.flags |= DynamicFlag::NonTemplate as i32;
+      }
+    }
+    JSXChild::Text(node) => {
+      let value = resolve_jsx_text(node);
+      if !value.is_empty() {
+        let mut template = context.template.borrow_mut();
+        *template = template.to_string() + &value;
+      } else {
+        dynamic.flags |= DynamicFlag::NonTemplate as i32;
+      }
+    }
+    _ => (),
+  };
+  None
+}
+
+fn process_children<'a>(
+  children: &Vec<&JSXChild>,
+  is_fragment: bool,
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &'a mut BlockIRNode<'a>,
+  seen: &mut HashSet<u32>,
+) {
+  if children.len() > 0 {
     let mut has_interp = false;
     let mut is_all_text_like = true;
-    for child in &children {
-      let child_type = child.get_named_property::<String>("type")?;
-      if child_type.eq("JSXExpressionContainer") {
-        let exp_type = _get_expression(child).get_named_property::<String>("type")?;
-        if exp_type != "ConditionalExpression" && exp_type != "LogicalExpression" {
+    for child in children {
+      if let JSXChild::ExpressionContainer(child) = child {
+        let exp = child.expression.as_expression();
+        if if let Some(exp) = exp {
+          !matches!(
+            exp.without_parentheses().get_inner_expression(),
+            Expression::ConditionalExpression(_) | Expression::LogicalExpression(_),
+          )
+        } else {
+          false
+        } {
           has_interp = true
         }
-      } else if child_type != "JSXText" {
+      } else if !matches!(child, JSXChild::Text(_)) {
         is_all_text_like = false
       }
     }
 
     // all text like with interpolation
     if !is_fragment && is_all_text_like && has_interp {
-      process_text_container(children, context, context_block)?
+      process_text_container(children, context, context_block, seen)
     } else if has_interp {
       // check if there's any text before interpolation, it needs to be merged
       let mut i = 0;
-      for child in &children {
+      for child in children {
         let prev = if i > 0 { children.get(i - 1) } else { None };
-        if child
-          .get_named_property::<String>("type")?
-          .eq("JSXExpressionContainer")
-          && let Some(prev) = prev
-          && prev.get_named_property::<String>("type")?.eq("JSXText")
+        if let JSXChild::ExpressionContainer(_) = child
+          && let Some(JSXChild::Text(_)) = prev
         {
           // mark leading text node for skipping
-          mark_non_template(*prev, context)?;
+          mark_non_template(prev.unwrap(), seen);
         }
         i = i + 1;
       }
     }
-  } else if node_type.eq("JSXExpressionContainer") {
-    let expression = get_expression(node);
-    let expression_type = expression.get_named_property::<String>("type")?;
-    if expression_type.eq("ConditionalExpression") {
-      return Ok(Some(process_conditional_expression(
-        expression,
-        context,
-        context_block,
-        parent_dynamic,
-      )?));
-    } else if expression_type.eq("LogicalExpression") {
-      return Ok(Some(process_logical_expression(
-        expression,
-        context,
-        context_block,
-        parent_dynamic,
-      )?));
-    } else {
-      process_interpolation(context, context_block)?;
-    }
-  } else if node_type == "JSXText" {
-    let value = resolve_jsx_text(node);
-    if !value.is_empty() {
-      let mut template = context.template.borrow_mut();
-      *template = template.to_string() + &value;
-    } else {
-      dynamic.flags |= DynamicFlag::NON_TEMPLATE as i32;
-    }
   }
-  Ok(None)
 }
 
-fn process_interpolation(
-  context: &Rc<TransformContext>,
-  context_block: &mut BlockIRNode,
-) -> Result<()> {
-  let children = context
-    .parent
-    .borrow()
-    .upgrade()
-    .unwrap()
-    .node
-    .borrow()
-    .get_named_property::<Vec<Object>>("children")?;
-  let index = context.index as usize;
-  let nexts = children[index..].to_vec();
-  let idx = nexts.iter().position(|n| !is_text_like(n).unwrap_or(false));
+fn process_interpolation<'a>(
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &'a mut BlockIRNode<'a>,
+  seen: &mut HashSet<u32>,
+) {
+  let Some(parent_node) = &*context.parent_node.borrow() else {
+    return;
+  };
+  let children = match parent_node {
+    ContextNode::A(e) => &e.children,
+    ContextNode::B(e) => match e {
+      JSXChild::Element(e) => &e.children,
+      JSXChild::Fragment(e) => &e.children,
+      _ => return,
+    },
+  };
+  if children.len() == 0 {
+    return;
+  }
+  let index = *context.index.borrow() as usize;
+  let nexts = children[index..].iter().collect::<Vec<_>>();
+  let idx = nexts.iter().position(|n| !is_text_like(n));
   let mut nodes = if let Some(idx) = idx {
     nexts[..idx].to_vec()
   } else {
@@ -136,45 +174,43 @@ fn process_interpolation(
     None
   };
   if let Some(prev) = prev
-    && prev.get_named_property::<String>("type")?.eq("JSXText")
+    && let JSXChild::Text(_) = prev
   {
-    nodes.insert(0, *prev);
+    nodes.insert(0, prev);
   }
 
-  let values = process_text_like_expressions(nodes, context)?;
+  let values = process_text_like_expressions(&nodes, context, seen);
   let dynamic = &mut context_block.dynamic;
   if values.is_empty() {
-    dynamic.flags |= DynamicFlag::NON_TEMPLATE as i32;
-    return Ok(());
+    dynamic.flags |= DynamicFlag::NonTemplate as i32;
+    return;
   }
 
-  let id = context.reference(dynamic)?;
+  let id = context.reference(dynamic);
   let once = *context.in_v_once.borrow();
-  if is_fragment_node(&context.parent.borrow().upgrade().unwrap().node.borrow())
-    || find_prop(
-      &context.parent.borrow().upgrade().unwrap().node.borrow(),
-      Either::A(String::from("v-slot")),
-    )
-    .is_some()
-  {
+  if match parent_node {
+    Either::A(_) => true,
+    Either::B(parent) => {
+      is_fragment_node(parent)
+        || matches!(parent, JSXChild::Element(parent) if find_prop(parent, Either::A(String::from("v-slot"))).is_some())
+    }
+  } {
     context.register_operation(
       context_block,
       Either16::K(CreateNodesIRNode {
         create_nodes: true,
-        _type: IRNodeTypes::CREATE_NODES,
         id,
         once,
         values,
       }),
       None,
-    )?;
+    );
   } else {
     let mut template = context.template.borrow_mut();
     *template = template.to_string() + " ";
     context.register_operation(
       context_block,
       Either16::G(SetNodesIRNode {
-        _type: IRNodeTypes::SET_NODES,
         set_nodes: true,
         element: id,
         once,
@@ -182,46 +218,49 @@ fn process_interpolation(
         generated: None,
       }),
       None,
-    )?;
-  }
-  Ok(())
+    );
+  };
 }
 
-fn mark_non_template(node: Object, context: &Rc<TransformContext>) -> Result<()> {
-  let seen = &mut context.seen.borrow_mut();
-  seen.insert(node.get_named_property::<i32>("start")?);
-  Ok(())
+fn mark_non_template<'a>(node: &JSXChild, seen: &'a mut HashSet<u32>) {
+  // let seen = &mut context.seen.borrow_mut();
+  seen.insert(match node {
+    JSXChild::Element(e) => e.span.start,
+    JSXChild::Fragment(e) => e.span.start,
+    JSXChild::ExpressionContainer(e) => e.span.start,
+    JSXChild::Spread(e) => e.span.start,
+    JSXChild::Text(e) => e.span.start,
+  });
 }
 
-fn process_text_container(
-  children: Vec<Object<'static>>,
-  context: &Rc<TransformContext>,
-  context_block: &mut BlockIRNode,
-) -> Result<()> {
-  let values = process_text_like_expressions(children, context)?;
+fn process_text_container<'a>(
+  children: &Vec<&JSXChild>,
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &'a mut BlockIRNode<'a>,
+  seen: &mut HashSet<u32>,
+) {
+  let values = process_text_like_expressions(children, context, seen);
   let literals = values
     .iter()
-    .map(get_literal_expression_value)
+    .map(|e| e.get_literal_expression_value())
     .collect::<Vec<Option<String>>>();
   if literals.iter().all(|l| l.is_some()) {
     *context.children_template.borrow_mut() = literals.into_iter().filter_map(|i| i).collect();
   } else {
     *context.children_template.borrow_mut() = vec![" ".to_string()];
-    let parent = context.reference(&mut context_block.dynamic)?;
+    let parent = context.reference(&mut context_block.dynamic);
     context.register_operation(
       context_block,
       Either16::P(GetTextChildIRNode {
         get_text_child: true,
-        _type: IRNodeTypes::GET_TEXT_CHILD,
         parent,
       }),
       None,
-    )?;
-    let element = context.reference(&mut context_block.dynamic)?;
+    );
+    let element = context.reference(&mut context_block.dynamic);
     context.register_operation(
       context_block,
       Either16::G(SetNodesIRNode {
-        _type: IRNodeTypes::SET_NODES,
         set_nodes: true,
         element,
         once: *context.in_v_once.borrow(),
@@ -230,201 +269,191 @@ fn process_text_container(
         generated: Some(true),
       }),
       None,
-    )?;
+    );
   }
-  Ok(())
 }
 
-fn process_text_like_expressions(
-  nodes: Vec<Object<'static>>,
-  context: &Rc<TransformContext>,
-) -> Result<Vec<SimpleExpressionNode>> {
+fn process_text_like_expressions<'a>(
+  nodes: &Vec<&JSXChild>,
+  context: &'a Rc<TransformContext<'a>>,
+  seen: &mut HashSet<u32>,
+) -> Vec<SimpleExpressionNode<'a>> {
   let mut values = vec![];
   for node in nodes {
-    mark_non_template(node, context)?;
+    mark_non_template(node, seen);
     if is_empty_text(node) {
       continue;
     }
-    values.push(resolve_expression(node, context))
+    values.push(SimpleExpressionNode::new(Either3::B(node), context))
   }
-  Ok(values)
+  values
 }
 
-fn is_text_like(node: &Object) -> Result<bool> {
-  let node_type = node.get_named_property::<String>("type")?;
-  Ok(if node_type == "JSXExpressionContainer" {
-    let expression_type = _get_expression(node).get_named_property::<String>("type")?;
-    expression_type != "ConditionalExpression" && expression_type != "LogicalExpression"
+fn is_text_like(node: &JSXChild) -> bool {
+  if let JSXChild::ExpressionContainer(node) = node {
+    !matches!(
+      node.expression.to_expression(),
+      Expression::ConditionalExpression(_) | Expression::LogicalExpression(_)
+    )
   } else {
-    node_type == "JSXText"
-  })
+    matches!(node, JSXChild::Text(_))
+  }
 }
 
 pub fn process_conditional_expression<'a>(
-  node: Object<'static>,
-  context: &'a Rc<TransformContext>,
-  context_block: &'a mut BlockIRNode,
-  parent_dynamic: &'a mut IRDynamicInfo,
-) -> Result<Box<dyn FnOnce() -> Result<()> + 'a>> {
-  let dynamic = &mut context_block.dynamic;
-  dynamic.flags = dynamic.flags | DynamicFlag::NON_TEMPLATE as i32 | DynamicFlag::INSERT as i32;
-  let id = context.reference(dynamic)?;
-  let block = context_block as *mut BlockIRNode;
-  let exit_block = context.create_block(
-    unsafe { &mut *block },
-    node.get_named_property::<Object>("consequent")?,
-    None,
-  )?;
+  node: &ConditionalExpression,
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Box<dyn FnOnce() + 'a> {
+  let test = node.test.clone_in(context.allocator);
+  let consequent = node.consequent.clone_in(context.allocator);
+  let alternate = node.alternate.clone_in(context.allocator);
 
-  Ok(Box::new(move || {
-    let block = exit_block()?;
-    let test = node.get_named_property::<Object>("test")?;
-    let alternate = node.get_named_property::<Object>("alternate")?;
+  let dynamic = &mut context_block.dynamic;
+  dynamic.flags = dynamic.flags | DynamicFlag::NonTemplate as i32 | DynamicFlag::Insert as i32;
+  let id = context.reference(dynamic);
+  let block = context_block as *mut BlockIRNode;
+  let exit_block = context.create_block(unsafe { &mut *block }, consequent, None);
+
+  let is_const_test = is_constant_node(&Some(&test));
+  let test = SimpleExpressionNode::new(Either3::A(&test), context);
+
+  Box::new(move || {
+    let block = exit_block();
 
     let mut operation = IfIRNode {
-      _type: IRNodeTypes::IF,
       id,
       positive: block,
-      once: Some(*context.in_v_once.borrow() || is_constant_node(&Some(test))),
-      condition: resolve_expression(test, context),
+      once: Some(*context.in_v_once.borrow() || is_const_test),
+      condition: test,
       negative: None,
       parent: None,
       anchor: None,
     };
-    set_negative(
-      alternate,
-      &mut operation,
-      context,
-      context_block,
-      parent_dynamic,
-    )?;
-    let dynamic = &mut context_block.dynamic;
-    dynamic.operation = Some(MyBox(Box::new(Either16::A(operation))));
-
-    Ok(())
-  }))
+    let _context_block = context_block as *mut BlockIRNode;
+    set_negative(alternate, &mut operation, context, unsafe {
+      &mut *_context_block
+    });
+    context_block.dynamic.operation = Some(Box::new(Either16::A(operation)));
+  })
 }
 
 fn process_logical_expression<'a>(
-  node: Object<'static>,
-  context: &'a Rc<TransformContext>,
-  context_block: &'a mut BlockIRNode,
-  parent_dynamic: &'a mut IRDynamicInfo,
-) -> Result<Box<dyn FnOnce() -> Result<()> + 'a>> {
-  let left = node.get_named_property::<Object>("left")?;
-  let right = node.get_named_property::<Object>("right")?;
-  let operator = node.get_named_property::<String>("operator")?;
+  node: &LogicalExpression,
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Box<dyn FnOnce() + 'a> {
+  let left = node.left.clone_in(context.allocator);
+  let right = node.right.clone_in(context.allocator);
+  let operator_is_and = node.operator.is_and();
 
   let dynamic = &mut context_block.dynamic;
-  dynamic.flags = dynamic.flags | DynamicFlag::NON_TEMPLATE as i32 | DynamicFlag::INSERT as i32;
-  let id = context.reference(dynamic)?;
+  dynamic.flags = dynamic.flags | DynamicFlag::NonTemplate as i32 | DynamicFlag::Insert as i32;
+  let id = context.reference(dynamic);
   let block = context_block as *mut BlockIRNode;
   let exit_block = context.create_block(
     unsafe { &mut *block },
-    if operator == "&&" { right } else { left },
+    if operator_is_and {
+      right.clone_in(context.allocator)
+    } else {
+      left.clone_in(context.allocator)
+    },
     None,
-  )?;
-  Ok(Box::new(move || {
-    let block = exit_block()?;
-    let left = node.get_named_property::<Object>("left")?;
-    let right = node.get_named_property::<Object>("right")?;
-    let operator = node.get_named_property::<String>("operator")?;
+  );
+
+  Box::new(move || {
+    let block = exit_block();
 
     let mut operation = IfIRNode {
-      _type: IRNodeTypes::IF,
       id,
-      condition: resolve_expression(left, context),
       positive: block,
-      once: Some(*context.in_v_once.borrow() || is_constant_node(&Some(left))),
+      once: Some(*context.in_v_once.borrow() || is_constant_node(&Some(&left))),
+      condition: SimpleExpressionNode::new(Either3::A(&left), context),
       negative: None,
       anchor: None,
       parent: None,
     };
+    let _context_block = context_block as *mut BlockIRNode;
+
     set_negative(
-      if operator == "&&" { left } else { right },
+      if operator_is_and { left } else { right },
       &mut operation,
       context,
-      context_block,
-      parent_dynamic,
-    )?;
-    let dynamic = &mut context_block.dynamic;
-    dynamic.operation = Some(MyBox(Box::new(Either16::A(operation))));
-    Ok(())
-  }))
+      unsafe { &mut *_context_block },
+    );
+
+    context_block.dynamic.operation = Some(Box::new(Either16::A(operation)));
+  })
 }
 
-fn set_negative(
-  node: Object<'static>,
-  operation: &mut IfIRNode,
-  context: &Rc<TransformContext>,
-  context_block: &mut BlockIRNode,
-  parent_dynamic: &mut IRDynamicInfo,
-) -> Result<()> {
-  let node_type = node.get_named_property::<String>("type")?;
-  if node_type == "ConditionalExpression" {
-    let block = context_block as *mut BlockIRNode;
+fn set_negative<'a>(
+  node: Expression<'a>,
+  operation: &mut IfIRNode<'a>,
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &'a mut BlockIRNode<'a>,
+) {
+  if let Expression::ConditionalExpression(node) = node {
+    let _context_block = context_block as *mut BlockIRNode;
     let exit_block = context.create_block(
-      unsafe { &mut *block },
-      node.get_named_property::<Object>("consequent")?,
+      unsafe { &mut *_context_block },
+      node.consequent.clone_in(context.allocator),
       None,
-    )?;
-    let test = node.get_named_property::<Object>("test")?;
-    context.transform_node(context_block, parent_dynamic)?;
-    let block = exit_block()?;
+    );
+    context.transform_node(Some(unsafe { &mut *_context_block }));
+    let block = exit_block();
     let mut negative = IfIRNode {
-      _type: IRNodeTypes::IF,
       id: -1,
-      condition: resolve_expression(test, context),
+      condition: SimpleExpressionNode::new(Either3::A(&node.test), context),
       positive: block,
-      once: Some(*context.in_v_once.borrow() || is_constant_node(&Some(test))),
+      once: Some(*context.in_v_once.borrow() || is_constant_node(&Some(&node.test))),
       negative: None,
       anchor: None,
       parent: None,
     };
     set_negative(
-      node.get_named_property::<Object>("alternate")?,
+      node.alternate.clone_in(context.allocator),
       &mut negative,
       context,
       context_block,
-      parent_dynamic,
-    )?;
-    operation.negative = Some(MyBox(Box::new(Either::B(negative))));
-  } else if node_type == "LogicalExpression" {
-    let left = node.get_named_property::<Object>("left")?;
-    let right = node.get_named_property::<Object>("right")?;
-    let operator = node.get_named_property::<String>("operator")?;
+    );
+    operation.negative = Some(Box::new(Either::B(negative)));
+  } else if let Expression::LogicalExpression(node) = node {
+    let left = node.left.clone_in(context.allocator);
+    let right = node.right.clone_in(context.allocator);
+    let operator_is_and = node.operator.is_and();
     let block = context_block as *mut BlockIRNode;
     let exit_block = context.create_block(
       unsafe { &mut *block },
-      if operator.eq("&&") { right } else { left },
+      if operator_is_and {
+        right.clone_in(context.allocator)
+      } else {
+        left.clone_in(context.allocator)
+      },
       None,
-    )?;
-    context.transform_node(context_block, parent_dynamic)?;
-    let block = exit_block()?;
+    );
+    context.transform_node(Some(unsafe { &mut *block }));
+    let block = exit_block();
     let mut negative = IfIRNode {
-      _type: IRNodeTypes::IF,
       id: -1,
-      condition: resolve_expression(left, context),
+      condition: SimpleExpressionNode::new(Either3::A(&left), context),
       positive: block,
-      once: Some(*context.in_v_once.borrow() || is_constant_node(&Some(left))),
+      once: Some(*context.in_v_once.borrow() || is_constant_node(&Some(&left))),
       negative: None,
       anchor: None,
       parent: None,
     };
     set_negative(
-      if operator.eq("&&") { left } else { right },
+      if operator_is_and { left } else { right },
       &mut negative,
       context,
       context_block,
-      parent_dynamic,
-    )?;
-    operation.negative = Some(MyBox(Box::new(Either::B(negative))));
+    );
+    operation.negative = Some(Box::new(Either::B(negative)));
   } else {
     let block = context_block as *mut BlockIRNode;
-    let exit_block = context.create_block(unsafe { &mut *block }, node, None)?;
-    context.transform_node(context_block, parent_dynamic)?;
-    let block = exit_block()?;
-    operation.negative = Some(MyBox(Box::new(Either::A(block))));
+    let exit_block = context.create_block(unsafe { &mut *block }, node, None);
+    context.transform_node(Some(context_block));
+    let block = exit_block();
+    operation.negative = Some(Box::new(Either::A(block)));
   }
-  Ok(())
 }

@@ -1,7 +1,7 @@
-use napi_derive::napi;
+use oxc_ast::ast::{JSXChild, JSXElementName, JSXExpression, JSXText};
+use oxc_span::Span;
 use std::{rc::Rc, sync::LazyLock};
 
-use napi::bindgen_prelude::Object;
 use regex::{Captures, Regex};
 
 use crate::transform::TransformContext;
@@ -16,24 +16,11 @@ static START_EMPTY_TEXT_REGEX: LazyLock<Regex> =
 
 static END_EMPTY_TEXT_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[\n\r]\s*$").unwrap());
 
-#[napi(
-  js_name = "resolveJSXText",
-  ts_args_type = "node: import('oxc-parser').JSXText"
-)]
-pub fn resolve_jsx_text(node: Object) -> String {
-  let text = node
-    .get::<String>("raw")
-    .ok()
-    .flatten()
-    .map_or(String::new(), |s| s);
-  if EMPTY_TEXT_REGEX.is_match(&text) {
+pub fn resolve_jsx_text(node: &JSXText) -> String {
+  if EMPTY_TEXT_REGEX.is_match(&node.raw.unwrap()) {
     return String::new();
   }
-  let mut value = node
-    .get::<String>("value")
-    .ok()
-    .flatten()
-    .unwrap_or(String::new());
+  let mut value = node.value.to_string();
   if START_EMPTY_TEXT_REGEX.is_match(&value) {
     value = value.trim_start().to_owned();
   }
@@ -43,40 +30,39 @@ pub fn resolve_jsx_text(node: Object) -> String {
   return value;
 }
 
-#[napi]
-pub fn is_empty_text(node: Object) -> bool {
-  let node_type = node
-    .get::<String>("type")
-    .ok()
-    .flatten()
-    .unwrap_or(String::new());
-  let node_raw = node
-    .get::<String>("raw")
-    .ok()
-    .flatten()
-    .unwrap_or(String::new());
-  (node_type.eq("JSXText") && EMPTY_TEXT_REGEX.is_match(&node_raw))
-    || (node_type.eq("JSXExpressionContainer")
-      && node
-        .get::<Object>("expression")
-        .ok()
-        .flatten()
-        .map_or(false, |e| {
-          e.get::<String>("type")
-            .ok()
-            .flatten()
-            .is_some_and(|t| t.eq("JSXEmptyExpression"))
-        }))
+pub fn is_empty_text(node: &JSXChild) -> bool {
+  match node {
+    JSXChild::Text(node) => EMPTY_TEXT_REGEX.is_match(&node.raw.unwrap()),
+    JSXChild::ExpressionContainer(node) => {
+      matches!(node.expression, JSXExpression::EmptyExpression(_))
+    }
+    _ => false,
+  }
 }
 
-pub fn get_text(node: Object, context: &Rc<TransformContext>) -> String {
-  let start = node.get::<i32>("start").ok().flatten().unwrap() as usize;
-  let end = node.get::<i32>("end").ok().flatten().unwrap() as usize;
+pub fn get_tag_name(name: &JSXElementName, context: &TransformContext) -> String {
+  match name {
+    JSXElementName::Identifier(name) => name.name.to_string(),
+    JSXElementName::IdentifierReference(name) => name.name.to_string(),
+    JSXElementName::NamespacedName(name) => {
+      context.ir.borrow().source[name.span.start as usize..name.span.end as usize].to_string()
+    }
+    JSXElementName::MemberExpression(name) => {
+      context.ir.borrow().source[name.span.start as usize..name.span.end as usize].to_string()
+    }
+    JSXElementName::ThisExpression(name) => {
+      context.ir.borrow().source[name.span.start as usize..name.span.end as usize].to_string()
+    }
+  }
+}
+
+pub fn get_text(span: Span, context: &Rc<TransformContext>) -> String {
+  let start = span.start as usize;
+  let end = span.end as usize;
   context.ir.borrow().source[start..end].to_string()
 }
 
 static CAMELIZE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"-(\w)").unwrap());
-#[napi]
 pub fn camelize(str: String) -> String {
   CAMELIZE_RE
     .replace_all(&str, |caps: &Captures| caps[1].to_uppercase())

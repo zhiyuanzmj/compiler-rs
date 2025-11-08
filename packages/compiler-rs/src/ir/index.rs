@@ -1,72 +1,30 @@
 use std::collections::HashSet;
 
-use napi::{
-  Either,
-  bindgen_prelude::{Either16, Object},
-};
-use napi_derive::napi;
+use napi::{Either, bindgen_prelude::Either16};
 use oxc_ast::ast::JSXChild;
 
-use crate::{
-  ir::component::{IRProp, IRProps, IRSlots},
-  utils::my_box::MyBox,
-};
+pub use crate::utils::expression::{SimpleExpressionNode, SourceLocation};
 
-#[napi(string_enum)]
-#[derive(PartialEq, Clone)]
-pub enum IRNodeTypes {
-  ROOT,
-  BLOCK,
+use crate::ir::component::{IRProp, IRProps, IRSlots};
 
-  SET_PROP,
-  SET_DYNAMIC_PROPS,
-  SET_TEXT,
-  SET_EVENT,
-  SET_DYNAMIC_EVENTS,
-  SET_HTML,
-  SET_TEMPLATE_REF,
-
-  INSERT_NODE,
-  CREATE_COMPONENT_NODE,
-
-  DIRECTIVE,
-  DECLARE_OLD_REF, // consider make it more general
-
-  IF,
-  FOR,
-
-  GET_TEXT_CHILD,
-
-  CREATE_NODES,
-  SET_NODES,
-}
-
-#[napi(object, js_name = "BaseIRNode")]
-pub struct BaseIRNode {
-  pub _type: IRNodeTypes,
-}
-
+#[derive(Debug)]
 pub struct RootNode<'a> {
-  pub _type: IRNodeTypes,
-  pub children: &'a oxc_allocator::Vec<'a, JSXChild<'a>>,
+  pub is_fragment: bool,
+  pub children: oxc_allocator::Vec<'a, JSXChild<'a>>,
 }
 
-#[napi(object, js_name = "BlockIRNode")]
-pub struct BlockIRNode {
-  pub _type: IRNodeTypes,
-  pub node: Option<Object<'static>>,
-  pub dynamic: IRDynamicInfo,
+#[derive(Debug)]
+pub struct BlockIRNode<'a> {
+  pub dynamic: IRDynamicInfo<'a>,
   pub temp_id: i32,
-  pub effect: Vec<IREffect>,
-  pub operation: Vec<OperationNode>,
+  pub effect: Vec<IREffect<'a>>,
+  pub operation: Vec<OperationNode<'a>>,
   pub returns: Vec<i32>,
-  pub props: Option<SimpleExpressionNode>,
+  pub props: Option<SimpleExpressionNode<'a>>,
 }
-impl BlockIRNode {
-  pub fn new(node: Option<Object<'static>>) -> Self {
+impl<'a> BlockIRNode<'a> {
+  pub fn new() -> Self {
     BlockIRNode {
-      _type: IRNodeTypes::BLOCK,
-      node,
       dynamic: IRDynamicInfo::new(),
       temp_id: 0,
       effect: Vec::new(),
@@ -76,34 +34,30 @@ impl BlockIRNode {
     }
   }
 }
-impl Default for BlockIRNode {
+impl<'a> Default for BlockIRNode<'a> {
   fn default() -> Self {
-    BlockIRNode::new(None)
+    BlockIRNode::new()
   }
 }
 
-#[napi(object, js_name = "RootIRNode")]
-pub struct RootIRNode {
-  pub _type: IRNodeTypes,
-  pub node: Object<'static>,
+#[derive(Debug)]
+pub struct RootIRNode<'a> {
   pub source: String,
   pub templates: Vec<String>,
   pub root_template_index: Option<i32>,
   pub component: HashSet<String>,
   pub directive: HashSet<String>,
-  pub block: BlockIRNode,
+  pub block: BlockIRNode<'a>,
   pub has_template_ref: bool,
 }
-impl RootIRNode {
-  pub fn new(node: Object<'static>, source: String, templates: Vec<String>) -> Self {
+impl<'a> RootIRNode<'a> {
+  pub fn new(source: String, templates: Vec<String>) -> Self {
     let root = RootIRNode {
-      _type: IRNodeTypes::ROOT,
-      node,
       source,
       templates,
       component: HashSet::new(),
       directive: HashSet::new(),
-      block: BlockIRNode::new(Some(node)),
+      block: BlockIRNode::new(),
       has_template_ref: false,
       root_template_index: None,
     };
@@ -111,40 +65,35 @@ impl RootIRNode {
   }
 }
 
-#[napi(object, js_name = "IfIRNode")]
-pub struct IfIRNode {
-  #[napi(ts_type = "IRNodeTypes.IF")]
-  pub _type: IRNodeTypes,
+#[derive(Debug)]
+pub struct IfIRNode<'a> {
   pub id: i32,
-  pub condition: SimpleExpressionNode,
-  pub positive: BlockIRNode,
-  #[napi(ts_type = "BlockIRNode | IfIRNode")]
-  pub negative: Option<MyBox<Either<BlockIRNode, IfIRNode>>>,
+  pub condition: SimpleExpressionNode<'a>,
+  pub positive: BlockIRNode<'a>,
+  pub negative: Option<Box<Either<BlockIRNode<'a>, IfIRNode<'a>>>>,
   pub once: Option<bool>,
   pub parent: Option<i32>,
   pub anchor: Option<i32>,
 }
 
-#[napi(object, js_name = "IRFor")]
-pub struct IRFor {
-  pub source: Option<SimpleExpressionNode>,
-  pub value: Option<SimpleExpressionNode>,
-  pub key: Option<SimpleExpressionNode>,
-  pub index: Option<SimpleExpressionNode>,
+#[derive(Debug)]
+pub struct IRFor<'a> {
+  pub source: Option<SimpleExpressionNode<'a>>,
+  pub value: Option<SimpleExpressionNode<'a>>,
+  pub key: Option<SimpleExpressionNode<'a>>,
+  pub index: Option<SimpleExpressionNode<'a>>,
 }
 
-#[napi(object, js_name = "ForIRNode")]
-pub struct ForIRNode {
-  pub source: SimpleExpressionNode,
-  pub value: Option<SimpleExpressionNode>,
-  pub key: Option<SimpleExpressionNode>,
-  pub index: Option<SimpleExpressionNode>,
+#[derive(Debug)]
+pub struct ForIRNode<'a> {
+  pub source: SimpleExpressionNode<'a>,
+  pub value: Option<SimpleExpressionNode<'a>>,
+  pub key: Option<SimpleExpressionNode<'a>>,
+  pub index: Option<SimpleExpressionNode<'a>>,
 
-  #[napi(ts_type = "IRNodeTypes.FOR")]
-  pub _type: IRNodeTypes,
   pub id: i32,
-  pub key_prop: Option<SimpleExpressionNode>,
-  pub render: BlockIRNode,
+  pub key_prop: Option<SimpleExpressionNode<'a>>,
+  pub render: BlockIRNode<'a>,
   pub once: bool,
   pub component: bool,
   pub only_child: bool,
@@ -152,59 +101,48 @@ pub struct ForIRNode {
   pub anchor: Option<i32>,
 }
 
-#[napi(object, js_name = "SetPropIRNode")]
-pub struct SetPropIRNode {
+#[derive(Debug)]
+pub struct SetPropIRNode<'a> {
   pub set_prop: bool,
-  #[napi(ts_type = "IRNodeTypes.SET_PROP")]
-  pub _type: IRNodeTypes,
   pub element: i32,
-  pub prop: IRProp,
+  pub prop: IRProp<'a>,
   pub root: bool,
   pub tag: String,
 }
 
-#[napi(object, js_name = "SetDynamicPropsIRNode")]
-pub struct SetDynamicPropsIRNode {
+#[derive(Debug)]
+pub struct SetDynamicPropsIRNode<'a> {
   pub set_dynamic_props: bool,
-  #[napi(ts_type = "IRNodeTypes.SET_DYNAMIC_PROPS")]
-  pub _type: IRNodeTypes,
   pub element: i32,
-  pub props: Vec<IRProps>,
+  pub props: Vec<IRProps<'a>>,
   pub root: bool,
 }
 
-#[napi(object, js_name = "SetDynamicEventsIRNode")]
-pub struct SetDynamicEventsIRNode {
-  #[napi(ts_type = "IRNodeTypes.SET_DYNAMIC_EVENTS")]
+#[derive(Debug)]
+pub struct SetDynamicEventsIRNode<'a> {
   pub set_dynamic_events: bool,
-  pub _type: IRNodeTypes,
   pub element: i32,
-  pub value: SimpleExpressionNode,
+  pub value: SimpleExpressionNode<'a>,
 }
 
-#[napi(object, js_name = "SetTextIRNode")]
-pub struct SetTextIRNode {
+#[derive(Debug)]
+pub struct SetTextIRNode<'a> {
   pub set_text: bool,
-  #[napi(ts_type = "IRNodeTypes.SET_TEXT")]
-  pub _type: IRNodeTypes,
   pub element: i32,
-  pub values: Vec<SimpleExpressionNode>,
+  pub values: Vec<SimpleExpressionNode<'a>>,
   pub generated: Option<bool>,
 }
 
-#[napi(object, js_name = "SetNodesIRNode")]
-pub struct SetNodesIRNode {
+#[derive(Debug)]
+pub struct SetNodesIRNode<'a> {
   pub set_nodes: bool,
-  #[napi(ts_type = "IRNodeTypes.SET_NODES")]
-  pub _type: IRNodeTypes,
   pub element: i32,
   pub once: bool,
-  pub values: Vec<SimpleExpressionNode>,
+  pub values: Vec<SimpleExpressionNode<'a>>,
   pub generated: Option<bool>, // whether this is a generated empty text node by `processTextLikeContainer`
 }
 
-#[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Modifiers {
   // modifiers for addEventListener() options, e.g. .passive & .capture
   pub options: Vec<String>,
@@ -214,14 +152,12 @@ pub struct Modifiers {
   pub non_keys: Vec<String>,
 }
 
-#[napi(object, js_name = "SetEventIRNode")]
-#[derive(Clone)]
-pub struct SetEventIRNode {
+#[derive(Clone, Debug)]
+pub struct SetEventIRNode<'a> {
   pub set_event: bool,
-  pub _type: IRNodeTypes,
   pub element: i32,
-  pub key: SimpleExpressionNode,
-  pub value: Option<SimpleExpressionNode>,
+  pub key: SimpleExpressionNode<'a>,
+  pub value: Option<SimpleExpressionNode<'a>>,
   pub modifiers: Modifiers,
   pub key_override: Option<(String, String)>,
   pub delegate: bool,
@@ -229,153 +165,124 @@ pub struct SetEventIRNode {
   pub effect: bool,
 }
 
-#[napi(object, js_name = "SetHtmlIRNode")]
-pub struct SetHtmlIRNode {
+#[derive(Debug)]
+pub struct SetHtmlIRNode<'a> {
   pub set_html: bool,
-  #[napi(ts_type = "IRNodeTypes.SET_HTML")]
-  pub _type: IRNodeTypes,
   pub element: i32,
-  pub value: SimpleExpressionNode,
+  pub value: SimpleExpressionNode<'a>,
 }
 
-#[napi(object, js_name = "SetTemplateRefIRNode")]
-pub struct SetTemplateRefIRNode {
-  #[napi(ts_type = "IRNodeTypes.SET_TEMPLATE_REF")]
+#[derive(Debug)]
+pub struct SetTemplateRefIRNode<'a> {
   pub set_template_ref: bool,
-  pub _type: IRNodeTypes,
   pub element: i32,
-  pub value: SimpleExpressionNode,
+  pub value: SimpleExpressionNode<'a>,
   pub ref_for: bool,
   pub effect: bool,
 }
 
-#[napi(object, js_name = "CreateNodesIRNode")]
-pub struct CreateNodesIRNode {
+#[derive(Debug)]
+pub struct CreateNodesIRNode<'a> {
   pub create_nodes: bool,
-  #[napi(ts_type = "IRNodeTypes.CREATE_NODES")]
-  pub _type: IRNodeTypes,
   pub id: i32,
   pub once: bool,
-  pub values: Vec<SimpleExpressionNode>,
+  pub values: Vec<SimpleExpressionNode<'a>>,
 }
 
-#[napi(object, js_name = "InsertNodeIRNode")]
+#[derive(Debug)]
 pub struct InsertNodeIRNode {
   pub insert_node: bool,
-  #[napi(ts_type = "IRNodeTypes.INSERT_NODE")]
-  pub _type: IRNodeTypes,
   pub elements: Vec<i32>,
   pub parent: i32,
   pub anchor: Option<i32>,
 }
 
-#[napi(object, js_name = "DirectiveIRNode")]
-pub struct DirectiveIRNode {
+#[derive(Debug)]
+pub struct DirectiveIRNode<'a> {
   pub directive: bool,
-  #[napi(ts_type = "IRNodeTypes.DIRECTIVE")]
-  pub _type: IRNodeTypes,
   pub element: i32,
-  pub dir: DirectiveNode,
+  pub dir: DirectiveNode<'a>,
   pub name: String,
   pub builtin: Option<bool>,
   pub asset: Option<bool>,
-  #[napi(ts_type = "'text' | 'dynamic' | 'radio' | 'checkbox' | 'select'")]
   pub model_type: Option<String>,
 }
 
-#[napi(object, js_name = "CreateComponentIRNode")]
-pub struct CreateComponentIRNode {
+#[derive(Debug)]
+pub struct CreateComponentIRNode<'a> {
   pub create_component: bool,
-  #[napi(ts_type = "IRNodeTypes.CREATE_COMPONENT_NODE")]
-  pub _type: IRNodeTypes,
   pub id: i32,
   pub tag: String,
-  pub props: Vec<IRProps>,
-  pub slots: Vec<IRSlots>,
+  pub props: Vec<IRProps<'a>>,
+  pub slots: Vec<IRSlots<'a>>,
   pub asset: bool,
   pub root: bool,
   pub once: bool,
-  pub dynamic: Option<SimpleExpressionNode>,
+  pub dynamic: Option<SimpleExpressionNode<'a>>,
   pub parent: Option<i32>,
   pub anchor: Option<i32>,
 }
 
-#[napi(object, js_name = "DeclareOldRefIRNode")]
+#[derive(Debug)]
 pub struct DeclareOldRefIRNode {
   pub declare_older_ref: bool,
-  #[napi(ts_type = "IRNodeTypes.DECLARE_OLD_REF")]
-  pub _type: IRNodeTypes,
   pub id: i32,
 }
 
-#[napi(object, js_name = "GetTextChildIRNode")]
+#[derive(Debug)]
 pub struct GetTextChildIRNode {
   pub get_text_child: bool,
-  #[napi(ts_type = "IRNodeTypes.GET_TEXT_CHILD")]
-  pub _type: IRNodeTypes,
   pub parent: i32,
 }
 
-#[napi]
-pub type OperationNode = Either16<
-  IfIRNode,
-  ForIRNode,
-  SetTextIRNode,
-  SetPropIRNode,
-  SetDynamicPropsIRNode,
-  SetDynamicEventsIRNode,
-  SetNodesIRNode,
-  SetEventIRNode,
-  SetHtmlIRNode,
-  SetTemplateRefIRNode,
-  CreateNodesIRNode,
+pub type OperationNode<'a> = Either16<
+  IfIRNode<'a>,
+  ForIRNode<'a>,
+  SetTextIRNode<'a>,
+  SetPropIRNode<'a>,
+  SetDynamicPropsIRNode<'a>,
+  SetDynamicEventsIRNode<'a>,
+  SetNodesIRNode<'a>,
+  SetEventIRNode<'a>,
+  SetHtmlIRNode<'a>,
+  SetTemplateRefIRNode<'a>,
+  CreateNodesIRNode<'a>,
   InsertNodeIRNode,
-  DirectiveIRNode,
-  CreateComponentIRNode,
+  DirectiveIRNode<'a>,
+  CreateComponentIRNode<'a>,
   DeclareOldRefIRNode,
   GetTextChildIRNode,
 >;
 
-#[napi]
-pub enum _DynamicFlag {
-  NONE = 0,
-  REFERENCED = 1,
-  NON_TEMPLATE = 2,
-  INSERT = 4,
-}
-
 pub enum DynamicFlag {
-  NONE = 0,
+  None = 0,
   // This node is referenced and needs to be saved as a variable.
-  REFERENCED = 1 << 0,
+  Referenced = 1 << 0,
   // This node is not generated from template, but is generated dynamically.
-  NON_TEMPLATE = 1 << 1,
+  NonTemplate = 1 << 1,
   // const REFERENCED_AND_NON_TEMPLATE = 3;
   // This node needs to be inserted back into the template.
-  INSERT = 1 << 2,
+  Insert = 1 << 2,
   // REFERENCED_AND_INSERT = 5,
   // NONE_TEMPLAET_AND_INSERT = 6,
   // REFERENCED_AND_NON_TEMPLATE_AND_INSERT = 7,
 }
 
-#[napi(object, js_name = "IRDynamicInfo")]
-pub struct IRDynamicInfo {
+#[derive(Debug)]
+pub struct IRDynamicInfo<'a> {
   pub id: Option<i32>,
   pub flags: i32,
   pub anchor: Option<i32>,
-  pub children: Vec<IRDynamicInfo>,
+  pub children: Vec<IRDynamicInfo<'a>>,
   pub template: Option<i32>,
   pub has_dynamic_child: Option<bool>,
-  #[napi(ts_type = "OperationNode | null")]
-  pub operation: Option<MyBox<OperationNode>>,
-  // pub parent: RefCell<Weak<IRDynamicInfo>>,
+  pub operation: Option<Box<OperationNode<'a>>>,
 }
-impl IRDynamicInfo {
+impl<'a> IRDynamicInfo<'a> {
   pub fn new() -> Self {
     IRDynamicInfo {
-      flags: DynamicFlag::REFERENCED as i32,
+      flags: DynamicFlag::Referenced as i32,
       children: Vec::new(),
-      // parent: RefCell::new(Weak::new()),
       template: None,
       has_dynamic_child: None,
       operation: None,
@@ -384,59 +291,24 @@ impl IRDynamicInfo {
     }
   }
 }
-impl Default for IRDynamicInfo {
+impl<'a> Default for IRDynamicInfo<'a> {
   fn default() -> Self {
     Self::new()
   }
 }
 
-#[napi(object, js_name = "IREffect")]
-pub struct IREffect {
-  pub expressions: Vec<SimpleExpressionNode>,
-  pub operations: Vec<OperationNode>,
+#[derive(Debug)]
+pub struct IREffect<'a> {
+  pub expressions: Vec<SimpleExpressionNode<'a>>,
+  pub operations: Vec<OperationNode<'a>>,
 }
 
-#[napi]
-pub type SourceLocation = (i32, i32);
-
-#[napi(object)]
-#[derive(Clone)]
-pub struct SimpleExpressionNode {
-  pub content: String,
-  pub is_static: bool,
-  pub loc: Option<SourceLocation>,
-  #[napi(ts_type = "import('oxc-parser').Node")]
-  pub ast: Option<Object<'static>>,
-}
-
-impl Default for SimpleExpressionNode {
-  fn default() -> Self {
-    Self {
-      content: String::new(),
-      is_static: true,
-      loc: None,
-      ast: None,
-    }
-  }
-}
-
-#[napi(object)]
-pub struct DirectiveNode {
+#[derive(Debug)]
+pub struct DirectiveNode<'a> {
   // the normalized name without prefix or shorthands, e.g. "bind", "on"
   pub name: String,
-  pub exp: Option<SimpleExpressionNode>,
-  pub arg: Option<SimpleExpressionNode>,
-  pub modifiers: Vec<SimpleExpressionNode>,
+  pub exp: Option<SimpleExpressionNode<'a>>,
+  pub arg: Option<SimpleExpressionNode<'a>>,
+  pub modifiers: Vec<SimpleExpressionNode<'a>>,
   pub loc: Option<SourceLocation>,
-}
-
-#[napi[ts_return_type = "op is InsertionStateTypes"]]
-pub fn _is_block_operation(#[napi(ts_arg_type = "OperationNode")] op: Object) -> bool {
-  let _type = op.get::<IRNodeTypes>("type").ok().flatten();
-  match _type {
-    Some(IRNodeTypes::CREATE_COMPONENT_NODE) => true,
-    Some(IRNodeTypes::IF) => true,
-    Some(IRNodeTypes::FOR) => true,
-    _ => false,
-  }
 }

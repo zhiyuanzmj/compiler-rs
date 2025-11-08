@@ -23,7 +23,7 @@ use std::{
   mem,
 };
 
-use napi::{Env, Result, bindgen_prelude::Either3};
+use napi::bindgen_prelude::Either3;
 use napi_derive::napi;
 
 use crate::{
@@ -51,19 +51,18 @@ pub struct CodegenOptions {
   pub templates: Option<Vec<String>>,
 }
 
-pub struct CodegenContext {
-  pub env: Env,
+pub struct CodegenContext<'a> {
   pub options: CodegenOptions,
   pub helpers: RefCell<HashSet<String>>,
   pub delegates: RefCell<HashSet<String>>,
   pub identifiers: RefCell<HashMap<String, Vec<String>>>,
-  pub ir: RootIRNode,
-  pub block: RefCell<BlockIRNode>,
+  pub ir: RootIRNode<'a>,
+  pub block: RefCell<BlockIRNode<'a>>,
   pub scope_level: RefCell<i32>,
 }
 
-impl CodegenContext {
-  pub fn new(env: Env, mut ir: RootIRNode, options: CodegenOptions) -> CodegenContext {
+impl<'a> CodegenContext<'a> {
+  pub fn new(mut ir: RootIRNode, options: CodegenOptions) -> CodegenContext {
     let block = mem::take(&mut ir.block);
     CodegenContext {
       options,
@@ -71,7 +70,6 @@ impl CodegenContext {
       delegates: RefCell::new(HashSet::new()),
       identifiers: RefCell::new(HashMap::new()),
       block: RefCell::new(block),
-      env,
       scope_level: RefCell::new(0),
       ir,
     }
@@ -84,9 +82,9 @@ impl CodegenContext {
 
   pub fn with_id(
     &self,
-    _fn: impl FnOnce() -> Result<Vec<CodeFragment>>,
+    _fn: impl FnOnce() -> Vec<CodeFragment>,
     id_map: &HashMap<String, String>,
-  ) -> Result<Vec<CodeFragment>> {
+  ) -> Vec<CodeFragment> {
     let ids = id_map.keys();
     for id in ids {
       let mut identifiers = self.identifiers.borrow_mut();
@@ -107,7 +105,7 @@ impl CodegenContext {
       );
     }
 
-    let ret = _fn()?;
+    let ret = _fn();
 
     for id in id_map.keys() {
       if let Some(ids) = self.identifiers.borrow_mut().get_mut(id) {
@@ -115,10 +113,14 @@ impl CodegenContext {
       }
     }
 
-    Ok(ret)
+    ret
   }
 
-  pub fn enter_block(&self, block: BlockIRNode, context_block: &mut BlockIRNode) -> impl FnOnce() {
+  pub fn enter_block(
+    &self,
+    block: BlockIRNode<'a>,
+    context_block: &mut BlockIRNode<'a>,
+  ) -> impl FnOnce() {
     let parent = mem::take(context_block);
     *context_block = block;
     || *context_block = parent
@@ -141,13 +143,12 @@ pub struct VaporCodegenResult {
 }
 
 // IR -> JS codegen
-#[napi]
-pub fn generate(env: Env, ir: RootIRNode, options: CodegenOptions) -> Result<VaporCodegenResult> {
+pub fn generate<'a>(ir: RootIRNode<'a>, options: CodegenOptions) -> VaporCodegenResult {
   let mut frag = vec![];
   let has_template_ref = ir.has_template_ref;
   let root_template_index = ir.root_template_index;
   let templates = ir.templates.clone();
-  let context = CodegenContext::new(env, ir, options);
+  let context = CodegenContext::new(ir, options);
 
   frag.push(Either3::A(FragmentSymbol::IndentStart));
   if has_template_ref {
@@ -157,26 +158,27 @@ pub fn generate(env: Env, ir: RootIRNode, options: CodegenOptions) -> Result<Vap
       context.helper("createTemplateRefSetter")
     ))))
   }
+  let context_block = &mut *context.block.borrow_mut() as *mut BlockIRNode;
   frag.extend(gen_block_content(
     None,
     &context,
-    &mut context.block.borrow_mut(),
+    unsafe { &mut *context_block },
     true,
     None,
-  )?);
+  ));
   frag.push(Either3::A(FragmentSymbol::IndentEnd));
   frag.push(Either3::A(FragmentSymbol::Newline));
 
   if context.delegates.borrow().len() > 0 {
     context.helper("delegateEvents");
   }
-  let templates = gen_templates(templates, root_template_index, &context)?;
+  let templates = gen_templates(templates, root_template_index, &context);
 
   let code = code_fragment_to_string(frag, &context);
-  Ok(VaporCodegenResult {
+  VaporCodegenResult {
     code,
     delegates: context.delegates.take(),
     helpers: context.helpers.take(),
     templates,
-  })
+  }
 }

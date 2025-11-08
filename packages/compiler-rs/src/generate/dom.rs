@@ -1,5 +1,4 @@
 use napi::Either;
-use napi::Result;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
 
@@ -9,10 +8,7 @@ use crate::generate::utils::FragmentSymbol::Newline;
 use crate::generate::utils::gen_call;
 use crate::ir::index::InsertNodeIRNode;
 
-pub fn gen_insert_node(
-  oper: InsertNodeIRNode,
-  context: &CodegenContext,
-) -> Result<Vec<CodeFragment>> {
+pub fn gen_insert_node(oper: InsertNodeIRNode, context: &CodegenContext) -> Vec<CodeFragment> {
   let InsertNodeIRNode {
     parent,
     elements,
@@ -40,5 +36,5 @@ pub fn gen_insert_node(
       },
     ],
   ));
-  Ok(result)
+  result
 }

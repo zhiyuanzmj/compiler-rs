@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use napi::{
-  Result,
-  bindgen_prelude::{Either3, JsObjectValue, Object},
-};
+use napi::bindgen_prelude::Either3;
+use oxc_ast::{AstKind, ast::Expression};
+use oxc_ast_visit::Visit;
+use oxc_span::{GetSpan, Span};
 
 use crate::{
   generate::{
@@ -11,10 +11,7 @@ use crate::{
     utils::{CodeFragment, NewlineType},
   },
   ir::index::{SimpleExpressionNode, SourceLocation},
-  utils::{
-    check::is_static_property, expression::is_constant_expression, utils::TS_NODE_TYPES,
-    walk::_walk_identifiers,
-  },
+  utils::walk::WalkIdentifiers,
 };
 
 pub fn gen_expression(
@@ -22,23 +19,22 @@ pub fn gen_expression(
   context: &CodegenContext,
   assignment: Option<String>,
   need_wrap: Option<bool>,
-) -> Result<Vec<CodeFragment>> {
-  let is_constant = is_constant_expression(&node);
+) -> Vec<CodeFragment> {
   let content = node.content.clone();
   let loc = node.loc;
   let need_wrap = need_wrap.unwrap_or(false);
 
   if node.is_static {
-    return Ok(vec![Either3::B((
+    return vec![Either3::B((
       format!("\"{content}\""),
       NewlineType::None,
       loc,
       None,
-    ))]);
+    ))];
   }
 
-  if content.is_empty() || is_constant {
-    return Ok(vec![
+  if content.is_empty() || node.is_constant_expression() {
+    return vec![
       Either3::B((content, NewlineType::None, loc, None)),
       Either3::B((
         if let Some(assignment) = assignment {
@@ -50,50 +46,51 @@ pub fn gen_expression(
         None,
         None,
       )),
-    ]);
+    ];
   }
 
-  let Some(ast) = node.ast else {
+  let Some(ast) = &node.ast else {
     return gen_identifier(content, context, loc, assignment.as_ref(), None);
   };
 
-  let mut ids = vec![];
-  let mut parent_map = HashMap::new();
-  let ids1 = &mut ids;
-  let parent_map1 = &mut parent_map;
-  _walk_identifiers(
-    context.env,
-    ast,
-    move |id, parent, _, _, _| {
-      ids1.push(id);
-      if let Some(parent) = parent {
-        parent_map1.insert(id.get_named_property::<u32>("start")?, parent);
-      }
-      Ok(())
-    },
-    false,
-    None,
-    None,
-  )?;
+  let mut ids: Vec<Span> = vec![];
+  let mut parent_map: HashMap<u32, bool> = HashMap::new();
+  if let Expression::Identifier(ast) = ast {
+    ids.push(ast.span)
+  } else if let Expression::StaticMemberExpression(ast) = ast {
+    ids = vec![ast.span];
+  } else if let Expression::JSXElement(ast) = ast {
+    ids = vec![ast.span];
+  } else {
+    WalkIdentifiers::new(
+      Box::new(|id, parent, _, _, _| {
+        ids.push(id.span());
+        if let Some(AstKind::AssignmentTargetPropertyIdentifier(_)) = parent {
+          parent_map.insert(id.span().start, true);
+        }
+      }),
+      false,
+    )
+    .visit_expression(ast);
+  }
 
-  let mut has_member_expression = false;
   let len = ids.len();
   if len > 0 {
     let mut frag = vec![];
     if need_wrap {
       frag.push(Either3::C(Some("() => (".to_string())));
     }
-    let is_ts_node = TS_NODE_TYPES.contains(&ast.get_named_property::<String>("type")?.as_str());
-    let offset = ast.get_named_property::<u32>("start")? as usize;
+    let is_ts_node = ast.is_typescript_syntax();
+    let offset = ast.span().start as usize;
     let mut i = 0;
     for id in ids.iter() {
-      let start = id.get_named_property::<u32>("start")? as usize - offset;
-      let end = id.get_named_property::<u32>("end")? as usize - offset;
+      let start = id.start as usize - offset;
+      let end = id.end as usize - offset;
       let prev = if i > 0 { ids.get(i - 1) } else { None };
 
       if !is_ts_node || i != 0 {
         let leading_text = content[if let Some(prev) = prev {
-          prev.get_named_property::<u32>("end")? as usize - offset
+          prev.end as usize - offset
         } else {
           0
         }..start]
@@ -109,35 +106,16 @@ pub fn gen_expression(
       }
 
       let source = content[start..end].to_string();
-      let parent = parent_map.get(&id.get_named_property::<u32>("start")?);
-
-      if !has_member_expression {
-        has_member_expression = if let Some(parent) = parent
-          && parent
-            .get_named_property::<String>("type")?
-            .eq("MemberExpression")
-        {
-          true
-        } else {
-          false
-        };
-      }
+      let parent = parent_map.get(&id.start);
 
       frag.extend(gen_identifier(
-        source,
-        context,
-        None,
+        source, context, None,
         // {
         //   start: advancePositionWithClone(node.loc?.start, source, start),
         //   end: advancePositionWithClone(node.loc?.start, source, end),
         // },
-        if has_member_expression {
-          None
-        } else {
-          assignment.as_ref()
-        },
-        parent,
-      )?);
+        None, parent,
+      ));
 
       if i == len - 1 && end < content.len() && !is_ts_node {
         frag.push(Either3::B((
@@ -152,7 +130,6 @@ pub fn gen_expression(
 
     if let Some(assignment) = assignment
       && !assignment.is_empty()
-      && has_member_expression
     {
       frag.push(Either3::C(Some(format!(" = {assignment}"))))
     }
@@ -160,9 +137,9 @@ pub fn gen_expression(
     if need_wrap {
       frag.push(Either3::C(Some(")".to_string())))
     }
-    Ok(frag)
+    frag
   } else {
-    Ok(vec![Either3::B((content, NewlineType::Unknown, loc, None))])
+    vec![Either3::B((content, NewlineType::Unknown, loc, None))]
   }
 }
 
@@ -171,37 +148,37 @@ pub fn gen_identifier(
   context: &CodegenContext,
   loc: Option<SourceLocation>,
   assignment: Option<&String>,
-  parent: Option<&Object>,
-) -> Result<Vec<CodeFragment>> {
+  parent: Option<&bool>,
+) -> Vec<CodeFragment> {
   if let Some(id_map) = context.identifiers.borrow().get(&name)
     && id_map.len() > 0
   {
     if let Some(replacement) = id_map.get(0) {
       if let Some(parent) = parent
-        && parent.get_named_property::<String>("type")?.eq("Property")
-        && parent.get_named_property::<bool>("shorthand")?
+        && *parent
+      // && parent.get_named_property::<String>("type")?.eq("Property")
+      // && parent.get_named_property::<bool>("shorthand")?
       {
-        return Ok(vec![Either3::B((
+        return vec![Either3::B((
           format!("{name}: {replacement}"),
           NewlineType::None,
           loc,
           None,
-        ))]);
+        ))];
       } else {
-        return Ok(vec![Either3::B((
+        return vec![Either3::B((
           replacement.to_string(),
           NewlineType::None,
           loc,
           None,
-        ))]);
+        ))];
       }
     }
   }
 
   let mut prefix = String::new();
   if let Some(parent) = parent
-    && is_static_property(*parent)
-    && parent.get_named_property::<bool>("shorthand")?
+    && *parent
   {
     // property shorthand like { foo }, we need to add the key since
     // we rewrite the value
@@ -212,8 +189,8 @@ pub fn gen_identifier(
     name = format!("{name} = {assignment}");
   }
 
-  Ok(vec![
+  vec![
     Either3::B((prefix, NewlineType::None, None, None)),
     Either3::B((name.clone(), NewlineType::None, loc, Some(name))),
-  ])
+  ]
 }

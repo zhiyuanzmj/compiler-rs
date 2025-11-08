@@ -1,5 +1,4 @@
 use napi::Either;
-use napi::Result;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
 
@@ -13,7 +12,7 @@ use crate::ir::index::DirectiveNode;
 use crate::ir::index::SimpleExpressionNode;
 
 // This is only for built-in v-model on native elements.
-pub fn gen_v_model(oper: DirectiveIRNode, context: &CodegenContext) -> Result<Vec<CodeFragment>> {
+pub fn gen_v_model(oper: DirectiveIRNode, context: &CodegenContext) -> Vec<CodeFragment> {
   let DirectiveIRNode {
     model_type,
     element,
@@ -25,7 +24,7 @@ pub fn gen_v_model(oper: DirectiveIRNode, context: &CodegenContext) -> Result<Ve
   let mut result = vec![Either3::A(Newline)];
   let mut body = vec![Either3::C(Some("() => (".to_string()))];
 
-  body.extend(gen_expression(exp.clone(), context, None, None)?);
+  body.extend(gen_expression(exp.clone(), context, None, None));
   body.push(Either3::C(Some(")".to_string())));
 
   result.extend(gen_call(
@@ -42,7 +41,7 @@ pub fn gen_v_model(oper: DirectiveIRNode, context: &CodegenContext) -> Result<Ve
       // getter
       Either4::D(body),
       // setter
-      Either4::D(gen_model_handler(exp, context)?),
+      Either4::D(gen_model_handler(exp, context)),
       // modifiers
       if modifiers.len() > 0 {
         Either4::C(Some(format!(
@@ -58,20 +57,17 @@ pub fn gen_v_model(oper: DirectiveIRNode, context: &CodegenContext) -> Result<Ve
       },
     ],
   ));
-  Ok(result)
+  result
 }
 
-pub fn gen_model_handler(
-  exp: SimpleExpressionNode,
-  context: &CodegenContext,
-) -> Result<Vec<CodeFragment>> {
+pub fn gen_model_handler(exp: SimpleExpressionNode, context: &CodegenContext) -> Vec<CodeFragment> {
   let mut result = vec![Either3::C(Some("_value => (".to_string()))];
   result.extend(gen_expression(
     exp,
     context,
     Some("_value".to_string()),
     None,
-  )?);
+  ));
   result.push(Either3::C(Some(")".to_string())));
-  Ok(result)
+  result
 }

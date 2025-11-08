@@ -1,9 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
-use napi::{
-  Either, Result,
-  bindgen_prelude::{Either3, Either4, JsObjectValue},
-};
+use napi::bindgen_prelude::{Either, Either3, Either4};
+use oxc_ast_visit::Visit;
 
 use crate::{
   generate::{
@@ -19,18 +17,18 @@ use crate::{
     component::{IRSlotDynamicBasic, IRSlotDynamicConditional, IRSlots},
     index::{BlockIRNode, IRFor},
   },
-  utils::{my_box::MyBox, walk::_walk_identifiers},
+  utils::walk::WalkIdentifiers,
 };
 
-pub fn gen_raw_slots(
-  mut slots: Vec<IRSlots>,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
-) -> Result<Option<Vec<CodeFragment>>> {
+pub fn gen_raw_slots<'a>(
+  mut slots: Vec<IRSlots<'a>>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Option<Vec<CodeFragment>> {
   if slots.len() == 0 {
-    return Ok(None);
+    return None;
   }
-  Ok(if let Either4::A(_) = &slots[0] {
+  if let Either4::A(_) = &slots[0] {
     // single static slot
     let static_slots = slots.remove(0);
     if let Either4::A(static_slots) = static_slots {
@@ -39,7 +37,7 @@ pub fn gen_raw_slots(
         context,
         context_block,
         if slots.len() > 1 { Some(slots) } else { None },
-      )?)
+      ))
     } else {
       None
     }
@@ -49,97 +47,110 @@ pub fn gen_raw_slots(
       context,
       context_block,
       Some(slots),
-    )?)
-  })
+    ))
+  }
 }
 
-fn gen_static_slots(
-  mut slots: HashMap<String, BlockIRNode>,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
-  dynamic_slots: Option<Vec<IRSlots>>,
-) -> Result<Vec<CodeFragment>> {
+fn gen_static_slots<'a>(
+  mut slots: HashMap<String, BlockIRNode<'a>>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
+  dynamic_slots: Option<Vec<IRSlots<'a>>>,
+) -> Vec<CodeFragment> {
   let mut args = vec![];
+  let context_block = context_block as *mut BlockIRNode;
   for name in slots.keys().cloned().collect::<Vec<String>>() {
     let mut result = vec![Either3::C(Some(format!("\"{}\": ", name.clone())))];
     let oper = slots.remove(&name).unwrap();
-    result.extend(gen_slot_block_with_props(oper, context, context_block).unwrap());
+    result.extend(gen_slot_block_with_props(oper, context, unsafe {
+      &mut *context_block
+    }));
     args.push(Either4::D(result))
   }
   if let Some(dynamic_slots) = dynamic_slots {
     let mut body = vec![Either3::C(Some("$: ".to_string()))];
-    body.extend(gen_dynamic_slots(dynamic_slots, context, context_block)?);
+    body.extend(gen_dynamic_slots(dynamic_slots, context, unsafe {
+      &mut *context_block
+    }));
     args.push(Either4::D(body));
   }
-  Ok(gen_multi(get_delimiters_object_newline(), args))
+  gen_multi(get_delimiters_object_newline(), args)
 }
 
-fn gen_dynamic_slots(
-  slots: Vec<IRSlots>,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
-) -> Result<Vec<CodeFragment>> {
-  Ok(gen_multi(
-    get_delimiters_array_newline(),
-    slots
-      .into_iter()
-      .map(|slot| match slot {
-        Either4::A(slot) => {
-          Either4::D(gen_static_slots(slot.slots, context, context_block, None).unwrap())
-        }
-        Either4::B(slot) => {
-          Either4::D(gen_dynamic_slot(slot, context, context_block, true).unwrap())
-        }
-        Either4::C(slot) => {
-          Either4::D(gen_conditional_slot(slot, context, context_block, true).unwrap())
-        }
-        Either4::D(slot) => Either4::C(Some(slot.slots.content)),
-      })
-      .collect::<Vec<_>>(),
-  ))
+fn gen_dynamic_slots<'a>(
+  slots: Vec<IRSlots<'a>>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Vec<CodeFragment> {
+  let mut result = vec![];
+  let context_block = context_block as *mut BlockIRNode;
+  for slot in slots {
+    result.push(match slot {
+      Either4::A(slot) => Either4::D(gen_static_slots(
+        slot.slots,
+        context,
+        unsafe { &mut *context_block },
+        None,
+      )),
+      Either4::B(slot) => Either4::D(gen_dynamic_slot(
+        slot,
+        context,
+        unsafe { &mut *context_block },
+        true,
+      )),
+      Either4::C(slot) => Either4::D(gen_conditional_slot(
+        slot,
+        context,
+        unsafe { &mut *context_block },
+        true,
+      )),
+      Either4::D(slot) => Either4::C(Some(slot.slots.content)),
+    })
+  }
+  gen_multi(get_delimiters_array_newline(), result)
 }
 
-fn gen_dynamic_slot(
-  slot: IRSlotDynamicBasic,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
+fn gen_dynamic_slot<'a>(
+  slot: IRSlotDynamicBasic<'a>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
   with_function: bool,
-) -> Result<Vec<CodeFragment>> {
+) -> Vec<CodeFragment> {
   let frag = if slot._loop.is_none() {
-    gen_basic_dynamic_slot(slot, context, context_block)?
+    gen_basic_dynamic_slot(slot, context, context_block)
   } else {
-    gen_loop_slot(slot, context, context_block)?
+    gen_loop_slot(slot, context, context_block)
   };
-  Ok(if with_function {
+  if with_function {
     let mut result = vec![Either3::C(Some("() => (".to_string()))];
     result.extend(frag);
     result.push(Either3::C(Some(")".to_string())));
     result
   } else {
     frag
-  })
+  }
 }
 
-fn gen_basic_dynamic_slot(
-  slot: IRSlotDynamicBasic,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
-) -> Result<Vec<CodeFragment>> {
+fn gen_basic_dynamic_slot<'a>(
+  slot: IRSlotDynamicBasic<'a>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Vec<CodeFragment> {
   let mut name = vec![Either3::C(Some("name: ".to_string()))];
-  name.extend(gen_expression(slot.name, context, None, None)?);
+  name.extend(gen_expression(slot.name, context, None, None));
   let mut _fn = vec![Either3::C(Some("fn: ".to_string()))];
-  _fn.extend(gen_slot_block_with_props(slot._fn, context, context_block)?);
-  Ok(gen_multi(
+  _fn.extend(gen_slot_block_with_props(slot._fn, context, context_block));
+  gen_multi(
     get_delimiters_object_newline(),
     vec![Either4::D(name), Either4::D(_fn)],
-  ))
+  )
 }
 
-fn gen_loop_slot(
-  slot: IRSlotDynamicBasic,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
-) -> Result<Vec<CodeFragment>> {
+fn gen_loop_slot<'a>(
+  slot: IRSlotDynamicBasic<'a>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Vec<CodeFragment> {
   let IRSlotDynamicBasic {
     name, _fn, _loop, ..
   } = slot;
@@ -166,12 +177,12 @@ fn gen_loop_slot(
   }
 
   let mut name_expr = vec![Either3::C(Some("name: ".to_string()))];
-  name_expr.extend(context.with_id(|| gen_expression(name, context, None, None), &id_map)?);
+  name_expr.extend(context.with_id(|| gen_expression(name, context, None, None), &id_map));
   let mut fn_expr = vec![Either3::C(Some("fn: ".to_string()))];
   fn_expr.extend(context.with_id(
     || gen_slot_block_with_props(_fn, context, context_block),
     &id_map,
-  )?);
+  ));
   let slot_expr = gen_multi(
     get_delimiters_object_newline(),
     vec![Either4::D(name_expr), Either4::D(fn_expr)],
@@ -207,19 +218,19 @@ fn gen_loop_slot(
   let result = gen_call(
     Either::A(context.helper("createForSlots")),
     vec![
-      Either4::D(gen_expression(source.unwrap(), context, None, None)?),
+      Either4::D(gen_expression(source.unwrap(), context, None, None)),
       Either4::D(body),
     ],
   );
-  Ok(result)
+  result
 }
 
-fn gen_conditional_slot(
-  slot: IRSlotDynamicConditional,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
+fn gen_conditional_slot<'a>(
+  slot: IRSlotDynamicConditional<'a>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
   with_function: bool,
-) -> Result<Vec<CodeFragment>> {
+) -> Vec<CodeFragment> {
   let IRSlotDynamicConditional {
     condition,
     positive,
@@ -227,40 +238,50 @@ fn gen_conditional_slot(
     ..
   } = slot;
   let mut frag: Vec<CodeFragment> = vec![];
-  frag.extend(gen_expression(condition, context, None, None)?);
+  frag.extend(gen_expression(condition, context, None, None));
   frag.extend(vec![
     Either3::A(FragmentSymbol::IndentStart),
     Either3::A(FragmentSymbol::Newline),
     Either3::C(Some("? ".to_string())),
   ]);
-  frag.extend(gen_dynamic_slot(positive, context, context_block, false)?);
+  let context_block = context_block as *mut BlockIRNode;
+  frag.extend(gen_dynamic_slot(
+    positive,
+    context,
+    unsafe { &mut *context_block },
+    false,
+  ));
   frag.push(Either3::A(FragmentSymbol::Newline));
   frag.push(Either3::C(Some(": ".to_string())));
-  frag.extend(if let Some(MyBox(negative)) = negative {
+  frag.extend(if let Some(negative) = negative {
     match *negative {
-      Either::A(negative) => gen_dynamic_slot(negative, context, context_block, false)?,
-      Either::B(negative) => gen_conditional_slot(negative, context, context_block, false)?,
+      Either::A(negative) => {
+        gen_dynamic_slot(negative, context, unsafe { &mut *context_block }, false)
+      }
+      Either::B(negative) => {
+        gen_conditional_slot(negative, context, unsafe { &mut *context_block }, false)
+      }
     }
   } else {
     vec![Either3::C(Some("void 0".to_string()))]
   });
   frag.push(Either3::A(FragmentSymbol::IndentEnd));
 
-  Ok(if with_function {
+  if with_function {
     let mut result = vec![Either3::C(Some("() => (".to_string()))];
     result.extend(frag);
     result.push(Either3::C(Some(")".to_string())));
     result
   } else {
     frag
-  })
+  }
 }
 
-fn gen_slot_block_with_props(
-  oper: BlockIRNode,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
-) -> Result<Vec<CodeFragment>> {
+fn gen_slot_block_with_props<'a>(
+  oper: BlockIRNode<'a>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Vec<CodeFragment> {
   let mut is_destructure_assignment = false;
   let mut props_name = String::new();
   let mut exit_scope = None;
@@ -272,20 +293,14 @@ fn gen_slot_block_with_props(
     if is_destructure_assignment {
       let scope = context.enter_scope();
       props_name = format!("_slotProps{}", scope.0);
-      if let Some(ast) = props.ast {
-        _walk_identifiers(
-          context.env,
-          ast,
-          |id, _, _, is_reference, is_local| {
-            if is_reference && !is_local {
-              ids_of_props.insert(id.get_named_property::<String>("name")?);
-            }
-            Ok(())
-          },
-          true,
-          None,
-          None,
-        )?;
+      if let Some(ast) = &props.ast {
+        WalkIdentifiers::new(
+          Box::new(|id, _, _, _, _| {
+            ids_of_props.insert(id.name.to_string());
+          }),
+          false,
+        )
+        .visit_expression(ast);
       }
       exit_scope = Some(scope.1);
     } else {
@@ -317,10 +332,9 @@ fn gen_slot_block_with_props(
       )
     },
     &id_map,
-  )?;
+  );
   if let Some(exit_scope) = exit_scope {
     exit_scope();
   };
-
-  Ok(block_fn)
+  block_fn
 }

@@ -1,36 +1,38 @@
+use napi::{
+  Either,
+  bindgen_prelude::{Either3, Either16},
+};
+use oxc_ast::ast::{JSXAttribute, JSXAttributeName, JSXElement};
+use regex::Regex;
 use std::{collections::HashSet, rc::Rc, sync::LazyLock};
 
-use napi::{
-  Either, Result,
-  bindgen_prelude::{Either16, JsObjectValue, Object},
-};
-use regex::Regex;
-
 use crate::{
-  ir::index::{BlockIRNode, IRNodeTypes, Modifiers, SetEventIRNode, SimpleExpressionNode},
+  ir::index::{BlockIRNode, Modifiers, SetEventIRNode, SimpleExpressionNode},
   transform::{DirectiveTransformResult, TransformContext},
   utils::{
     check::is_jsx_component,
     error::{ErrorCodes, on_error},
-    expression::{EMPTY_EXPRESSION, create_simple_expression, resolve_expression},
-    text::get_text,
   },
 };
 
 static EVENT_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^on([A-Z])").unwrap());
 
-pub fn transform_v_on(
-  dir: Object,
-  node: Object,
-  context: &Rc<TransformContext>,
-  context_block: &mut BlockIRNode,
-) -> Result<Option<DirectiveTransformResult>> {
-  let Ok(name) = dir.get_named_property::<Object>("name") else {
-    return Ok(None);
-  };
+pub fn transform_v_on<'a>(
+  dir: &JSXAttribute,
+  node: &JSXElement,
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &mut BlockIRNode<'a>,
+) -> Option<DirectiveTransformResult<'a>> {
   let is_component = is_jsx_component(node);
 
-  let replaced = EVENT_REGEX.replace(&get_text(name, context), |caps: &regex::Captures| {
+  let (name, name_loc) = match &dir.name {
+    JSXAttributeName::Identifier(name) => (name.name.to_string(), name.span.clone()),
+    JSXAttributeName::NamespacedName(name) => (
+      context.ir.borrow().source[name.span.start as usize..name.span.end as usize].to_string(),
+      name.span.clone(),
+    ),
+  };
+  let replaced = EVENT_REGEX.replace(&name, |caps: &regex::Captures| {
     format!("on{}", caps[1].to_lowercase())
   })[2..]
     .to_string();
@@ -38,14 +40,19 @@ pub fn transform_v_on(
   let name_string = splited[0].to_string();
   let modifiers = splited[1..].to_vec();
 
-  let value = dir.get_named_property::<Object>("value");
-  if value.is_err() && modifiers.is_empty() {
-    on_error(ErrorCodes::X_V_ON_NO_EXPRESSION, context);
+  let value = &dir.value;
+  if value.is_none() && modifiers.is_empty() {
+    on_error(ErrorCodes::VOnNoExpression, context);
   }
 
-  let mut arg = create_simple_expression(name_string.clone(), Some(true), Some(name), None);
-  let exp = if let Ok(value) = value {
-    Some(resolve_expression(value, context))
+  let mut arg = SimpleExpressionNode {
+    content: name_string.clone(),
+    is_static: true,
+    loc: Some(name_loc),
+    ast: None,
+  };
+  let exp = if let Some(value) = value {
+    Some(SimpleExpressionNode::new(Either3::C(value), context))
   } else {
     None
   };
@@ -62,7 +69,12 @@ pub fn transform_v_on(
     },
     modifiers
       .iter()
-      .map(|modifier| create_simple_expression(modifier.to_string(), None, None, None))
+      .map(|modifier| SimpleExpressionNode {
+        content: modifier.to_string(),
+        is_static: false,
+        loc: None,
+        ast: None,
+      })
       .collect(),
   );
 
@@ -93,12 +105,12 @@ pub fn transform_v_on(
   }
 
   if is_component {
-    return Ok(Some(DirectiveTransformResult {
+    return Some(DirectiveTransformResult {
       key: arg,
       value: if let Some(exp) = exp {
         exp
       } else {
-        EMPTY_EXPRESSION
+        SimpleExpressionNode::default()
       },
       handler: Some(true),
       handler_modifiers: Some(Modifiers {
@@ -110,7 +122,7 @@ pub fn transform_v_on(
       model_modifiers: None,
       modifier: None,
       runtime_camelize: None,
-    }));
+    });
   }
 
   // Only delegate if:
@@ -121,13 +133,12 @@ pub fn transform_v_on(
     && event_option_modifiers.len() == 0
     && DELEGATED_EVENTS.contains(arg.content.as_str());
 
-  let element = context.reference(&mut context_block.dynamic)?;
+  let element = context.reference(&mut context_block.dynamic);
   context.register_effect(
     context_block,
     context.is_operation(vec![&arg]),
     Either16::H(SetEventIRNode {
       set_event: true,
-      _type: IRNodeTypes::SET_EVENT,
       element,
       value: exp,
       modifiers: Modifiers {
@@ -142,8 +153,8 @@ pub fn transform_v_on(
     }),
     None,
     None,
-  )?;
-  Ok(None)
+  );
+  None
 }
 
 static DELEGATED_EVENTS: LazyLock<HashSet<&str>> = LazyLock::new(|| {

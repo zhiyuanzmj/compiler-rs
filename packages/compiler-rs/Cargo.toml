@@ -13,11 +13,10 @@ napi = {version = "3.3.0", features = ["napi9"]}
 napi-derive = "3.2.5"
 oxc_parser = "0.93.0"
 oxc_ast = "0.93.0"
-serde_json = "1.0.145"
 regex = "1.11.3"
 oxc_allocator = "0.93.0"
 oxc_span = "0.93.0"
-bitflags = "2.10.0"
+oxc_ast_visit = "0.93.0"
 
 [build-dependencies]
 napi-build = "2"

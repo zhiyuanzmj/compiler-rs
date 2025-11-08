@@ -1,69 +1,40 @@
 use std::{rc::Rc, sync::LazyLock};
 
-use napi::{Result, bindgen_prelude::Object};
+use napi::bindgen_prelude::Either3;
+use oxc_ast::ast::{JSXAttribute, JSXAttributeName};
 use regex::Regex;
 
 use crate::{
-  ir::index::DirectiveNode,
+  ir::index::{DirectiveNode, SimpleExpressionNode},
   transform::TransformContext,
-  utils::expression::{create_simple_expression, get_value, resolve_expression},
 };
 
 static NAMESPACE_REGEX: LazyLock<Regex> =
   LazyLock::new(|| Regex::new(r"^(?:\$([\w-]+)\$)?([\w-]+)?").unwrap());
-pub fn resolve_directive(node: Object, context: &Rc<TransformContext>) -> Result<DirectiveNode> {
-  let name = node.get::<Object>("name")?.expect("name is required!");
-  let name_type = name
-    .get::<String>("type")
-    .ok()
-    .flatten()
-    .map_or(String::from(""), |a| a);
-  let mut name_string = if name_type.eq("JSXNamespacedName") {
-    name
-      .get::<Object>("namespace")
-      .ok()
-      .flatten()
-      .map_or(String::from(""), |a| {
-        a.get::<String>("name")
-          .ok()
-          .flatten()
-          .map_or(String::from(""), |b| b)
-      })
-  } else if name_type.eq("JSXIdentifier") {
-    name
-      .get::<String>("name")
-      .ok()
-      .flatten()
-      .map_or(String::from(""), |a| a)
-  } else {
-    String::from("")
+pub fn resolve_directive<'a>(
+  node: &JSXAttribute,
+  context: &Rc<TransformContext<'a>>,
+) -> DirectiveNode<'a> {
+  let mut arg_string = String::new();
+  let mut name_string = match &node.name {
+    JSXAttributeName::Identifier(name) => name.name.to_string(),
+    JSXAttributeName::NamespacedName(name) => {
+      arg_string = name.name.name.to_string();
+      name.namespace.name.to_string()
+    }
   };
   let is_directive = name_string.starts_with("v-");
   let mut modifiers: Vec<String> = vec![];
   let mut is_static = true;
-  let mut arg_string = if name_type.eq("JSXNamespacedName") {
-    name
-      .get::<Object>("name")
-      .ok()
-      .flatten()
-      .map_or(String::from(""), |name| {
-        name
-          .get::<String>("name")
-          .ok()
-          .flatten()
-          .map_or(String::from(""), |b| b)
-      })
-  } else {
-    String::from("")
-  };
-  if name_type != "JSXNamespacedName" && arg_string.is_empty() {
+
+  if !matches!(node.name, JSXAttributeName::NamespacedName(_)) {
     let name_string_splited: Vec<&str> = name_string.split("_").collect();
     if name_string_splited.len() > 1 {
       modifiers = name_string_splited[1..]
         .iter()
         .map(|s| s.to_string())
         .collect();
-      name_string = name_string_splited[0].to_owned();
+      name_string = name_string_splited[0].to_string();
     }
   } else {
     if let Some(result) = NAMESPACE_REGEX.captures(&arg_string.clone()) {
@@ -102,46 +73,49 @@ pub fn resolve_directive(node: Object, context: &Rc<TransformContext>) -> Result
   };
 
   let arg = if is_directive {
-    if !arg_string.is_empty() && name_type.eq("JSXNamespacedName") {
-      Some(create_simple_expression(
-        arg_string,
-        Some(is_static),
-        if is_static {
-          name.get::<Object>("name").ok().flatten()
-        } else {
-          None
-        },
-        None,
-      ))
+    if !arg_string.is_empty()
+      && let JSXAttributeName::NamespacedName(_) = &node.name
+    {
+      Some(SimpleExpressionNode {
+        content: arg_string,
+        is_static,
+        ast: None,
+        loc: None,
+      })
     } else {
       None
     }
+  } else if let JSXAttributeName::Identifier(_) = &node.name {
+    Some(SimpleExpressionNode {
+      content: name_string,
+      is_static: true,
+      ast: None,
+      loc: None,
+    })
   } else {
-    Some(create_simple_expression(
-      name_string,
-      Some(true),
-      Some(name),
-      None,
-    ))
+    None
   };
 
-  let exp = if let Some(exp) = get_value(node) {
-    Some(resolve_expression(exp, context))
+  let exp = if let Some(exp) = &node.value {
+    Some(SimpleExpressionNode::new(Either3::C(exp), context))
   } else {
     None
   };
 
   let modifiers = modifiers
-    .iter()
-    .map(|modifier| {
-      create_simple_expression(modifier.to_owned().to_owned(), Some(false), None, None)
+    .into_iter()
+    .map(|modifier| SimpleExpressionNode {
+      content: modifier,
+      is_static: false,
+      ast: None,
+      loc: None,
     })
     .collect();
-  Ok(DirectiveNode {
+  DirectiveNode {
     name: dir_name,
     exp,
     arg,
     loc: None,
     modifiers: modifiers,
-  })
+  }
 }

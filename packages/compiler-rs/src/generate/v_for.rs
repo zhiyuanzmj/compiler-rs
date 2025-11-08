@@ -1,9 +1,15 @@
 use std::collections::HashMap;
 
 use napi::{
-  Either, Env, Result,
-  bindgen_prelude::{Either3, Either4, Either16, JsObjectValue, Object},
+  Either,
+  bindgen_prelude::{Either3, Either4, Either16},
 };
+use oxc_ast::{
+  AstKind,
+  ast::{BinaryExpression, BinaryOperator, Expression, ObjectPropertyKind, PropertyKey},
+};
+use oxc_ast_visit::Visit;
+use oxc_span::{GetSpan, Span};
 
 use crate::{
   generate::{
@@ -14,11 +20,7 @@ use crate::{
     utils::{CodeFragment, FragmentSymbol, gen_call, gen_multi},
   },
   ir::index::{BlockIRNode, ForIRNode, IREffect, SimpleExpressionNode},
-  utils::{
-    check::is_string_literal,
-    expression::is_globally_allowed,
-    walk::{_walk_identifiers, SyncWalker},
-  },
+  utils::{expression::is_globally_allowed, walk::WalkIdentifiers},
 };
 
 /**
@@ -42,17 +44,16 @@ pub enum VaporVForFlags {
   Once = 1 << 2,
 }
 
-pub fn gen_for(
-  oper: ForIRNode,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
-) -> Result<Vec<CodeFragment>> {
+pub fn gen_for<'a>(
+  oper: ForIRNode<'a>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Vec<CodeFragment> {
   let ForIRNode {
     source,
     value,
     key,
     index,
-    _type,
     id,
     key_prop,
     mut render,
@@ -67,110 +68,87 @@ pub fn gen_for(
   let raw_index = index.and_then(|index| Some(index.content));
 
   let mut source_expr = vec![Either3::C(Some("() => (".to_string()))];
-  source_expr.extend(gen_expression(source, context, None, None)?);
+  source_expr.extend(gen_expression(source, context, None, None));
   source_expr.push(Either3::C(Some(")".to_string())));
   let id_to_path_map = {
     // construct a id -> accessor path map.
     // e.g. `{ x: { y: [z] }}` -> `Map{ 'z' => '.x.y[0]' }`
-    let mut map = HashMap::new();
+    let mut map: HashMap<String, Option<(String, Option<String>, Option<String>)>> = HashMap::new();
     if let Some(value) = value {
       raw_value = value.content;
       if let Some(ast) = value.ast
-        && !ast.get_named_property::<String>("type")?.eq("Identifier")
+        && !matches!(ast, Expression::Identifier(_))
       {
-        _walk_identifiers(
-          context.env,
-          ast,
-          |id, _, parent_stack, is_reference, is_local| {
-            if is_reference && !is_local {
-              let mut path = String::new();
-              let mut helper = None;
-              let mut helper_args = None;
-              let mut i = 0;
-              for parent in &parent_stack {
-                let child = parent_stack.get(i + 1).unwrap_or(&id);
-                i += 1;
+        WalkIdentifiers::new(
+          Box::new(|id, _, parent_stack, _, _| {
+            let mut path = String::new();
+            let mut helper = None;
+            let mut helper_args = None;
+            let mut i = 0;
+            for parent in parent_stack {
+              let child = parent_stack.get(i + 1);
+              let child_span = if let Some(child) = child {
+                &child.span()
+              } else {
+                &id.span
+              };
+              let child_is_spread = if let Some(child) = child {
+                matches!(child, AstKind::SpreadElement(_))
+              } else {
+                false
+              };
+              i += 1;
 
-                let parent_type = parent.get_named_property::<String>("type")?;
-                let child_type = child.get_named_property::<String>("type")?;
-                if parent_type.eq("Property")
-                  && context
-                    .env
-                    .strict_equals(parent.get_named_property::<Object>("value")?, *child)?
-                  && let Ok(key) = parent.get_named_property::<Object>("key")
-                {
-                  if is_string_literal(Some(key)) {
-                    path += &format!("[\"{}\"]", key.get_named_property::<String>("value")?);
-                  } else {
-                    // non-computed, can only be identifier
-                    path += &format!(".{}", key.get_named_property::<String>("name")?);
-                  }
-                } else if parent_type.eq("ArrayExpression") {
-                  let index = parent
-                    .get_named_property::<Vec<Object>>("elements")?
-                    .iter()
-                    .position(|element| context.env.strict_equals(*element, *child).unwrap())
-                    .unwrap();
-                  if child
-                    .get_named_property::<String>("type")?
-                    .eq("SpreadElement")
-                  {
-                    path += &format!(".slice({index})");
-                  } else {
-                    path += &format!("[{index}]");
-                  }
-                } else if parent_type == "ObjectExpression" && child_type == "SpreadElement" {
-                  helper = Some(context.helper("getRestElement"));
-                  helper_args = Some(format!(
-                    "[{}]",
-                    parent
-                      .get_named_property::<Vec<Object>>("properties")?
-                      .iter()
-                      .filter_map(|p| {
-                        if p
-                          .get_named_property::<String>("type")
-                          .unwrap()
-                          .eq("Property")
-                        {
-                          Some(
-                            if is_string_literal(p.get_named_property::<Object>("key").ok()) {
-                              format!(
-                                "\"{}\"",
-                                p.get_named_property::<Object>("key")
-                                  .unwrap()
-                                  .get_named_property::<String>("value")
-                                  .unwrap()
-                              )
-                            } else {
-                              format!(
-                                "\"{}\"",
-                                p.get_named_property::<Object>("key")
-                                  .unwrap()
-                                  .get_named_property::<String>("name")
-                                  .unwrap()
-                              )
-                            },
-                          )
-                        } else {
-                          None
-                        }
-                      })
-                      .collect::<Vec<_>>()
-                      .join(", ")
-                  ))
+              if let AstKind::ObjectProperty(parent) = parent
+                && parent.value.span().eq(child_span)
+              {
+                if let PropertyKey::StringLiteral(key) = &parent.key {
+                  path += &format!("[\"{}\"]", key.value);
+                } else {
+                  // non-computed, can only be identifier
+                  path += &format!(".{}", parent.key.name().unwrap());
                 }
+              } else if let AstKind::ArrayExpression(parent) = parent {
+                let index = parent
+                  .elements
+                  .iter()
+                  .position(|element| element.span().eq(child_span))
+                  .unwrap();
+                if child_is_spread {
+                  path += &format!(".slice({index})");
+                } else {
+                  path += &format!("[{index}]");
+                }
+              } else if let AstKind::ObjectExpression(parent) = parent
+                && child_is_spread
+              {
+                helper = Some(context.helper("getRestElement"));
+                helper_args = Some(format!(
+                  "[{}]",
+                  parent
+                    .properties
+                    .iter()
+                    .filter_map(|p| {
+                      if let ObjectPropertyKind::ObjectProperty(p) = p {
+                        Some(if let PropertyKey::StringLiteral(key) = &p.key {
+                          format!("\"{}\"", key.value)
+                        } else {
+                          format!("\"{}\"", p.key.name().unwrap())
+                        })
+                      } else {
+                        None
+                      }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+                ))
               }
-              map.insert(
-                id.get_named_property::<String>("name")?,
-                Some((path, helper, helper_args)),
-              );
             }
-            Ok(())
-          },
-          true,
-          None,
-          None,
-        )?;
+            map.insert(id.name.to_string(), Some((path, helper, helper_args)));
+          }),
+          false,
+        )
+        .visit_expression(&ast);
       } else {
         map.insert(raw_value.clone(), None);
       }
@@ -216,13 +194,8 @@ pub fn gen_for(
     id_map.insert(index_var.to_string(), String::new());
   }
 
-  let (selector_patterns, key_only_binding_patterns) = match_patterns(
-    context.env,
-    &mut render,
-    &key_prop,
-    &mut id_map,
-    &context.ir.source,
-  )?;
+  let (selector_patterns, key_only_binding_patterns) =
+    match_patterns(&mut render, &key_prop, &mut id_map, &context.ir.source);
   let mut selector_declarations = vec![];
   let mut selector_setup = vec![];
 
@@ -238,7 +211,7 @@ pub fn gen_for(
     selector_setup.push(Either3::A(FragmentSymbol::Newline));
     selector_setup.push(Either3::C(Some(format!("{selector_name} = "))));
     let mut body = vec![Either3::C(Some("() => ".to_string()))];
-    body.extend(gen_expression(selector.clone(), context, None, None)?);
+    body.extend(gen_expression(selector.clone(), context, None, None));
     selector_setup.extend(gen_call(
       Either::A("createSelector".to_string()),
       vec![Either4::D(body)],
@@ -278,7 +251,13 @@ pub fn gen_for(
                 Either3::A(FragmentSymbol::IndentStart),
               ]);
               for oper in effect.operations {
-                pattern_frag.extend(gen_operation(oper, context, context_block, &vec![]).unwrap());
+                let _context_block = context_block as *mut BlockIRNode;
+                pattern_frag.extend(gen_operation(
+                  oper,
+                  context,
+                  unsafe { &mut *_context_block },
+                  &vec![],
+                ));
               }
               pattern_frag.extend(vec![
                 Either3::A(FragmentSymbol::IndentEnd),
@@ -290,24 +269,36 @@ pub fn gen_for(
 
             for effect in key_only_binding_patterns {
               for oper in effect.operations {
-                pattern_frag.extend(gen_operation(oper, context, context_block, &vec![]).unwrap())
+                let _context_block = context_block as *mut BlockIRNode;
+                pattern_frag.extend(gen_operation(
+                  oper,
+                  context,
+                  unsafe { &mut *_context_block },
+                  &vec![],
+                ))
               }
             }
             pattern_frag
           })),
-        )?)
+        ))
       } else {
-        frag.extend(gen_block_content(Some(render), context, context_block, false, None).unwrap())
+        frag.extend(gen_block_content(
+          Some(render),
+          context,
+          context_block,
+          false,
+          None,
+        ))
       }
       frag.extend(vec![
         Either3::A(FragmentSymbol::IndentEnd),
         Either3::A(FragmentSymbol::Newline),
         Either3::C(Some("}".to_string())),
       ]);
-      Ok(frag)
+      frag
     },
     &id_map,
-  )?;
+  );
   exit_scope();
 
   let mut flags = 0;
@@ -337,9 +328,7 @@ pub fn gen_for(
       id_map.insert(id, String::new());
     }
 
-    let res = context
-      .with_id(|| gen_expression(expr, context, None, None), &id_map)
-      .unwrap();
+    let res = context.with_id(|| gen_expression(expr, context, None, None), &id_map);
 
     let mut frags = gen_multi(
       (
@@ -397,30 +386,33 @@ pub fn gen_for(
       // todo: hydrationNode
     ],
   ));
-  Ok(frags)
+  frags
 }
 
-fn match_patterns(
-  env: Env,
-  render: &mut BlockIRNode,
+fn match_patterns<'a>(
+  render: &mut BlockIRNode<'a>,
   key_prop: &Option<SimpleExpressionNode>,
   id_map: &mut HashMap<String, String>,
   source: &str,
-) -> Result<(Vec<(IREffect, SimpleExpressionNode)>, Vec<IREffect>)> {
+) -> (
+  Vec<(IREffect<'a>, SimpleExpressionNode<'a>)>,
+  Vec<IREffect<'a>>,
+) {
   let mut selector_patterns = vec![];
   let mut key_only_binding_patterns = vec![];
 
   if let Some(key_prop) = key_prop {
     let effects = &mut render.effect;
+    let _effects = effects as *mut Vec<IREffect>;
     for i in 0..effects.len() {
-      let effect = effects.get(i).unwrap();
-      if let Some(selector) =
-        match_selector_pattern(env, &effect, &key_prop.content, id_map, &source).unwrap()
-      {
+      let effect = unsafe { &mut *_effects }.get(i).unwrap();
+      if let Some(selector) = match_selector_pattern(&effect, &key_prop.content, id_map, &source) {
         selector_patterns.push((effects.remove(i), selector));
       } else if effect.operations.len() > 0 {
-        if let Some(ast) = get_expression(&effect).unwrap().ast
-          && is_key_only_binding(ast, &key_prop.content, &source)
+        if let Some(ast) = &get_expression(&effect).unwrap().ast
+          && key_prop
+            .content
+            .eq(&source[ast.span().start as usize..ast.span().end as usize])
         {
           key_only_binding_patterns.push(effects.remove(i));
         }
@@ -428,152 +420,99 @@ fn match_patterns(
     }
   }
 
-  Ok((selector_patterns, key_only_binding_patterns))
+  (selector_patterns, key_only_binding_patterns)
 }
 
-fn match_selector_pattern(
-  env: Env,
-  effect: &IREffect,
+fn match_selector_pattern<'a>(
+  effect: &'a IREffect,
   key: &str,
   id_map: &mut HashMap<String, String>,
   source: &str,
-) -> Result<Option<SimpleExpressionNode>> {
+) -> Option<SimpleExpressionNode<'a>> {
   if effect.operations.len() != 1 {
-    return Ok(None);
+    return None;
   }
   let expression = get_expression(effect);
   let Some(expression) = expression else {
-    return Ok(None);
+    return None;
   };
-  let Some(ast) = expression.ast else {
-    return Ok(None);
+  let Some(ast) = &expression.ast else {
+    return None;
   };
 
-  let offset = ast.get_named_property::<u32>("start")?;
+  let offset = ast.span().start;
 
-  let mut matcheds: Vec<(Object, Object)> = vec![];
+  let mut matcheds: Vec<(Span, Span)> = vec![];
 
-  {
-    let matcheds = &mut matcheds;
-    SyncWalker::new(
-      Some(Box::new(move |node, _, _, _| {
-        if node
-          .get_named_property::<String>("type")?
-          .eq("BinaryExpression")
-          && node.get_named_property::<String>("operator")?.eq("===")
+  BinaryExpressionVisitor {
+    on_binary_expression: Box::new(|ast| {
+      if matches!(
+        ast.operator,
+        BinaryOperator::Equality | BinaryOperator::StrictEquality
+      ) {
+        let left = &ast.left;
+        let right = &ast.right;
+        let left_is_key = key.eq(&source[left.span().start as usize..left.span().end as usize]);
+        let right_is_key = key.eq(&source[right.span().start as usize..right.span().end as usize]);
+        if left_is_key && !right_is_key && analyze_variable_scopes(&right, &id_map).len() == 0 {
+          matcheds.push((left.span(), right.span()));
+        } else if right_is_key && !left_is_key && analyze_variable_scopes(&left, &id_map).len() == 0
         {
-          let left = node.get_named_property::<Object>("left")?;
-          let right = node.get_named_property::<Object>("right")?;
-          let left_is_key = is_key_only_binding(left, key, source);
-          let right_is_key = is_key_only_binding(right, key, source);
-          if left_is_key && !right_is_key && analyze_variable_scopes(env, right, &id_map).len() == 0
-          {
-            matcheds.push((left, right));
-          } else if right_is_key
-            && !left_is_key
-            && analyze_variable_scopes(env, left, &id_map).len() == 0
-          {
-            matcheds.push((right, left));
-          }
+          matcheds.push((right.span(), left.span()));
         }
-        Ok(None)
-      })),
-      None,
-    )
-    .visit(ast, None, None, None)?;
+      }
+    }),
   }
+  .visit_expression(ast);
 
   if matcheds.len() == 1 {
     let (key, selector) = matcheds[0];
 
     let mut has_extra_id = false;
-    _walk_identifiers(
-      env,
-      ast,
-      |id, _, _, _, _| {
-        let start = id.get_named_property::<u32>("start")?;
-        if start != key.get_named_property::<u32>("start")?
-          && start != selector.get_named_property::<u32>("start")?
-        {
+    WalkIdentifiers::new(
+      Box::new(|id, _, _, _, _| {
+        let start = id.span.start;
+        if start != key.start && start != selector.start {
           has_extra_id = true
         }
-        Ok(())
-      },
+      }),
       false,
-      None,
-      None,
-    )?;
+    )
+    .visit_expression(ast);
 
     if !has_extra_id {
-      let content = expression.content[(selector.get_named_property::<u32>("start")? - offset)
-        as usize
-        ..(selector.get_named_property::<u32>("end")? - offset) as usize]
+      let content = expression.content
+        [(selector.start - offset) as usize..(selector.end - offset) as usize]
         .to_string();
-      return Ok(Some(SimpleExpressionNode {
+      return Some(SimpleExpressionNode {
         content,
-        ast: Some(selector),
+        ast: None,
         loc: None,
         is_static: false,
-      }));
+      });
     }
   }
-
-  Ok(None)
+  None
 }
 
-fn analyze_variable_scopes(
-  env: Env,
-  ast: Object<'static>,
-  id_map: &HashMap<String, String>,
-) -> Vec<String> {
+fn analyze_variable_scopes(ast: &Expression, id_map: &HashMap<String, String>) -> Vec<String> {
   let mut locals = vec![];
-
-  {
-    let locals = &mut locals;
-    _walk_identifiers(
-      env,
-      ast,
-      move |id, _, _, _, _| {
-        let name = id.get_named_property::<String>("name")?;
-        if !is_globally_allowed(&name) {
-          if id_map.get(&name).is_some() {
-            locals.push(name);
-          }
+  WalkIdentifiers::new(
+    Box::new(|id, _, _, _, _| {
+      let name = id.name.to_string();
+      if !is_globally_allowed(&name) {
+        if id_map.get(&name).is_some() {
+          locals.push(name);
         }
-        Ok(())
-      },
-      false,
-      None,
-      None,
-    )
-    .unwrap();
-  }
-
+      }
+    }),
+    false,
+  )
+  .visit_expression(ast);
   return locals;
 }
 
-fn is_key_only_binding(expr: Object<'static>, key: &str, source: &str) -> bool {
-  let mut _only = true;
-  SyncWalker::new(
-    Some(Box::new(|node, _, _, _| {
-      let start = node.get_named_property::<u32>("start")? as usize;
-      let end = node.get_named_property::<u32>("end")? as usize;
-      if source[start..end].to_string() == key {
-        return Ok(Some(Either::A(true)));
-      }
-      if node.get_named_property::<String>("type")?.eq("Identifier") {
-        _only = false;
-      };
-      Ok(None)
-    })),
-    None,
-  )
-  .visit(expr, None, None, None)
-  .unwrap();
-  _only
-}
-
-fn get_expression(effect: &IREffect) -> Option<&SimpleExpressionNode> {
+fn get_expression<'a>(effect: &'a IREffect) -> Option<&'a SimpleExpressionNode<'a>> {
   let operation = effect.operations.get(0);
   match operation.as_ref().unwrap() {
     Either16::C(operation) => operation.values.get(0),
@@ -585,5 +524,14 @@ fn get_expression(effect: &IREffect) -> Option<&SimpleExpressionNode> {
     Either16::J(operation) => Some(&operation.value),
     Either16::D(operation) => operation.prop.values.get(0),
     _ => None,
+  }
+}
+
+struct BinaryExpressionVisitor<'a> {
+  on_binary_expression: Box<dyn FnMut(&BinaryExpression) + 'a>,
+}
+impl<'a> Visit<'a> for BinaryExpressionVisitor<'a> {
+  fn visit_binary_expression(&mut self, node: &BinaryExpression) {
+    self.on_binary_expression.as_mut()(&node)
   }
 }

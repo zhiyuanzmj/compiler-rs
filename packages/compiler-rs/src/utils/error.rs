@@ -8,108 +8,102 @@ use crate::{ir::index::SourceLocation, transform::TransformContext};
 #[napi]
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum ErrorCodes {
-  X_V_IF_NO_EXPRESSION = 28,
-  X_V_ELSE_NO_ADJACENT_IF = 30,
-  X_V_FOR_NO_EXPRESSION = 31,
-  X_V_FOR_MALFORMED_EXPRESSION = 32,
-  X_V_ON_NO_EXPRESSION = 35,
-  X_V_SLOT_MIXED_SLOT_USAGE = 37,
-  X_V_SLOT_DUPLICATE_SLOT_NAMES = 38,
-  X_V_SLOT_EXTRANEOUS_DEFAULT_SLOT_CHILDREN = 39,
-  X_V_SLOT_MISPLACED = 40,
-  X_V_MODEL_NO_EXPRESSION = 41,
-  X_V_MODEL_MALFORMED_EXPRESSION = 42,
-  X_V_HTML_NO_EXPRESSION = 53,
-  X_V_HTML_WITH_CHILDREN = 54,
-  X_V_TEXT_NO_EXPRESSION = 55,
-  X_V_TEXT_WITH_CHILDREN = 56,
-  X_V_MODEL_ON_INVALID_ELEMENT = 57,
-  X_V_MODEL_ARG_ON_ELEMENT = 58,
-  X_V_MODEL_ON_FILE_INPUT_ELEMENT = 59,
-  X_V_MODEL_UNNECESSARY_VALUE = 60,
-  X_V_SHOW_NO_EXPRESSION = 61,
+  VIfNoExpression = 28,
+  VElseNoAdjacentIf = 30,
+  VForNoExpression = 31,
+  VForMalformedExpression = 32,
+  VOnNoExpression = 35,
+  VSlotMixedSlotUsage = 37,
+  VSlotDuplicateSlotNames = 38,
+  VSlotExtraneousDefaultSlotChildren = 39,
+  VSlotMisplaced = 40,
+  VModelNoExpression = 41,
+  VModelMalformedExpression = 42,
+  VHtmlNoExpression = 53,
+  VHtmlWithChildren = 54,
+  VTextNoExpression = 55,
+  VTextWithChildren = 56,
+  VModelOnInvalidElement = 57,
+  VModelArgOnElement = 58,
+  VModelOnFileInputElement = 59,
+  VModelUnnecessaryValue = 60,
+  VShowNoExpression = 61,
 }
 
 pub static ERROR_MESSAGES: LazyLock<HashMap<ErrorCodes, &str>> = LazyLock::new(|| {
   HashMap::from([
     (
-      ErrorCodes::X_V_IF_NO_EXPRESSION,
+      ErrorCodes::VIfNoExpression,
       "v-if/v-else-if is missing expression.",
     ),
     (
-      ErrorCodes::X_V_ELSE_NO_ADJACENT_IF,
+      ErrorCodes::VElseNoAdjacentIf,
       "v-else/v-else-if has no adjacent v-if or v-else-if.",
     ),
+    (ErrorCodes::VForNoExpression, "v-for is missing expression."),
     (
-      ErrorCodes::X_V_FOR_NO_EXPRESSION,
-      "v-for is missing expression.",
-    ),
-    (
-      ErrorCodes::X_V_FOR_MALFORMED_EXPRESSION,
+      ErrorCodes::VForMalformedExpression,
       "v-for has invalid expression.",
     ),
+    (ErrorCodes::VOnNoExpression, "v-on is missing expression."),
     (
-      ErrorCodes::X_V_ON_NO_EXPRESSION,
-      "v-on is missing expression.",
-    ),
-    (
-      ErrorCodes::X_V_SLOT_MIXED_SLOT_USAGE,
+      ErrorCodes::VSlotMixedSlotUsage,
       "Mixed v-slot usage on both the component and nested <template>. When there are multiple named slots, all slots should use <template> syntax to avoid scope ambiguity.",
     ),
     (
-      ErrorCodes::X_V_SLOT_DUPLICATE_SLOT_NAMES,
+      ErrorCodes::VSlotDuplicateSlotNames,
       "Duplicate slot names found.",
     ),
     (
-      ErrorCodes::X_V_SLOT_EXTRANEOUS_DEFAULT_SLOT_CHILDREN,
+      ErrorCodes::VSlotExtraneousDefaultSlotChildren,
       "Extraneous children found when component already has explicitly named default slot. These children will be ignored.",
     ),
     (
-      ErrorCodes::X_V_MODEL_NO_EXPRESSION,
+      ErrorCodes::VModelNoExpression,
       "v-model is missing expression.",
     ),
     (
-      ErrorCodes::X_V_MODEL_MALFORMED_EXPRESSION,
+      ErrorCodes::VModelMalformedExpression,
       "v-model value must be a valid JavaScript member expression.",
     ),
     (
-      ErrorCodes::X_V_SLOT_MISPLACED,
+      ErrorCodes::VSlotMisplaced,
       "v-slot can only be used on components or <template> tags.",
     ),
     (
-      ErrorCodes::X_V_HTML_NO_EXPRESSION,
+      ErrorCodes::VHtmlNoExpression,
       "v-html is missing expression.",
     ),
     (
-      ErrorCodes::X_V_HTML_WITH_CHILDREN,
+      ErrorCodes::VHtmlWithChildren,
       "v-html will override element children.",
     ),
     (
-      ErrorCodes::X_V_TEXT_NO_EXPRESSION,
+      ErrorCodes::VTextNoExpression,
       "v-text is missing expression.",
     ),
     (
-      ErrorCodes::X_V_TEXT_WITH_CHILDREN,
+      ErrorCodes::VTextWithChildren,
       "v-text will override element children.",
     ),
     (
-      ErrorCodes::X_V_MODEL_ARG_ON_ELEMENT,
+      ErrorCodes::VModelArgOnElement,
       "v-model argument is not supported on plain elements.",
     ),
     (
-      ErrorCodes::X_V_MODEL_ON_INVALID_ELEMENT,
+      ErrorCodes::VModelOnInvalidElement,
       "v-model can only be used on <input>, <textarea> and <select> elements.",
     ),
     (
-      ErrorCodes::X_V_MODEL_ON_FILE_INPUT_ELEMENT,
+      ErrorCodes::VModelOnFileInputElement,
       "v-model cannot be used on file inputs since they are read-only. Use a v-on:change listener instead.",
     ),
     (
-      ErrorCodes::X_V_MODEL_UNNECESSARY_VALUE,
+      ErrorCodes::VModelUnnecessaryValue,
       "Unnecessary value binding used alongside v-model. It will interfere with v-model's behavior.",
     ),
     (
-      ErrorCodes::X_V_SHOW_NO_EXPRESSION,
+      ErrorCodes::VShowNoExpression,
       "v-show is missing expression.",
     ),
   ])
@@ -118,7 +112,7 @@ pub static ERROR_MESSAGES: LazyLock<HashMap<ErrorCodes, &str>> = LazyLock::new(|
 #[napi(object, js_name = "CompilerError extends SyntaxError")]
 pub struct CompilerError {
   pub code: i32,
-  pub loc: Option<SourceLocation>,
+  pub loc: Option<(u32, u32)>,
 }
 
 pub fn create_compiler_error<'a>(
@@ -129,11 +123,11 @@ pub fn create_compiler_error<'a>(
   let msg = ERROR_MESSAGES.get(&code).unwrap().to_string();
   let mut error = env.create_error(Error::from_reason(&msg))?;
   error.set("code", code as i32)?;
-  error.set("loc", loc)?;
+  error.set("loc", loc.map(|loc| (loc.start, loc.end)))?;
   Ok(error)
 }
 
 pub fn on_error(code: ErrorCodes, context: &Rc<TransformContext>) {
   let compiler_error = create_compiler_error(&context.env, code, None).unwrap();
-  context.options.on_error.call(compiler_error).unwrap();
+  context.options.on_error.as_ref()(compiler_error);
 }

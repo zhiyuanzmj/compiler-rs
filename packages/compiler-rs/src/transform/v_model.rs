@@ -1,49 +1,53 @@
 use std::rc::Rc;
 
-use napi::{
-  Either, Result,
-  bindgen_prelude::{Either16, JsObjectValue, Object},
+use napi::{Either, bindgen_prelude::Either16};
+use oxc_ast::ast::{
+  JSXAttribute, JSXAttributeItem, JSXAttributeName, JSXAttributeValue, JSXElement,
 };
 
 use crate::{
-  ir::index::{BlockIRNode, DirectiveIRNode, IRNodeTypes},
+  ir::index::{BlockIRNode, DirectiveIRNode, SimpleExpressionNode},
   transform::{DirectiveTransformResult, TransformContext},
   utils::{
-    check::{is_jsx_component, is_member_expression, is_string_literal},
+    check::{is_jsx_component, is_member_expression},
     directive::resolve_directive,
     error::{ErrorCodes, on_error},
-    expression::create_simple_expression,
-    text::get_text,
+    text::get_tag_name,
     utils::find_prop,
   },
 };
 
-pub fn transform_v_model(
-  _dir: Object,
-  node: Object,
-  context: &Rc<TransformContext>,
-  context_block: &mut BlockIRNode,
-) -> Result<Option<DirectiveTransformResult>> {
-  let dir = resolve_directive(_dir, context)?;
+pub fn transform_v_model<'a>(
+  _dir: &JSXAttribute,
+  node: &JSXElement,
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &mut BlockIRNode<'a>,
+) -> Option<DirectiveTransformResult<'a>> {
+  let dir = resolve_directive(_dir, context);
 
   let Some(exp) = &dir.exp else {
-    on_error(ErrorCodes::X_V_MODEL_NO_EXPRESSION, context);
-    return Ok(None);
+    on_error(ErrorCodes::VModelNoExpression, context);
+    return None;
   };
 
   let exp_string = &exp.content;
   if exp_string.trim().is_empty() || !is_member_expression(exp) {
-    on_error(ErrorCodes::X_V_MODEL_MALFORMED_EXPRESSION, context);
-    return Ok(None);
+    on_error(ErrorCodes::VModelMalformedExpression, context);
+    return None;
   }
 
   let is_component = is_jsx_component(node);
   if is_component {
-    return Ok(Some(DirectiveTransformResult {
+    return Some(DirectiveTransformResult {
       key: if let Some(arg) = dir.arg {
         arg
       } else {
-        create_simple_expression("modelValue".to_string(), Some(true), None, None)
+        SimpleExpressionNode {
+          content: "modelValue".to_string(),
+          is_static: true,
+          loc: None,
+          ast: None,
+        }
       },
       value: dir.exp.unwrap(),
       model: Some(true),
@@ -58,47 +62,38 @@ pub fn transform_v_model(
       handler_modifiers: None,
       modifier: None,
       runtime_camelize: None,
-    }));
+    });
   }
 
   if dir.arg.is_some() {
-    on_error(ErrorCodes::X_V_MODEL_ARG_ON_ELEMENT, context);
+    on_error(ErrorCodes::VModelArgOnElement, context);
   }
 
-  let tag = get_text(
-    node
-      .get_named_property::<Object>("openingElement")?
-      .get_named_property::<Object>("name")?,
-    context,
-  );
-  let is_custom_element = context.options.is_custom_element.call(tag.clone())?;
+  let tag = get_tag_name(&node.opening_element.name, context);
+  let is_custom_element = context.options.is_custom_element.as_ref()(tag.to_string());
   let mut model_type = "text";
   // TODO let runtimeDirective: VaporHelper | undefined = 'vModelText'
   if matches!(tag.as_str(), "input" | "textarea" | "select") || is_custom_element {
     if tag == "input" || is_custom_element {
       let _type = find_prop(&node, Either::A("type".to_string()));
       if let Some(_type) = _type {
-        let value = _type.get_named_property::<Object>("value")?;
-        if value
-          .get_named_property::<String>("type")?
-          .eq("JSXExpressionContainer")
-        {
+        let value = &_type.value;
+        if let Some(JSXAttributeValue::ExpressionContainer(_)) = value {
           // type={foo}
           model_type = "dynamic"
-        } else if is_string_literal(Some(value)) {
-          let value = value.get_named_property::<String>("value")?;
-          match value.as_str() {
+        } else if let Some(JSXAttributeValue::StringLiteral(value)) = value {
+          match value.value.as_str() {
             "radio" => model_type = "radio",
             "checkbox" => model_type = "checkbox",
             "file" => {
               model_type = "";
-              on_error(ErrorCodes::X_V_MODEL_ON_FILE_INPUT_ELEMENT, context);
+              on_error(ErrorCodes::VModelOnFileInputElement, context);
             }
             // text type
             _ => check_duplicated_value(node, context),
           }
         }
-      } else if has_dynamic_key_v_bind(node)? {
+      } else if has_dynamic_key_v_bind(node) {
         // element has bindings with dynamic keys, which can possibly contain "type".
         model_type = "dynamic";
       } else {
@@ -112,16 +107,15 @@ pub fn transform_v_model(
       check_duplicated_value(node, context)
     }
   } else {
-    on_error(ErrorCodes::X_V_MODEL_ON_INVALID_ELEMENT, context)
+    on_error(ErrorCodes::VModelOnInvalidElement, context)
   }
 
   if !model_type.is_empty() {
-    let element = context.reference(&mut context_block.dynamic)?;
+    let element = context.reference(&mut context_block.dynamic);
     context.register_operation(
       context_block,
       Either16::M(DirectiveIRNode {
         directive: true,
-        _type: IRNodeTypes::DIRECTIVE,
         element,
         dir,
         name: "model".to_string(),
@@ -130,46 +124,27 @@ pub fn transform_v_model(
         asset: None,
       }),
       None,
-    )?
+    )
   }
 
-  Ok(None)
+  None
 }
 
-fn check_duplicated_value(node: Object, context: &Rc<TransformContext>) {
+fn check_duplicated_value(node: &JSXElement, context: &Rc<TransformContext>) {
   let value = find_prop(&node, Either::A("value".to_string()));
   if let Some(value) = value
-    && !is_string_literal(value.get_named_property::<Object>("value").ok())
+    && !matches!(value.value, Some(JSXAttributeValue::StringLiteral(_)))
   {
-    on_error(ErrorCodes::X_V_MODEL_UNNECESSARY_VALUE, context);
+    on_error(ErrorCodes::VModelUnnecessaryValue, context);
   }
 }
 
-fn has_dynamic_key_v_bind(node: Object) -> Result<bool> {
-  Ok(
-    node
-      .get_named_property::<Object>("openingElement")?
-      .get_named_property::<Vec<Object>>("attributes")?
-      .iter()
-      .any(|p| {
-        let _type = p.get_named_property::<String>("type").unwrap();
-        if _type == "JSXSpreadAttribute" {
-          true
-        } else if _type == "JSXAttribute" {
-          let name = p.get_named_property::<Object>("name").unwrap();
-          name
-            .get_named_property::<String>("type")
-            .unwrap()
-            .eq("JSXNamespacedName")
-            && !name
-              .get_named_property::<Object>("namespace")
-              .unwrap()
-              .get_named_property::<String>("name")
-              .unwrap()
-              .starts_with("v-")
-        } else {
-          false
-        }
-      }),
-  )
+fn has_dynamic_key_v_bind(node: &JSXElement) -> bool {
+  node.opening_element.attributes.iter().any(|p| match p {
+    JSXAttributeItem::Attribute(p) => match &p.name {
+      JSXAttributeName::NamespacedName(name) => !name.namespace.name.starts_with("v-"),
+      _ => false,
+    },
+    JSXAttributeItem::SpreadAttribute(_) => true,
+  })
 }

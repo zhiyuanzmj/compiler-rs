@@ -1,43 +1,47 @@
 use std::rc::Rc;
 
-use napi::{
-  Result,
-  bindgen_prelude::{JsObjectValue, Object},
-};
+use napi::bindgen_prelude::Either3;
+use oxc_ast::ast::{JSXAttribute, JSXAttributeName, JSXElement};
 
 use crate::{
-  ir::index::BlockIRNode,
+  ir::index::{BlockIRNode, SimpleExpressionNode},
   transform::{DirectiveTransformResult, TransformContext},
-  utils::{
-    check::is_reserved_prop,
-    expression::{create_simple_expression, resolve_expression},
-    text::camelize,
-  },
+  utils::{check::is_reserved_prop, text::camelize},
 };
 
-pub fn transform_v_bind(
-  dir: Object,
-  _: Object,
-  context: &Rc<TransformContext>,
+pub fn transform_v_bind<'a>(
+  dir: &JSXAttribute,
+  _: &JSXElement,
+  context: &'a Rc<TransformContext<'a>>,
   _: &mut BlockIRNode,
-) -> Result<Option<DirectiveTransformResult>> {
-  let name = dir.get_named_property::<Object>("name")?;
-  let value = dir.get_named_property::<Object>("value");
-
-  let name_string = name.get_named_property::<String>("name")?;
+) -> Option<DirectiveTransformResult<'a>> {
+  let name_string = match &dir.name {
+    JSXAttributeName::Identifier(name) => &name.name.to_string(),
+    JSXAttributeName::NamespacedName(_) => return None,
+  };
   let name_splited: Vec<&str> = name_string.split("_").collect();
   let modifiers = name_splited[1..].to_vec();
   let name_string = name_splited[0].to_string();
 
-  let exp = if let Ok(value) = value {
-    resolve_expression(value, context)
+  let exp = if let Some(value) = &dir.value {
+    SimpleExpressionNode::new(Either3::C(value), context)
   } else {
-    create_simple_expression(String::from("true"), None, None, None)
+    SimpleExpressionNode {
+      content: String::from("true"),
+      is_static: false,
+      loc: None,
+      ast: None,
+    }
   };
 
-  let mut arg = create_simple_expression(name_string, Some(true), Some(name), None);
+  let mut arg = SimpleExpressionNode {
+    content: name_string,
+    is_static: true,
+    loc: None,
+    ast: None,
+  };
   if is_reserved_prop(&arg.content) {
-    return Ok(None);
+    return None;
   }
 
   if modifiers.contains(&"camel") {
@@ -52,7 +56,7 @@ pub fn transform_v_bind(
     None
   };
 
-  Ok(Some(DirectiveTransformResult {
+  Some(DirectiveTransformResult {
     key: arg,
     value: exp,
     runtime_camelize: Some(false),
@@ -61,5 +65,5 @@ pub fn transform_v_bind(
     handler_modifiers: None,
     model: None,
     model_modifiers: None,
-  }))
+  })
 }

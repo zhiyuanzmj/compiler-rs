@@ -1,7 +1,6 @@
 use std::mem;
 
 use napi::Either;
-use napi::Result;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
 
@@ -29,14 +28,13 @@ use crate::ir::component::IRPropsStatic;
 use crate::ir::index::BlockIRNode;
 use crate::ir::index::CreateComponentIRNode;
 use crate::ir::index::SimpleExpressionNode;
-use crate::utils::expression::create_simple_expression;
 use crate::utils::text::camelize;
 
-pub fn gen_create_component(
-  operation: CreateComponentIRNode,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
-) -> Result<Vec<CodeFragment>> {
+pub fn gen_create_component<'a>(
+  operation: CreateComponentIRNode<'a>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Vec<CodeFragment> {
   let CreateComponentIRNode {
     tag,
     root,
@@ -60,11 +58,11 @@ pub fn gen_create_component(
     Either4::D(if dynamic.is_static {
       gen_call(
         Either::A(context.helper("resolveDynamicComponent")),
-        vec![Either4::D(gen_expression(dynamic, context, None, None)?)],
+        vec![Either4::D(gen_expression(dynamic, context, None, None))],
       )
     } else {
       let mut result = vec![Either3::C(Some("() => (".to_string()))];
-      result.extend(gen_expression(dynamic, context, None, None)?);
+      result.extend(gen_expression(dynamic, context, None, None));
       result.push(Either3::C(Some(")".to_string())));
       result
     })
@@ -72,15 +70,21 @@ pub fn gen_create_component(
     Either4::C(Some(to_valid_asset_id(tag, "component".to_string())))
   } else {
     Either4::D(gen_expression(
-      create_simple_expression(tag, None, None, None),
+      SimpleExpressionNode {
+        content: tag,
+        is_static: false,
+        loc: None,
+        ast: None,
+      },
       context,
       None,
       None,
-    )?)
+    ))
   };
 
-  let raw_props = gen_raw_props(props, context)?;
-  let raw_slots = gen_raw_slots(slots, context, context_block)?;
+  let raw_props = gen_raw_props(props, context);
+  let _context_block = context_block as *mut BlockIRNode;
+  let raw_slots = gen_raw_slots(slots, context, unsafe { &mut *_context_block });
 
   let mut result = vec![
     Either3::A(Newline),
@@ -110,26 +114,26 @@ pub fn gen_create_component(
       Either4::C(if once { Some("true".to_string()) } else { None }),
     ],
   ));
-  result.extend(gen_directives_for_element(id, context, context_block)?);
-  Ok(result)
+  result.extend(gen_directives_for_element(id, context, context_block));
+  result
 }
 
 pub fn gen_raw_props(
   mut props: Vec<IRProps>,
   context: &CodegenContext,
-) -> Result<Option<Vec<CodeFragment>>> {
+) -> Option<Vec<CodeFragment>> {
   let props_len = props.len();
-  Ok(if let Either3::A(static_props) = &props[0] {
+  if let Either3::A(static_props) = &props[0] {
     if static_props.len() == 0 && props_len == 1 {
-      return Ok(None);
+      return None;
     }
     let static_props = props.remove(0);
     if let Either3::A(static_props) = static_props {
       Some(gen_static_props(
         static_props,
         context,
-        gen_dynamic_props(props, context)?,
-      )?)
+        gen_dynamic_props(props, context),
+      ))
     } else {
       None
     }
@@ -138,56 +142,53 @@ pub fn gen_raw_props(
     Some(gen_static_props(
       vec![],
       context,
-      gen_dynamic_props(props, context)?,
-    )?)
+      gen_dynamic_props(props, context),
+    ))
   } else {
     None
-  })
+  }
 }
 
 fn gen_static_props(
   props: IRPropsStatic,
   context: &CodegenContext,
   dynamic_props: Option<Vec<CodeFragment>>,
-) -> Result<Vec<CodeFragment>> {
+) -> Vec<CodeFragment> {
   let mut args = props
     .into_iter()
-    .map(|prop| Either4::D(gen_prop(prop, context, true).unwrap()))
+    .map(|prop| Either4::D(gen_prop(prop, context, true)))
     .collect::<Vec<_>>();
   if let Some(dynamic_props) = dynamic_props {
     let mut result = vec![Either3::C(Some("$: ".to_string()))];
     result.extend(dynamic_props);
     args.push(Either4::D(result));
   }
-  return Ok(gen_multi(
+  return gen_multi(
     if args.len() > 1 {
       get_delimiters_object_newline()
     } else {
       get_delimiters_object()
     },
     args,
-  ));
+  );
 }
 
-fn gen_dynamic_props(
-  props: Vec<IRProps>,
-  context: &CodegenContext,
-) -> Result<Option<Vec<CodeFragment>>> {
+fn gen_dynamic_props(props: Vec<IRProps>, context: &CodegenContext) -> Option<Vec<CodeFragment>> {
   let mut frags: Vec<CodeFragments> = vec![];
   for p in props {
     let mut expr = None;
     if let Either3::A(p) = p {
       if p.len() > 0 {
-        frags.push(Either4::D(gen_static_props(p, context, None)?))
+        frags.push(Either4::D(gen_static_props(p, context, None)))
       }
       continue;
     } else if let Either3::B(p) = p {
       expr = Some(gen_multi(
         get_delimiters_object(),
-        vec![Either4::D(gen_prop(p, context, false)?)],
+        vec![Either4::D(gen_prop(p, context, false))],
       ))
     } else if let Either3::C(p) = p {
-      let expression = gen_expression(p.value, context, None, None)?;
+      let expression = gen_expression(p.value, context, None, None);
       expr = if p.handler.unwrap_or_default() {
         Some(gen_call(
           Either::A(context.helper("toHandlers")),
@@ -203,16 +204,12 @@ fn gen_dynamic_props(
     frags.push(Either4::D(result));
   }
   if frags.len() > 0 {
-    return Ok(Some(gen_multi(get_delimiters_array_newline(), frags)));
+    return Some(gen_multi(get_delimiters_array_newline(), frags));
   }
-  return Ok(None);
+  None
 }
 
-fn gen_prop(
-  mut prop: IRProp,
-  context: &CodegenContext,
-  is_static: bool,
-) -> Result<Vec<CodeFragment>> {
+fn gen_prop(mut prop: IRProp, context: &CodegenContext, is_static: bool) -> Vec<CodeFragment> {
   let model = prop.model.unwrap_or_default();
   let handler = prop.handler.unwrap_or_default();
   let handler_modifiers = prop.handler_modifiers.clone();
@@ -220,7 +217,7 @@ fn gen_prop(
   let first_value = values[0].clone();
   let cloned_key = prop.key.clone();
   let model_modifiers = prop.model_modifiers.take();
-  let mut result = gen_prop_key(prop, context)?;
+  let mut result = gen_prop_key(prop, context);
   result.push(Either3::C(Some(": ".to_string())));
   result.extend(if handler {
     gen_event_handler(
@@ -228,9 +225,9 @@ fn gen_prop(
       Some(values.remove(0)),
       handler_modifiers,
       true, /* wrap handlers passed to components */
-    )?
+    )
   } else {
-    let values = gen_prop_value(values, context)?;
+    let values = gen_prop_value(values, context);
     if is_static {
       let mut result: Vec<CodeFragment> = vec![Either3::C(Some("() => (".to_string()))];
       result.extend(values);
@@ -241,10 +238,10 @@ fn gen_prop(
     }
   });
   if model {
-    let models = gen_model(cloned_key, first_value, model_modifiers, context)?;
+    let models = gen_model(cloned_key, first_value, model_modifiers, context);
     result.extend(models)
   }
-  Ok(result)
+  result
 }
 
 fn gen_model(
@@ -252,10 +249,10 @@ fn gen_model(
   value: SimpleExpressionNode,
   model_modifiers: Option<Vec<String>>,
   context: &CodegenContext,
-) -> Result<Vec<CodeFragment>> {
+) -> Vec<CodeFragment> {
   let is_static = key.is_static;
   let content = key.content.clone();
-  let expression = gen_expression(key, context, None, None)?;
+  let expression = gen_expression(key, context, None, None);
   let name: Vec<CodeFragment> = if is_static {
     vec![Either3::C(Some(format!(
       "\"onUpdate:{}\"",
@@ -267,7 +264,7 @@ fn gen_model(
     result.push(Either3::C(Some("]".to_string())));
     result
   };
-  let handler = gen_model_handler(value, context)?;
+  let handler = gen_model_handler(value, context);
 
   let mut result = vec![Either3::C(Some(",".to_string())), Either3::A(Newline)];
   result.extend(name);
@@ -290,5 +287,5 @@ fn gen_model(
     result.extend(modifers_key);
     result.push(Either3::C(Some(format!(": () => ({{ {modifiers_val} }})"))));
   }
-  Ok(result)
+  result
 }

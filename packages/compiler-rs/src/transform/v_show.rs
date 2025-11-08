@@ -1,38 +1,34 @@
 use std::rc::Rc;
 
-use napi::{
-  Result,
-  bindgen_prelude::{Either16, Object},
-};
+use napi::bindgen_prelude::Either16;
+use oxc_ast::ast::{JSXAttribute, JSXElement};
 
 use crate::{
-  ir::index::{BlockIRNode, DirectiveIRNode, IRNodeTypes},
+  ir::index::{BlockIRNode, DirectiveIRNode, SimpleExpressionNode},
   transform::{DirectiveTransformResult, TransformContext},
   utils::{
     directive::resolve_directive,
     error::{ErrorCodes, on_error},
-    expression::EMPTY_EXPRESSION,
   },
 };
 
-pub fn transform_v_show(
-  _dir: Object,
-  _: Object,
-  context: &Rc<TransformContext>,
-  context_block: &mut BlockIRNode,
-) -> Result<Option<DirectiveTransformResult>> {
-  let mut dir = resolve_directive(_dir, context)?;
+pub fn transform_v_show<'a>(
+  _dir: &JSXAttribute,
+  _: &JSXElement,
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Option<DirectiveTransformResult<'a>> {
+  let mut dir = resolve_directive(_dir, context);
   if dir.exp.is_none() {
-    on_error(ErrorCodes::X_V_SHOW_NO_EXPRESSION, context);
-    dir.exp = Some(EMPTY_EXPRESSION)
+    on_error(ErrorCodes::VShowNoExpression, context);
+    dir.exp = Some(SimpleExpressionNode::default())
   }
 
-  let element = context.reference(&mut context_block.dynamic)?;
+  let element = context.reference(&mut context_block.dynamic);
   context.register_operation(
     context_block,
     Either16::M(DirectiveIRNode {
       directive: true,
-      _type: IRNodeTypes::DIRECTIVE,
       element,
       dir,
       name: String::from("show"),
@@ -41,6 +37,6 @@ pub fn transform_v_show(
       model_type: None,
     }),
     None,
-  )?;
-  Ok(None)
+  );
+  None
 }

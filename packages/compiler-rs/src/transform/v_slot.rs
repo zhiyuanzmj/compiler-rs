@@ -1,117 +1,99 @@
 use std::{collections::HashMap, rc::Rc};
 
-use napi::{
-  Either,
-  bindgen_prelude::{Either4, JsObjectValue, Object, Result},
-};
+use napi::{Either, bindgen_prelude::Either4};
+use oxc_ast::ast::{JSXChild, JSXElement};
 
 use crate::{
   ir::{
     component::{IRSlotDynamicBasic, IRSlotDynamicConditional, IRSlotType, IRSlots, IRSlotsStatic},
-    index::{BlockIRNode, DirectiveNode, DynamicFlag, IRDynamicInfo, SimpleExpressionNode},
+    index::{BlockIRNode, DirectiveNode, DynamicFlag, SimpleExpressionNode},
   },
   transform::{TransformContext, v_for::get_for_parse_result},
   utils::{
     check::{is_jsx_component, is_template},
     directive::resolve_directive,
     error::{ErrorCodes, on_error},
-    my_box::MyBox,
     text::is_empty_text,
     utils::find_prop,
   },
 };
 
 pub fn transform_v_slot<'a>(
-  node: Object<'static>,
-  context: &'a Rc<TransformContext>,
-  context_block: &'a mut BlockIRNode,
-  _: &'a mut IRDynamicInfo,
-) -> Result<Option<Box<dyn FnOnce() -> Result<()> + 'a>>> {
-  if !node.get_named_property::<String>("type")?.eq("JSXElement") {
-    return Ok(None);
-  }
+  node: &JSXChild,
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Option<Box<dyn FnOnce() + 'a>> {
+  let JSXChild::Element(node) = &node else {
+    return None;
+  };
 
-  let dir = find_prop(&node, Either::A(String::from("v-slot")))
-    .map(|dir| resolve_directive(dir, context).unwrap());
+  let dir =
+    find_prop(&node, Either::A(String::from("v-slot"))).map(|dir| resolve_directive(dir, context));
   let is_component = is_jsx_component(node);
-  let parent_node = *context.parent.borrow().upgrade().unwrap().node.borrow();
   let is_slot_template = is_template(&node)
-    && parent_node
-      .get_named_property::<String>("type")
-      .unwrap()
-      .eq("JSXElement")
-    && is_jsx_component(parent_node);
+    && if let Some(Either::B(JSXChild::Element(parent_node))) = &*context.parent_node.borrow()
+      && is_jsx_component(parent_node)
+    {
+      true
+    } else {
+      false
+    };
 
-  if is_component && node.get_named_property::<Vec<Object>>("children")?.len() > 0 {
-    return Ok(Some(transform_component_slot(
-      dir,
-      node,
-      context,
-      context_block,
-    )?));
+  if is_component && node.children.len() > 0 {
+    return Some(transform_component_slot(dir, node, context, context_block));
   } else if is_slot_template && let Some(dir) = dir {
-    return Ok(Some(transform_template_slot(
-      dir,
-      node,
-      context,
-      context_block,
-    )?));
+    return Some(transform_template_slot(dir, node, context, context_block));
   } else if !is_component && dir.is_some() {
-    on_error(ErrorCodes::X_V_SLOT_MISPLACED, context);
+    on_error(ErrorCodes::VSlotMisplaced, context);
   }
-
-  Ok(None)
+  None
 }
 
 // <Foo v-slot:default>
 pub fn transform_component_slot<'a>(
-  dir: Option<DirectiveNode>,
-  node: Object<'static>,
-  context: &'a Rc<TransformContext>,
-  context_block: &'a mut BlockIRNode,
-) -> Result<Box<dyn FnOnce() -> Result<()> + 'a>> {
-  let children = node.get_named_property::<Vec<Object>>("children")?;
+  dir: Option<DirectiveNode<'a>>,
+  node: &JSXElement,
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Box<dyn FnOnce() + 'a> {
   let has_dir = dir.is_some();
 
-  let non_slot_template_children: Vec<Object> = children
-    .into_iter()
+  let (arg, exp) = if let Some(DirectiveNode { arg, exp, .. }) = dir {
+    (arg, exp)
+  } else {
+    (None, None)
+  };
+
+  let non_slot_template_children_len = node
+    .children
+    .iter()
     .filter(|n| {
-      !is_empty_text(n.to_owned())
-        && (!n
-          .get_named_property::<String>("type")
-          .is_ok_and(|ty| ty.eq("JSXElement"))
-          || find_prop(n, Either::A(String::from("v-slot"))).is_none())
+      !is_empty_text(n)
+        && if let JSXChild::Element(n) = n {
+          find_prop(n, Either::A(String::from("v-slot"))).is_none()
+        } else {
+          true
+        }
     })
-    .collect();
+    .collect::<Vec<_>>()
+    .len();
 
-  let exit_block = create_slot_block(
-    dir.map_or(None, |dir| dir.exp),
-    node,
-    context,
-    context_block,
-    false,
-  )?;
+  let exit_block = create_slot_block(exp, context, context_block, false);
 
-  Ok(Box::new(move || {
-    let dir = find_prop(&node, Either::A(String::from("v-slot")))
-      .map(|dir| resolve_directive(dir, context).unwrap());
-    let arg = dir.map_or(None, |dir| dir.arg);
+  Box::new(move || {
     let mut slots = context.slots.take();
 
-    let block = exit_block()?;
+    let block = exit_block();
     let has_other_slots = !slots.is_empty();
     if has_dir && has_other_slots {
       // already has on-component slot - this is incorrect usage.
-      on_error(ErrorCodes::X_V_SLOT_MIXED_SLOT_USAGE, context);
-      return Ok(());
+      on_error(ErrorCodes::VSlotMixedSlotUsage, context);
+      return;
     }
 
-    if !non_slot_template_children.is_empty() {
+    if non_slot_template_children_len > 0 {
       if has_static_slot(&slots, "default") {
-        on_error(
-          ErrorCodes::X_V_SLOT_EXTRANEOUS_DEFAULT_SLOT_CHILDREN,
-          context,
-        );
+        on_error(ErrorCodes::VSlotExtraneousDefaultSlotChildren, context);
       } else {
         register_slot(&mut slots, arg, block);
         *context.slots.borrow_mut() = slots;
@@ -119,46 +101,59 @@ pub fn transform_component_slot<'a>(
     } else if has_other_slots {
       *context.slots.borrow_mut() = slots
     }
-
-    Ok(())
-  }))
+  })
 }
 
 // <template v-slot:foo>
 pub fn transform_template_slot<'a>(
-  dir: DirectiveNode,
-  node: Object<'static>,
-  context: &'a Rc<TransformContext>,
-  context_block: &'a mut BlockIRNode,
-) -> Result<Box<dyn FnOnce() -> Result<()> + 'a>> {
+  dir: DirectiveNode<'a>,
+  node: &JSXElement,
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Box<dyn FnOnce() + 'a> {
   let dynamic = &mut context_block.dynamic;
-  dynamic.flags |= DynamicFlag::NON_TEMPLATE as i32;
+  dynamic.flags |= DynamicFlag::NonTemplate as i32;
 
   let DirectiveNode { arg, exp, .. } = dir;
-  let exit_block = create_slot_block(exp, node, context, context_block, true)?;
+  let exit_block = create_slot_block(exp, context, context_block, true);
 
-  Ok(Box::new(move || {
-    let v_for = find_prop(&node, Either::A(String::from("v-for")));
-    let v_if = find_prop(&node, Either::A(String::from("v-if")));
-    let v_else = find_prop(
-      &node,
-      Either::B(vec![String::from("v-else"), String::from("v-else-if")]),
-    );
+  let v_for = find_prop(&node, Either::A(String::from("v-for")));
+  let for_parse_result = if let Some(v_for) = v_for {
+    Some(get_for_parse_result(v_for, context))
+  } else {
+    None
+  };
+  let v_if = find_prop(&node, Either::A(String::from("v-if")));
+  let v_if_dir = if let Some(v_if) = v_if {
+    Some(resolve_directive(v_if, context))
+  } else {
+    None
+  };
+  let v_else = find_prop(
+    &node,
+    Either::B(vec![String::from("v-else"), String::from("v-else-if")]),
+  );
+  let v_else_dir = if let Some(v_else) = v_else {
+    Some(resolve_directive(v_else, context))
+  } else {
+    None
+  };
+
+  Box::new(move || {
     let slots = &mut context.slots.borrow_mut();
-    let block = exit_block()?;
-    if v_for.is_none() && v_if.is_none() && v_else.is_none() {
+    let block = exit_block();
+    if v_if_dir.is_none() && v_else_dir.is_none() && for_parse_result.is_none() {
       let slot_name = if let Some(arg) = &arg {
         arg.content.clone()
       } else {
         String::from("default")
       };
       if !slot_name.is_empty() && has_static_slot(&slots, &slot_name) {
-        on_error(ErrorCodes::X_V_SLOT_DUPLICATE_SLOT_NAMES, context)
+        on_error(ErrorCodes::VSlotDuplicateSlotNames, context)
       } else {
         register_slot(slots, arg, block);
       }
-    } else if let Some(v_if) = v_if {
-      let v_if_dir = resolve_directive(v_if, context)?;
+    } else if let Some(v_if_dir) = v_if_dir {
       slots.push(Either4::C(IRSlotDynamicConditional {
         slot_type: IRSlotType::CONDITIONAL,
         condition: v_if_dir.exp.unwrap(),
@@ -170,8 +165,7 @@ pub fn transform_template_slot<'a>(
           _loop: None,
         },
       }));
-    } else if let Some(v_else) = v_else {
-      let v_else_dir = resolve_directive(v_else, context)?;
+    } else if let Some(v_else_dir) = v_else_dir {
       if let Some(last_slot) = slots.last_mut() {
         if let Either4::C(v_if_slot) = last_slot {
           let positive = IRSlotDynamicBasic {
@@ -192,11 +186,10 @@ pub fn transform_template_slot<'a>(
           };
           set_slot(v_if_slot, negative);
         } else {
-          on_error(ErrorCodes::X_V_ELSE_NO_ADJACENT_IF, context)
+          on_error(ErrorCodes::VElseNoAdjacentIf, context)
         }
       }
-    } else if let Some(v_for) = v_for {
-      let for_parse_result = get_for_parse_result(v_for, context)?;
+    } else if let Some(for_parse_result) = for_parse_result {
       if for_parse_result.source.is_some() {
         slots.push(Either4::B(IRSlotDynamicBasic {
           slot_type: IRSlotType::DYNAMIC,
@@ -206,75 +199,51 @@ pub fn transform_template_slot<'a>(
         }))
       }
     }
-    Ok(())
-  }))
+  })
 }
 
-fn set_slot(
-  v_if_slot: &mut IRSlotDynamicConditional,
-  slot: Either<IRSlotDynamicBasic, IRSlotDynamicConditional>,
+fn set_slot<'a>(
+  v_if_slot: &mut IRSlotDynamicConditional<'a>,
+  slot: Either<IRSlotDynamicBasic<'a>, IRSlotDynamicConditional<'a>>,
 ) {
-  if let Some(Either::B(negative)) = v_if_slot.negative.as_mut().map(|a| a.0.as_mut()) {
+  if let Some(Either::B(negative)) = v_if_slot.negative.as_mut().map(|a| a.as_mut()) {
     return set_slot(negative, slot);
   } else {
-    v_if_slot.negative = Some(MyBox(Box::new(slot)));
-  };
+    v_if_slot.negative = Some(Box::new(slot));
+  }
 }
 
-pub fn ensure_static_slots<'a>(
-  slots: &'a mut Vec<IRSlots>,
-) -> Option<&'a mut HashMap<String, BlockIRNode>> {
-  let last_slot = slots.last();
-  if slots.is_empty() || last_slot.is_some_and(|last_slot| !matches!(last_slot, Either4::A(_))) {
-    slots.push(Either4::A(IRSlotsStatic {
-      slot_type: IRSlotType::STATIC,
-      slots: HashMap::new(),
-    }));
-  }
-  let last_slot = slots.last_mut();
-  if let Either4::A(slot) = last_slot.unwrap() {
-    return Some(&mut slot.slots);
-  }
-  None
-}
-
-pub fn _ensure_static_slots<'a>(slots: &mut Object) -> Result<Object<'a>> {
-  let len: i32 = slots.get_named_property("length")?;
-  let last_index = if len > 0 { len - 1 } else { 0 };
-  let last_slot = slots.get_named_property::<IRSlots>(last_index.to_string().as_str());
-  if len == 0 || last_slot.is_ok_and(|last_slot| !matches!(last_slot, Either4::A(_))) {
-    slots.set(
-      (if len > 0 { len } else { 0 }).to_string(),
-      IRSlotsStatic {
-        slot_type: IRSlotType::STATIC,
-        slots: HashMap::new(),
-      },
-    )?;
-  }
-  let last_slot = slots.get_named_property::<Object>(
-    (slots.get_named_property::<i32>("length")? - 1)
-      .to_string()
-      .as_str(),
-  )?;
-  Ok(last_slot.get_named_property::<Object>("slots")?)
-}
-
-fn register_slot(slots: &mut Vec<IRSlots>, name: Option<SimpleExpressionNode>, block: BlockIRNode) {
+fn register_slot<'a>(
+  slots: &mut Vec<IRSlots<'a>>,
+  name: Option<SimpleExpressionNode<'a>>,
+  block: BlockIRNode<'a>,
+) {
   let is_static = if let Some(name) = &name {
     name.is_static
   } else {
     true
   };
   if is_static {
-    let slots = ensure_static_slots(slots).unwrap();
-    slots.insert(
-      if let Some(name) = &name {
-        name.content.clone()
-      } else {
-        String::from("default")
-      },
-      block,
-    );
+    if slots.is_empty()
+      || slots
+        .last()
+        .is_some_and(|last_slot| !matches!(last_slot, Either4::A(_)))
+    {
+      slots.push(Either4::A(IRSlotsStatic {
+        slot_type: IRSlotType::STATIC,
+        slots: HashMap::new(),
+      }));
+    }
+    if let Some(Either4::A(slot)) = slots.last_mut() {
+      slot.slots.insert(
+        if let Some(name) = &name {
+          name.content.clone()
+        } else {
+          String::from("default")
+        },
+        block,
+      );
+    }
   } else {
     slots.push(Either4::B(IRSlotDynamicBasic {
       slot_type: IRSlotType::DYNAMIC,
@@ -295,14 +264,13 @@ fn has_static_slot(slots: &Vec<IRSlots>, name: &str) -> bool {
 }
 
 fn create_slot_block<'a>(
-  props: Option<SimpleExpressionNode>,
-  node: Object<'static>,
-  context: &'a Rc<TransformContext>,
-  context_block: &'a mut BlockIRNode,
+  props: Option<SimpleExpressionNode<'a>>,
+  context: &'a Rc<TransformContext<'a>>,
+  context_block: &'a mut BlockIRNode<'a>,
   exclude_slots: bool,
-) -> Result<Box<dyn FnOnce() -> Result<BlockIRNode> + 'a>> {
-  let mut block = BlockIRNode::new(Some(node));
+) -> Box<dyn FnOnce() -> BlockIRNode<'a> + 'a> {
+  let mut block = BlockIRNode::new();
   block.props = props;
-  let exit_block = context.enter_block(context_block, block, false, exclude_slots)?;
-  Ok(exit_block)
+  let exit_block = context.enter_block(context_block, block, false, exclude_slots);
+  exit_block
 }

@@ -1,7 +1,7 @@
 use std::mem;
 
+use napi::Either;
 use napi::bindgen_prelude::{Either3, Either4};
-use napi::{Either, Result};
 
 use crate::generate::CodegenContext;
 use crate::generate::operation::{gen_effects, gen_operations};
@@ -14,13 +14,13 @@ use crate::generate::utils::{
 };
 use crate::{generate::utils::CodeFragment, ir::index::BlockIRNode};
 
-pub fn gen_block(
-  oper: BlockIRNode,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
+pub fn gen_block<'a>(
+  oper: BlockIRNode<'a>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
   args: Vec<CodeFragment>,
   root: bool,
-) -> Result<Vec<CodeFragment>> {
+) -> Vec<CodeFragment> {
   let mut result = vec![Either3::C(Some("(".to_string()))];
   result.extend(args);
   result.push(Either3::C(Some(") => {".to_string())));
@@ -31,24 +31,26 @@ pub fn gen_block(
     context_block,
     root,
     None,
-  )?);
+  ));
   result.push(Either3::A(IndentEnd));
   result.push(Either3::A(Newline));
   result.push(Either3::C(Some("}".to_string())));
-  Ok(result)
+  result
 }
 
 pub fn gen_block_content<'a>(
-  block: Option<BlockIRNode>,
-  context: &'a CodegenContext,
-  context_block: &'a mut BlockIRNode,
+  block: Option<BlockIRNode<'a>>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
   root: bool,
-  gen_effects_extra_frag: Option<Box<dyn FnOnce(&'a mut BlockIRNode) -> Vec<CodeFragment> + 'a>>,
-) -> Result<Vec<CodeFragment>> {
+  gen_effects_extra_frag: Option<
+    Box<dyn FnOnce(&'a mut BlockIRNode<'a>) -> Vec<CodeFragment> + 'a>,
+  >,
+) -> Vec<CodeFragment> {
   let mut frag = vec![];
   let mut reset_block = None;
+  let context_block = context_block as *mut BlockIRNode;
   if let Some(block) = block {
-    let context_block = context_block as *mut BlockIRNode;
     reset_block = Some(context.enter_block(block, unsafe { &mut *context_block }));
   }
 
@@ -75,23 +77,23 @@ pub fn gen_block_content<'a>(
     }
   }
 
-  for child in mem::take(&mut context_block.dynamic.children) {
-    frag.extend(gen_self(child, context, context_block)?);
+  for child in mem::take(&mut unsafe { &mut *context_block }.dynamic.children) {
+    frag.extend(gen_self(child, context, unsafe { &mut *context_block }));
   }
 
   frag.extend(gen_operations(
-    mem::take(&mut context_block.operation),
+    mem::take(&mut unsafe { &mut *context_block }.operation),
     context,
-    context_block,
-  )?);
-  let return_nodes = context_block
+    unsafe { &mut *context_block },
+  ));
+  let return_nodes = unsafe { &mut *context_block }
     .returns
     .iter()
     .map(|n| Either4::C(Some(format!("n{n}"))))
     .collect::<Vec<CodeFragments>>();
-  let mut effects_frag = gen_effects(context, context_block)?;
+  let mut effects_frag = gen_effects(context, unsafe { &mut *context_block });
   if let Some(gen_extra_frag) = gen_effects_extra_frag {
-    effects_frag.extend(gen_extra_frag(context_block))
+    effects_frag.extend(gen_extra_frag(unsafe { &mut *context_block }))
   }
   frag.extend(effects_frag);
 
@@ -116,5 +118,5 @@ pub fn gen_block_content<'a>(
   if let Some(reset_block) = reset_block {
     reset_block();
   }
-  Ok(frag)
+  frag
 }

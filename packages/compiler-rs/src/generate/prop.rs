@@ -2,7 +2,6 @@ use std::mem;
 use std::sync::LazyLock;
 
 use napi::Either;
-use napi::Result;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
 use regex::Regex;
@@ -70,7 +69,7 @@ fn helpers(name: &str) -> HelperConfig {
   }
 }
 
-pub fn gen_set_prop(oper: SetPropIRNode, context: &CodegenContext) -> Result<Vec<CodeFragment>> {
+pub fn gen_set_prop(oper: SetPropIRNode, context: &CodegenContext) -> Vec<CodeFragment> {
   let SetPropIRNode {
     prop: IRProp {
       key,
@@ -82,21 +81,21 @@ pub fn gen_set_prop(oper: SetPropIRNode, context: &CodegenContext) -> Result<Vec
     ..
   } = oper;
   let resolved_helper = get_runtime_helper(&tag, &key.content, modifier);
-  let prop_value = gen_prop_value(values, context)?;
+  let prop_value = gen_prop_value(values, context);
   let mut result = vec![Either3::A(Newline)];
   result.extend(gen_call(
     Either::B((context.helper(resolved_helper.name.as_str()), None)),
     vec![
       Either4::C(Some(format!("n{}", oper.element))),
       if resolved_helper.need_key {
-        Either4::D(gen_expression(key, context, None, None)?)
+        Either4::D(gen_expression(key, context, None, None))
       } else {
         Either4::C(None)
       },
       Either4::D(prop_value),
     ],
   ));
-  Ok(result)
+  result
 }
 
 static ARIA_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"aria[A-Z]").unwrap());
@@ -197,7 +196,7 @@ fn get_special_helper(key_name: &str, tag_name: &str) -> Option<HelperConfig> {
 pub fn gen_dynamic_props(
   oper: SetDynamicPropsIRNode,
   context: &CodegenContext,
-) -> Result<Vec<CodeFragment>> {
+) -> Vec<CodeFragment> {
   let values = oper
     .props
     .into_iter()
@@ -206,7 +205,7 @@ pub fn gen_dynamic_props(
         // static and dynamic arg props
         Either3::A(props) => gen_literal_object_props(props, context), // static and dynamic arg props
         Either3::B(props) => gen_literal_object_props(vec![props], context), // dynamic arg props
-        Either3::C(props) => gen_expression(props.value, context, None, None).unwrap(), // {...obj}
+        Either3::C(props) => gen_expression(props.value, context, None, None), // {...obj}
       })
     })
     .collect::<Vec<_>>();
@@ -224,7 +223,7 @@ pub fn gen_dynamic_props(
       }),
     ],
   ));
-  Ok(result)
+  result
 }
 
 fn gen_literal_object_props(props: Vec<IRProp>, context: &CodegenContext) -> Vec<CodeFragment> {
@@ -234,16 +233,16 @@ fn gen_literal_object_props(props: Vec<IRProp>, context: &CodegenContext) -> Vec
       .into_iter()
       .map(|mut prop| {
         let values = mem::take(&mut prop.values);
-        let mut result = gen_prop_key(prop, context).unwrap();
+        let mut result = gen_prop_key(prop, context);
         result.push(Either3::C(Some(": ".to_string())));
-        result.extend(gen_prop_value(values, context).unwrap());
+        result.extend(gen_prop_value(values, context));
         Either4::D(result)
       })
       .collect::<Vec<_>>(),
   )
 }
 
-pub fn gen_prop_key(oper: IRProp, context: &CodegenContext) -> Result<Vec<CodeFragment>> {
+pub fn gen_prop_key(oper: IRProp, context: &CodegenContext) -> Vec<CodeFragment> {
   let IRProp {
     key: node,
     modifier,
@@ -274,7 +273,7 @@ pub fn gen_prop_key(oper: IRProp, context: &CodegenContext) -> Result<Vec<CodeFr
     } else {
       node.content
     }) + &handler_modifier_postfix;
-    return Ok(vec![Either3::B((
+    return vec![Either3::B((
       if is_simple_identifier(&key_name) {
         key_name
       } else {
@@ -283,10 +282,10 @@ pub fn gen_prop_key(oper: IRProp, context: &CodegenContext) -> Result<Vec<CodeFr
       NewlineType::None,
       node.loc,
       None,
-    ))]);
+    ))];
   }
 
-  let mut key = gen_expression(node, context, None, None)?;
+  let mut key = gen_expression(node, context, None, None);
   if runtime_camelize.unwrap_or_default() {
     key = gen_call(Either::A(context.helper("camelize")), vec![Either4::D(key)])
   }
@@ -311,21 +310,21 @@ pub fn gen_prop_key(oper: IRProp, context: &CodegenContext) -> Result<Vec<CodeFr
     None
   }));
   result.push(Either3::C(Some("]".to_string())));
-  Ok(result)
+  result
 }
 
 pub fn gen_prop_value(
   mut values: Vec<SimpleExpressionNode>,
   context: &CodegenContext,
-) -> Result<Vec<CodeFragment>> {
+) -> Vec<CodeFragment> {
   if (&values).len() == 1 {
     return gen_expression(values.remove(0), context, None, None);
   }
-  Ok(gen_multi(
+  gen_multi(
     get_delimiters_array(),
     values
       .into_iter()
-      .map(|expr| Either4::D(gen_expression(expr, context, None, None).unwrap()))
+      .map(|expr| Either4::D(gen_expression(expr, context, None, None)))
       .collect::<Vec<_>>(),
-  ))
+  )
 }

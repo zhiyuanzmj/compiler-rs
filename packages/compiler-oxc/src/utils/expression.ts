@@ -68,17 +68,15 @@ export function resolveExpression(
     node.type === 'JSXText' ||
     node.type === 'JSXIdentifier'
   const source =
-    node.type === 'JSXEmptyExpression'
-      ? ''
-      : node.type === 'JSXIdentifier'
-        ? node.name
-        : isStringLiteral(node)
-          ? node.value
-          : node.type === 'JSXText'
-            ? resolveJSXText(node)
-            : node.type === 'Identifier'
-              ? node.name
-              : context.ir.source.slice(node.start!, node.end!)
+    node.type === 'JSXIdentifier'
+      ? node.name
+      : isStringLiteral(node)
+        ? node.value
+        : node.type === 'JSXText'
+          ? resolveJSXText(node)
+          : node.type === 'Identifier'
+            ? node.name
+            : context.ir.source.slice(node.start!, node.end!)
   return createSimpleExpression(source, isStatic, node)
 }
 
@@ -93,6 +91,10 @@ export function propToExpression(
 }
 
 export function parseExpression(filename: string, source: string) {
-  return (parseSync(filename, source).program.body[0] as ExpressionStatement)
-    .expression
+  return (
+    parseSync(filename, source, {
+      // @ts-ignore
+      experimentalRawTransfer: true,
+    }).program.body[0] as ExpressionStatement
+  ).expression
 }

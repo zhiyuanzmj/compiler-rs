@@ -1,5 +1,4 @@
 use napi::Either;
-use napi::Result;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
 
@@ -11,14 +10,13 @@ use crate::generate::utils::FragmentSymbol::Newline;
 use crate::generate::utils::gen_call;
 use crate::ir::index::BlockIRNode;
 use crate::ir::index::IfIRNode;
-use crate::utils::my_box::MyBox;
 
-pub fn gen_if(
-  oper: IfIRNode,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
+pub fn gen_if<'a>(
+  oper: IfIRNode<'a>,
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
   is_nested: bool,
-) -> Result<Vec<CodeFragment>> {
+) -> Vec<CodeFragment> {
   let IfIRNode {
     condition,
     positive,
@@ -29,19 +27,26 @@ pub fn gen_if(
   let mut frag = vec![];
 
   let mut condition_expr = vec![Either3::C(Some("() => (".to_string()))];
-  condition_expr.extend(gen_expression(condition, context, None, None)?);
+  condition_expr.extend(gen_expression(condition, context, None, None));
   condition_expr.push(Either3::C(Some(")".to_string())));
 
-  let positive_arg = gen_block(positive, context, context_block, vec![], false)?;
+  let _context_block = context_block as *mut BlockIRNode;
+  let positive_arg = gen_block(
+    positive,
+    context,
+    unsafe { &mut *_context_block },
+    vec![],
+    false,
+  );
   let mut negative_arg: Option<Vec<CodeFragment>> = None;
 
-  if let Some(MyBox(negative)) = negative {
+  if let Some(negative) = negative {
     let negative = *negative;
     negative_arg = Some(match negative {
-      Either::A(negative) => gen_block(negative, context, context_block, vec![], false)?,
+      Either::A(negative) => gen_block(negative, context, context_block, vec![], false),
       Either::B(negative) => {
         let mut result = vec![Either3::C(Some("() => ".to_string()))];
-        result.extend(gen_if(negative, context, context_block, true)?);
+        result.extend(gen_if(negative, context, context_block, true));
         result
       }
     });
@@ -68,6 +73,5 @@ pub fn gen_if(
       }),
     ],
   ));
-
-  Ok(frag)
+  frag
 }
