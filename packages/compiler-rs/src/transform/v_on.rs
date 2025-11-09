@@ -4,7 +4,7 @@ use napi::{
 };
 use oxc_ast::ast::{JSXAttribute, JSXAttributeName, JSXElement};
 use regex::Regex;
-use std::{collections::HashSet, rc::Rc, sync::LazyLock};
+use std::{collections::HashSet, sync::LazyLock};
 
 use crate::{
   ir::index::{BlockIRNode, Modifiers, SetEventIRNode, SimpleExpressionNode},
@@ -20,7 +20,7 @@ static EVENT_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^on([A-Z])")
 pub fn transform_v_on<'a>(
   dir: &JSXAttribute,
   node: &JSXElement,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &mut BlockIRNode<'a>,
 ) -> Option<DirectiveTransformResult<'a>> {
   let is_component = is_jsx_component(node);

@@ -1,4 +1,4 @@
-use std::{collections::HashSet, rc::Rc, sync::LazyLock};
+use std::{collections::HashSet, sync::LazyLock};
 
 use napi::bindgen_prelude::Either3;
 
@@ -48,7 +48,7 @@ impl<'a> Default for SimpleExpressionNode<'a> {
 impl<'a> SimpleExpressionNode<'a> {
   pub fn new(
     node: Either3<&Expression, &JSXChild, &JSXAttributeValue>,
-    context: &Rc<TransformContext<'a>>,
+    context: &TransformContext<'a>,
   ) -> SimpleExpressionNode<'a> {
     let mut is_static = false;
     let mut ast = None;

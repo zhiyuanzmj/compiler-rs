@@ -16,7 +16,7 @@ pub mod v_html;
 pub mod v_if;
 pub mod v_model;
 pub mod v_on;
-pub mod v_once;
+mod v_once;
 pub mod v_show;
 pub mod v_slot;
 pub mod v_slots;
@@ -88,7 +88,7 @@ pub struct TransformContext<'a> {
   pub index: RefCell<i32>,
 
   pub block: RefCell<BlockIRNode<'a>>,
-  pub options: Rc<TransformOptions>,
+  pub options: TransformOptions,
 
   pub template: RefCell<String>,
   pub children_template: RefCell<Vec<String>>,
@@ -96,7 +96,7 @@ pub struct TransformContext<'a> {
   pub in_v_once: RefCell<bool>,
   pub in_v_for: RefCell<i32>,
 
-  pub slots: Rc<RefCell<Vec<IRSlots<'a>>>>,
+  pub slots: RefCell<Vec<IRSlots<'a>>>,
 
   pub seen: Rc<RefCell<HashSet<u32>>>,
 
@@ -116,9 +116,9 @@ impl<'a> TransformContext<'a> {
     mut ir: RootIRNode<'a>,
     node: ContextNode<'a>,
     options: TransformOptions,
-  ) -> Rc<Self> {
+  ) -> Self {
     let block = mem::take(&mut ir.block);
-    let context = Rc::new(TransformContext {
+    let context = TransformContext {
       env,
       allocator,
       index: RefCell::new(0),
@@ -126,7 +126,7 @@ impl<'a> TransformContext<'a> {
       children_template: RefCell::new(Vec::new()),
       in_v_once: RefCell::new(false),
       in_v_for: RefCell::new(0),
-      slots: Rc::new(RefCell::new(Vec::new())),
+      slots: RefCell::new(Vec::new()),
       seen: Rc::new(RefCell::new(HashSet::new())),
       global_id: RefCell::new(0),
       node: RefCell::new(node),
@@ -134,18 +134,18 @@ impl<'a> TransformContext<'a> {
       parent_dynamic: RefCell::new(IRDynamicInfo::new()),
       ir: Rc::new(RefCell::new(ir)),
       block: RefCell::new(block),
-      options: Rc::new(options),
-    });
+      options,
+    };
     context
   }
 
-  pub fn increase_id(self: &Rc<Self>) -> i32 {
+  pub fn increase_id(self: &Self) -> i32 {
     let current = *self.global_id.borrow();
     *self.global_id.borrow_mut() += 1;
     current
   }
 
-  pub fn reference(self: &Rc<Self>, dynamic: &mut IRDynamicInfo) -> i32 {
+  pub fn reference(self: &Self, dynamic: &mut IRDynamicInfo) -> i32 {
     if let Some(id) = dynamic.id {
       return id;
     }
@@ -155,7 +155,7 @@ impl<'a> TransformContext<'a> {
     id
   }
 
-  pub fn is_operation(self: &Rc<Self>, expressions: Vec<&SimpleExpressionNode>) -> bool {
+  pub fn is_operation(self: &Self, expressions: Vec<&SimpleExpressionNode>) -> bool {
     if self.in_v_once.borrow().eq(&true) {
       return true;
     }
@@ -172,7 +172,7 @@ impl<'a> TransformContext<'a> {
   }
 
   pub fn register_effect(
-    self: &'a Rc<Self>,
+    self: &'a Self,
     context_block: &mut BlockIRNode<'a>,
     is_operation: bool,
     operation: OperationNode<'a>,
@@ -198,7 +198,7 @@ impl<'a> TransformContext<'a> {
   }
 
   pub fn register_operation(
-    self: &Rc<Self>,
+    self: &Self,
     context_block: &mut BlockIRNode<'a>,
     operation: OperationNode<'a>,
     get_operation_index: Option<Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>>,
@@ -213,7 +213,7 @@ impl<'a> TransformContext<'a> {
       .splice(index..index, vec![operation]);
   }
 
-  pub fn push_template(self: &Rc<Self>, content: String) -> i32 {
+  pub fn push_template(self: &Self, content: String) -> i32 {
     let templates = &mut self.ir.borrow_mut().templates;
     if let Some(existing) = templates.iter().position(|i| i == &content) {
       return existing as i32;
@@ -223,7 +223,7 @@ impl<'a> TransformContext<'a> {
     len as i32
   }
 
-  pub fn register_template(self: &Rc<Self>, dynamic: &mut IRDynamicInfo) -> i32 {
+  pub fn register_template(self: &Self, dynamic: &mut IRDynamicInfo) -> i32 {
     let template = self.template.borrow();
     if template.is_empty() {
       return -1;
@@ -234,7 +234,7 @@ impl<'a> TransformContext<'a> {
   }
 
   pub fn enter_block(
-    self: &'a Rc<TransformContext<'a>>,
+    self: &'a TransformContext<'a>,
     context_block: &'a mut BlockIRNode<'a>,
     ir: BlockIRNode<'a>,
     is_v_for: bool,
@@ -273,7 +273,7 @@ impl<'a> TransformContext<'a> {
     exit_block
   }
 
-  pub fn wrap_fragment(self: &Rc<Self>, node: Expression<'a>) -> JSXChild<'a> {
+  pub fn wrap_fragment(self: &Self, node: Expression<'a>) -> JSXChild<'a> {
     if let Expression::JSXFragment(node) = node {
       JSXChild::Fragment(node)
     } else if let Expression::JSXElement(node) = &node
@@ -311,7 +311,7 @@ impl<'a> TransformContext<'a> {
   }
 
   pub fn create_block(
-    self: &'a Rc<Self>,
+    self: &'a Self,
     context_block: &'a mut BlockIRNode<'a>,
     node: Expression<'a>,
     is_v_for: Option<bool>,
@@ -330,7 +330,7 @@ impl<'a> TransformContext<'a> {
   }
 
   pub fn create(
-    self: &Rc<TransformContext<'a>>,
+    self: &TransformContext<'a>,
     node: JSXChild<'a>,
     index: i32,
     block: &mut BlockIRNode<'a>,
@@ -351,7 +351,7 @@ impl<'a> TransformContext<'a> {
   }
 
   pub fn transform_node<'b>(
-    self: &'a Rc<TransformContext<'a>>,
+    self: &'a TransformContext<'a>,
     context_block: Option<&'a mut BlockIRNode<'a>>,
   ) {
     let context_block = if let Some(context_block) = context_block {
@@ -385,7 +385,6 @@ impl<'a> TransformContext<'a> {
             Either::B(node) => &node.clone_in(self.allocator),
             _ => jsx_child,
           };
-          // &node.clone_in(self.allocator)
           let on_exit = node_transform(node, self, unsafe { &mut *block });
           if let Some(on_exit) = on_exit {
             exit_fns.push(on_exit);

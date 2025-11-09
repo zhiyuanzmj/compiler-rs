@@ -45,7 +45,7 @@ static IS_DIRECTIVE_REGEX: LazyLock<regex::Regex> =
 
 pub fn transform_element<'a>(
   node: &JSXChild,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
   let mut effect_index = context_block.effect.len() as i32;
@@ -120,7 +120,7 @@ pub fn transform_native_element<'a>(
   tag: String,
   props_result: PropsResult<'a>,
   single_root: bool,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   get_effect_index: Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>,
   get_operation_index: Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>,
@@ -205,7 +205,7 @@ pub fn transform_component_element<'a>(
   mut tag: String,
   props_result: PropsResult<'a>,
   single_root: bool,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &mut BlockIRNode<'a>,
 ) {
   let mut asset = context.options.with_fallback;
@@ -254,7 +254,7 @@ pub struct PropsResult<'a> {
 
 pub fn build_props<'a>(
   node: &JSXElement,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   is_component: bool,
   get_effect_index: Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>,
@@ -376,7 +376,7 @@ pub fn transform_prop<'a>(
   prop: &JSXAttribute,
   node: &JSXElement,
   is_component: bool,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   get_operation_index: Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>,
 ) -> Option<DirectiveTransformResult<'a>> {

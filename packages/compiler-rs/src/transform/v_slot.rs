@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use napi::{Either, bindgen_prelude::Either4};
 use oxc_ast::ast::{JSXChild, JSXElement};
@@ -20,7 +20,7 @@ use crate::{
 
 pub fn transform_v_slot<'a>(
   node: &JSXChild,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
   let JSXChild::Element(node) = &node else {
@@ -53,7 +53,7 @@ pub fn transform_v_slot<'a>(
 pub fn transform_component_slot<'a>(
   dir: Option<DirectiveNode<'a>>,
   node: &JSXElement,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Box<dyn FnOnce() + 'a> {
   let has_dir = dir.is_some();
@@ -108,7 +108,7 @@ pub fn transform_component_slot<'a>(
 pub fn transform_template_slot<'a>(
   dir: DirectiveNode<'a>,
   node: &JSXElement,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Box<dyn FnOnce() + 'a> {
   let dynamic = &mut context_block.dynamic;
@@ -265,7 +265,7 @@ fn has_static_slot(slots: &Vec<IRSlots>, name: &str) -> bool {
 
 fn create_slot_block<'a>(
   props: Option<SimpleExpressionNode<'a>>,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   exclude_slots: bool,
 ) -> Box<dyn FnOnce() -> BlockIRNode<'a> + 'a> {

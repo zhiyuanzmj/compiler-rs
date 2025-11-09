@@ -1,4 +1,4 @@
-use std::{rc::Rc, sync::LazyLock};
+use std::sync::LazyLock;
 
 use napi::bindgen_prelude::Either3;
 use oxc_ast::ast::{JSXAttribute, JSXAttributeName};
@@ -13,7 +13,7 @@ static NAMESPACE_REGEX: LazyLock<Regex> =
   LazyLock::new(|| Regex::new(r"^(?:\$([\w-]+)\$)?([\w-]+)?").unwrap());
 pub fn resolve_directive<'a>(
   node: &JSXAttribute,
-  context: &Rc<TransformContext<'a>>,
+  context: &TransformContext<'a>,
 ) -> DirectiveNode<'a> {
   let mut arg_string = String::new();
   let mut name_string = match &node.name {

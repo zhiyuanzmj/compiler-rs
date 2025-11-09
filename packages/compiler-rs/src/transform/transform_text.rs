@@ -1,4 +1,4 @@
-use std::{collections::HashSet, rc::Rc};
+use std::collections::HashSet;
 
 use napi::{
   Either,
@@ -22,7 +22,7 @@ use crate::{
 
 pub fn transform_text<'a>(
   node: &JSXChild,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
   let dynamic = &mut context_block.dynamic;
@@ -94,7 +94,7 @@ pub fn transform_text<'a>(
 fn process_children<'a>(
   children: &Vec<&JSXChild>,
   is_fragment: bool,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   seen: &mut HashSet<u32>,
 ) {
@@ -140,7 +140,7 @@ fn process_children<'a>(
 }
 
 fn process_interpolation<'a>(
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   seen: &mut HashSet<u32>,
 ) {
@@ -235,7 +235,7 @@ fn mark_non_template<'a>(node: &JSXChild, seen: &'a mut HashSet<u32>) {
 
 fn process_text_container<'a>(
   children: &Vec<&JSXChild>,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   seen: &mut HashSet<u32>,
 ) {
@@ -275,7 +275,7 @@ fn process_text_container<'a>(
 
 fn process_text_like_expressions<'a>(
   nodes: &Vec<&JSXChild>,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   seen: &mut HashSet<u32>,
 ) -> Vec<SimpleExpressionNode<'a>> {
   let mut values = vec![];
@@ -302,7 +302,7 @@ fn is_text_like(node: &JSXChild) -> bool {
 
 pub fn process_conditional_expression<'a>(
   node: &ConditionalExpression,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Box<dyn FnOnce() + 'a> {
   let test = node.test.clone_in(context.allocator);
@@ -340,7 +340,7 @@ pub fn process_conditional_expression<'a>(
 
 fn process_logical_expression<'a>(
   node: &LogicalExpression,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Box<dyn FnOnce() + 'a> {
   let left = node.left.clone_in(context.allocator);
@@ -389,7 +389,7 @@ fn process_logical_expression<'a>(
 fn set_negative<'a>(
   node: Expression<'a>,
   operation: &mut IfIRNode<'a>,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) {
   if let Expression::ConditionalExpression(node) = node {

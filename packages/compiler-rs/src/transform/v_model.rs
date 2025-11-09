@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use napi::{Either, bindgen_prelude::Either16};
 use oxc_ast::ast::{
   JSXAttribute, JSXAttributeItem, JSXAttributeName, JSXAttributeValue, JSXElement,
@@ -20,7 +18,7 @@ use crate::{
 pub fn transform_v_model<'a>(
   _dir: &JSXAttribute,
   node: &JSXElement,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &mut BlockIRNode<'a>,
 ) -> Option<DirectiveTransformResult<'a>> {
   let dir = resolve_directive(_dir, context);
@@ -130,7 +128,7 @@ pub fn transform_v_model<'a>(
   None
 }
 
-fn check_duplicated_value(node: &JSXElement, context: &Rc<TransformContext>) {
+fn check_duplicated_value(node: &JSXElement, context: &TransformContext) {
   let value = find_prop(&node, Either::A("value".to_string()));
   if let Some(value) = value
     && !matches!(value.value, Some(JSXAttributeValue::StringLiteral(_)))

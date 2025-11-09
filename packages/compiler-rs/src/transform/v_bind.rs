@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use napi::bindgen_prelude::Either3;
 use oxc_ast::ast::{JSXAttribute, JSXAttributeName, JSXElement};
 
@@ -12,7 +10,7 @@ use crate::{
 pub fn transform_v_bind<'a>(
   dir: &JSXAttribute,
   _: &JSXElement,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   _: &mut BlockIRNode,
 ) -> Option<DirectiveTransformResult<'a>> {
   let name_string = match &dir.name {

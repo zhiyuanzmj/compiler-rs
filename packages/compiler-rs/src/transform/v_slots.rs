@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use napi::{
   Either,
   bindgen_prelude::{Either3, Either4},
@@ -21,7 +19,7 @@ use crate::{
 
 pub fn transform_v_slots<'a>(
   node: &JSXChild,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   _: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
   if let JSXChild::Element(node) = node

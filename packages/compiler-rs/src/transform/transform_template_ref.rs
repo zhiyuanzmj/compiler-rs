@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use napi::{
   Either,
   bindgen_prelude::{Either3, Either16},
@@ -14,7 +12,7 @@ use crate::{
 
 pub fn transform_template_ref<'a>(
   node: &JSXChild,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
   if is_fragment_node(&node) {

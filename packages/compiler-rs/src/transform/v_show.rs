@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use napi::bindgen_prelude::Either16;
 use oxc_ast::ast::{JSXAttribute, JSXElement};
 
@@ -15,7 +13,7 @@ use crate::{
 pub fn transform_v_show<'a>(
   _dir: &JSXAttribute,
   _: &JSXElement,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<DirectiveTransformResult<'a>> {
   let mut dir = resolve_directive(_dir, context);

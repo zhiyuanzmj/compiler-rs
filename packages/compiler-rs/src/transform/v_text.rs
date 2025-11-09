@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use napi::bindgen_prelude::{Either3, Either16};
 use oxc_ast::ast::{JSXAttribute, JSXElement};
 
@@ -15,7 +13,7 @@ use crate::{
 pub fn transform_v_text<'a>(
   dir: &JSXAttribute,
   node: &JSXElement,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<DirectiveTransformResult<'a>> {
   let exp = if let Some(value) = &dir.value {

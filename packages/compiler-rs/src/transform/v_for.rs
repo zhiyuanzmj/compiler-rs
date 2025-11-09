@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use napi::{
   Either,
   bindgen_prelude::{Either3, Either16},
@@ -20,7 +18,7 @@ use crate::{
 
 pub fn transform_v_for<'a>(
   node: &JSXChild,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
   let JSXChild::Element(node) = node else {
@@ -112,7 +110,7 @@ pub fn transform_v_for<'a>(
 
 pub fn get_for_parse_result<'a>(
   dir: &JSXAttribute,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
 ) -> IRFor<'a> {
   let mut value: Option<SimpleExpressionNode> = None;
   let mut index: Option<SimpleExpressionNode> = None;

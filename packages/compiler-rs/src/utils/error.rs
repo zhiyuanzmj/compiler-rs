@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc, sync::LazyLock};
+use std::{collections::HashMap, sync::LazyLock};
 
 use napi::{Env, Error, Result, bindgen_prelude::Object};
 use napi_derive::napi;
@@ -127,7 +127,7 @@ pub fn create_compiler_error<'a>(
   Ok(error)
 }
 
-pub fn on_error(code: ErrorCodes, context: &Rc<TransformContext>) {
+pub fn on_error(code: ErrorCodes, context: &TransformContext) {
   let compiler_error = create_compiler_error(&context.env, code, None).unwrap();
   context.options.on_error.as_ref()(compiler_error);
 }

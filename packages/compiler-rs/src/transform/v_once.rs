@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use napi::Either;
 use oxc_ast::ast::JSXChild;
 
@@ -7,7 +5,7 @@ use crate::{ir::index::BlockIRNode, transform::TransformContext, utils::utils::f
 
 pub fn transform_v_once<'a>(
   node: &JSXChild,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   _: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
   if let JSXChild::Element(node) = &node

@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use napi::{Either, bindgen_prelude::Either16};
 use oxc_allocator::CloneIn;
 use oxc_ast::ast::{Expression, JSXChild};
@@ -17,7 +15,7 @@ use crate::{
 
 pub fn transform_v_if<'a>(
   node: &JSXChild,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
   let JSXChild::Element(node) = node else {

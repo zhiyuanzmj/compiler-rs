@@ -1,4 +1,4 @@
-use std::{mem, rc::Rc};
+use std::mem;
 
 use napi::{Either, bindgen_prelude::Either16};
 use oxc_allocator::CloneIn;
@@ -12,7 +12,7 @@ use crate::{
 
 pub fn transform_children<'a>(
   node: Either<RootNode<'a>, JSXChild<'a>>,
-  context: &'a Rc<TransformContext<'a>>,
+  context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
   let is_fragment_or_component = match &node {
@@ -90,7 +90,7 @@ pub fn transform_children<'a>(
 }
 
 fn process_dynamic_children<'a>(
-  context: &Rc<TransformContext<'a>>,
+  context: &TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) {
   let mut prev_dynamics = vec![];
@@ -137,7 +137,7 @@ fn process_dynamic_children<'a>(
 
 fn register_insertion<'a>(
   dynamics: &mut Vec<&mut IRDynamicInfo>,
-  context: &Rc<TransformContext<'a>>,
+  context: &TransformContext<'a>,
   context_block: &mut BlockIRNode<'a>,
   anchor: Option<i32>,
 ) {
