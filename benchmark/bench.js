@@ -1,8 +1,19 @@
 /* eslint-disable */
 import { compile as jsCompile } from '@vue-jsx-vapor/compiler'
-import { compile as oxcCompile } from '@vue-jsx-vapor/compiler-oxc'
 import { compile as rsCompile } from '@vue-jsx-vapor/compiler-rs'
 import { Bench } from 'tinybench'
+import { transformSync } from '@babel/core'
+import vueJsx from '@vue/babel-plugin-jsx'
+function vueJsxCompile(source) {
+  transformSync(source, {
+    plugins: [vueJsx],
+    filename: 'index.jsx',
+    sourceMaps: false,
+    sourceFileName: 'index.jsx',
+    babelrc: false,
+    configFile: false,
+  })
+}
 
 const bench = new Bench()
 
@@ -27,30 +38,30 @@ let source = `
     </template>
   </Foo>
 </Comp>`
-source = `<>${source.repeat(13)}</>`
+source = `<>${source.repeat(12)}</>`
 
-console.time('⚡ compiler.rs + oxc-parser  ')
+console.time('@vue-jsx-vapor/compiler-rs + oxc-parser    ')
 rsCompile(source)
-console.timeEnd('⚡ compiler.rs + oxc-parser  ')
+console.timeEnd('@vue-jsx-vapor/compiler-rs + oxc-parser    ')
 
-console.time('   compiler.js + oxc-parser  ')
-oxcCompile(source)
-console.timeEnd('   compiler.js + oxc-parser  ')
-
-console.time('   compiler.js + babel-parser')
+console.time('@vue-jsx-vapor/compiler    + babel-parser  ')
 jsCompile(source)
-console.timeEnd('   compiler.js + babel-parser')
+console.timeEnd('@vue-jsx-vapor/compiler    + babel-parser  ')
 
-bench.add('compiler.rs + oxc-parser', () => {
+console.time('vue-jsx                    + babel-parser  ')
+vueJsxCompile(source)
+console.timeEnd('vue-jsx                    + babel-parser  ')
+
+bench.add('compiler-rs + oxc-parser', () => {
   rsCompile(source, {})
 })
 
-bench.add('compiler.js + oxc-parser', () => {
-  oxcCompile(source)
+bench.add('compiler-js + babel-parser', () => {
+  jsCompile(source)
 })
 
-bench.add('compiler.js + babel-parser', () => {
-  jsCompile(source)
+bench.add('vue-jsx + babel-parser', () => {
+  vueJsxCompile(source)
 })
 
 await bench.run()

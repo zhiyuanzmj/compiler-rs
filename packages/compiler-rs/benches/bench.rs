@@ -27,7 +27,7 @@ fn bench_compile(b: &mut Criterion) {
       </template>
     </Foo>
   </Comp>"
-            .repeat(13)
+            .repeat(12)
         ),
         None,
       )
