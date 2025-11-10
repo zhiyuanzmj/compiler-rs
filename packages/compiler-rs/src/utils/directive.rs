@@ -1,16 +1,11 @@
-use std::sync::LazyLock;
-
 use napi::bindgen_prelude::Either3;
 use oxc_ast::ast::{JSXAttribute, JSXAttributeName};
-use regex::Regex;
 
 use crate::{
   ir::index::{DirectiveNode, SimpleExpressionNode},
   transform::TransformContext,
 };
 
-static NAMESPACE_REGEX: LazyLock<Regex> =
-  LazyLock::new(|| Regex::new(r"^(?:\$([\w-]+)\$)?([\w-]+)?").unwrap());
 pub fn resolve_directive<'a>(
   node: &JSXAttribute,
   context: &TransformContext<'a>,
@@ -37,31 +32,17 @@ pub fn resolve_directive<'a>(
       name_string = name_string_splited[0].to_string();
     }
   } else {
-    if let Some(result) = NAMESPACE_REGEX.captures(&arg_string.clone()) {
-      arg_string = match result.get(1) {
-        Some(m) => m.to_owned().as_str().to_string(),
-        None => String::new(),
-      };
-      let modifier_string = match result.get(2) {
-        Some(m) => m.as_str(),
-        None => "",
-      };
-      if !arg_string.is_empty() {
-        arg_string = arg_string.replace("_", ".");
-        is_static = false;
-        if modifier_string.starts_with("_") {
-          modifiers = modifier_string[1..]
-            .split("_")
-            .map(|s| s.to_string())
-            .collect::<Vec<String>>();
-        }
-      } else if !modifier_string.is_empty() {
-        let splited: Vec<String> = modifier_string.split("_").map(|s| s.to_string()).collect();
-        arg_string = splited[0].to_owned();
-        modifiers = splited[1..]
-          .iter()
+    let cloned = arg_string.clone();
+    let result = &mut cloned.split("$");
+    if result.count() > 1 {
+      is_static = false;
+      result.next();
+      arg_string = result.next().unwrap().replace("_", ".");
+      if let Some(modifier_string) = result.next() {
+        modifiers = modifier_string[1..]
+          .split("_")
           .map(|s| s.to_string())
-          .collect::<Vec<String>>();
+          .collect::<Vec<_>>();
       }
     }
   }

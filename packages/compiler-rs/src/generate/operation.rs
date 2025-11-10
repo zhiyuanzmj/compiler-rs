@@ -171,8 +171,7 @@ pub fn gen_effects<'a>(
   let newline_count = frag
     .iter()
     .filter(|frag| matches!(frag, Either3::A(FragmentSymbol::Newline)))
-    .collect::<Vec<_>>()
-    .len();
+    .count();
   if newline_count > 1 || operations_count > 1 {
     frag.insert(0, Either3::A(FragmentSymbol::Newline));
     frag.insert(0, Either3::A(FragmentSymbol::IndentStart));
@@ -204,8 +203,7 @@ pub fn gen_effect<'a>(
   let newline_count = operations_exps
     .iter()
     .filter(|frag| matches!(frag, Either3::A(FragmentSymbol::Newline)))
-    .collect::<Vec<_>>()
-    .len();
+    .count();
 
   if newline_count > 1 {
     frag.extend(operations_exps);

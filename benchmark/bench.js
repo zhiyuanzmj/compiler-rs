@@ -29,17 +29,17 @@ let source = `
 </Comp>`
 source = `<>${source.repeat(13)}</>`
 
-console.time('compiler.rs + oxc-parser')
+console.time('⚡ compiler.rs + oxc-parser  ')
 rsCompile(source)
-console.timeEnd('compiler.rs + oxc-parser')
+console.timeEnd('⚡ compiler.rs + oxc-parser  ')
 
-console.time('compiler.js + oxc-parser')
+console.time('   compiler.js + oxc-parser  ')
 oxcCompile(source)
-console.timeEnd('compiler.js + oxc-parser')
+console.timeEnd('   compiler.js + oxc-parser  ')
 
-console.time('compiler.js + babel-parser')
+console.time('   compiler.js + babel-parser')
 jsCompile(source)
-console.timeEnd('compiler.js + babel-parser')
+console.timeEnd('   compiler.js + babel-parser')
 
 bench.add('compiler.rs + oxc-parser', () => {
   rsCompile(source, {})

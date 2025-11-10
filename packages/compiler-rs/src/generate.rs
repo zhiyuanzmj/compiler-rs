@@ -135,6 +135,7 @@ impl<'a> CodegenContext<'a> {
 }
 
 #[napi(object)]
+#[derive(Debug)]
 pub struct VaporCodegenResult {
   pub helpers: HashSet<String>,
   pub templates: Vec<String>,
@@ -144,7 +145,7 @@ pub struct VaporCodegenResult {
 
 // IR -> JS codegen
 pub fn generate<'a>(ir: RootIRNode<'a>, options: CodegenOptions) -> VaporCodegenResult {
-  let mut frag = vec![];
+  let mut frag = Vec::with_capacity(256);
   let has_template_ref = ir.has_template_ref;
   let root_template_index = ir.root_template_index;
   let templates = ir.templates.clone();
@@ -159,13 +160,14 @@ pub fn generate<'a>(ir: RootIRNode<'a>, options: CodegenOptions) -> VaporCodegen
     ))))
   }
   let context_block = &mut *context.block.borrow_mut() as *mut BlockIRNode;
-  frag.extend(gen_block_content(
+  gen_block_content(
+    &mut frag,
     None,
     &context,
     unsafe { &mut *context_block },
     true,
     None,
-  ));
+  );
   frag.push(Either3::A(FragmentSymbol::IndentEnd));
   frag.push(Either3::A(FragmentSymbol::Newline));
 

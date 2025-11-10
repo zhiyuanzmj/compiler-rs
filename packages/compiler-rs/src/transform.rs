@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashSet, mem, rc::Rc};
 
-use napi::{Either, Env, bindgen_prelude::Object};
+use napi::Either;
 use oxc_allocator::{Allocator, CloneIn};
 use oxc_ast::ast::{
   Expression, JSXChild, JSXClosingFragment, JSXExpressionContainer, JSXFragment, JSXOpeningFragment,
@@ -39,6 +39,7 @@ use crate::{
   },
   utils::{
     check::{is_constant_node, is_template},
+    error::ErrorCodes,
     expression::to_jsx_expression,
   },
 };
@@ -47,11 +48,23 @@ pub struct TransformOptions {
   pub source: String,
   pub templates: Vec<String>,
   pub with_fallback: bool,
-  pub is_ts: bool,
   pub is_custom_element: Box<dyn Fn(String) -> bool>,
-  pub on_error: Box<dyn Fn(Object)>,
+  pub on_error: Box<dyn Fn(ErrorCodes)>,
   pub source_map: bool,
   pub filename: String,
+}
+impl TransformOptions {
+  pub fn build(source: String) -> Self {
+    TransformOptions {
+      source,
+      filename: String::from("index.jsx"),
+      templates: vec![],
+      source_map: false,
+      with_fallback: false,
+      is_custom_element: Box::new(|_| false),
+      on_error: Box::new(|_| {}),
+    }
+  }
 }
 
 pub struct DirectiveTransformResult<'a> {
@@ -83,7 +96,6 @@ impl<'a> DirectiveTransformResult<'a> {
 pub type ContextNode<'a> = Either<RootNode<'a>, JSXChild<'a>>;
 
 pub struct TransformContext<'a> {
-  pub env: Env,
   pub allocator: &'a Allocator,
   pub index: RefCell<i32>,
 
@@ -111,7 +123,6 @@ pub struct TransformContext<'a> {
 
 impl<'a> TransformContext<'a> {
   pub fn new(
-    env: Env,
     allocator: &'a Allocator,
     mut ir: RootIRNode<'a>,
     node: ContextNode<'a>,
@@ -119,7 +130,6 @@ impl<'a> TransformContext<'a> {
   ) -> Self {
     let block = mem::take(&mut ir.block);
     let context = TransformContext {
-      env,
       allocator,
       index: RefCell::new(0),
       template: RefCell::new(String::new()),
@@ -420,7 +430,6 @@ impl<'a> TransformContext<'a> {
 }
 
 pub fn transform<'a>(
-  env: Env,
   allocator: &'a Allocator,
   node: RootNode<'a>,
   options: TransformOptions,
@@ -431,7 +440,7 @@ pub fn transform<'a>(
   let source_map = options.source_map;
   let ir = RootIRNode::new(source.clone(), templates.clone());
 
-  let context = TransformContext::new(env, allocator, ir, Either::A(node), options);
+  let context = TransformContext::new(allocator, ir, Either::A(node), options);
   context.transform_node(None);
 
   let mut ir = context.ir.replace(RootIRNode::new(String::new(), vec![]));

@@ -4,7 +4,7 @@ use oxc_ast::ast::{JSXAttribute, JSXElement};
 use crate::{
   ir::index::{BlockIRNode, SetHtmlIRNode, SimpleExpressionNode},
   transform::{DirectiveTransformResult, TransformContext},
-  utils::error::{ErrorCodes, on_error},
+  utils::error::ErrorCodes,
 };
 
 pub fn transform_v_html<'a>(
@@ -16,12 +16,12 @@ pub fn transform_v_html<'a>(
   let exp = if let Some(value) = &dir.value {
     SimpleExpressionNode::new(Either3::C(value), context)
   } else {
-    on_error(ErrorCodes::VHtmlNoExpression, context);
+    context.options.on_error.as_ref()(ErrorCodes::VHtmlNoExpression);
     SimpleExpressionNode::default()
   };
 
   if node.children.len() != 0 {
-    on_error(ErrorCodes::VHtmlWithChildren, context);
+    context.options.on_error.as_ref()(ErrorCodes::VHtmlWithChildren);
     return None;
   }
 

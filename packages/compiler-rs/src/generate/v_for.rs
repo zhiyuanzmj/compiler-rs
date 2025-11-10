@@ -229,13 +229,14 @@ pub fn gen_for<'a>(
 
   let block_fn = context.with_id(
     move || {
-      let mut frag = vec![];
+      let mut frag = Vec::with_capacity(256);
       frag.push(Either3::C(Some("(".to_string())));
       frag.extend(args);
       frag.push(Either3::C(Some(") => {".to_string())));
       frag.push(Either3::A(FragmentSymbol::IndentStart));
       if selector_patterns.len() > 0 || key_only_binding_patterns.len() > 0 {
-        frag.extend(gen_block_content(
+        gen_block_content(
+          &mut frag,
           Some(render),
           context,
           context_block,
@@ -280,15 +281,9 @@ pub fn gen_for<'a>(
             }
             pattern_frag
           })),
-        ))
+        );
       } else {
-        frag.extend(gen_block_content(
-          Some(render),
-          context,
-          context_block,
-          false,
-          None,
-        ))
+        gen_block_content(&mut frag, Some(render), context, context_block, false, None);
       }
       frag.extend(vec![
         Either3::A(FragmentSymbol::IndentEnd),

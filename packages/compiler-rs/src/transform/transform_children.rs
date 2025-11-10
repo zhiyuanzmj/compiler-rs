@@ -1,4 +1,4 @@
-use std::mem;
+use std::{collections::VecDeque, mem};
 
 use napi::{Either, bindgen_prelude::Either16};
 use oxc_allocator::CloneIn;
@@ -93,7 +93,7 @@ fn process_dynamic_children<'a>(
   context: &TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) {
-  let mut prev_dynamics = vec![];
+  let mut prev_dynamics = VecDeque::new();
   let mut has_static_template = false;
 
   let mut index = 0;
@@ -101,7 +101,7 @@ fn process_dynamic_children<'a>(
   for child in unsafe { &mut *children } {
     let flags = child.flags;
     if flags & DynamicFlag::Insert as i32 != 0 {
-      prev_dynamics.push(child);
+      prev_dynamics.push_back(child);
     }
 
     if flags & DynamicFlag::NonTemplate as i32 == 0 {
@@ -136,7 +136,7 @@ fn process_dynamic_children<'a>(
 }
 
 fn register_insertion<'a>(
-  dynamics: &mut Vec<&mut IRDynamicInfo>,
+  dynamics: &mut VecDeque<&mut IRDynamicInfo>,
   context: &TransformContext<'a>,
   context_block: &mut BlockIRNode<'a>,
   anchor: Option<i32>,

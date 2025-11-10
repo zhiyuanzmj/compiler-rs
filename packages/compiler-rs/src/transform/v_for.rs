@@ -10,7 +10,7 @@ use crate::{
   transform::TransformContext,
   utils::{
     check::{is_constant_node, is_jsx_component, is_template},
-    error::{ErrorCodes, on_error},
+    error::ErrorCodes,
     text::is_empty_text,
     utils::find_prop,
   },
@@ -46,7 +46,7 @@ pub fn transform_v_for<'a>(
   } = get_for_parse_result(dir, context);
 
   let Some(source) = source else {
-    on_error(ErrorCodes::VForMalformedExpression, context);
+    context.options.on_error.as_ref()(ErrorCodes::VForMalformedExpression);
     return None;
   };
 
@@ -152,7 +152,7 @@ pub fn get_for_parse_result<'a>(
       ));
     }
   } else {
-    on_error(ErrorCodes::VForNoExpression, context);
+    context.options.on_error.as_ref()(ErrorCodes::VForNoExpression);
   }
   return IRFor {
     value,

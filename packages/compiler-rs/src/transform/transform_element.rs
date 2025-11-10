@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, sync::LazyLock};
+use std::{cell::RefCell, rc::Rc};
 
 use napi::{
   Either,
@@ -26,7 +26,7 @@ use crate::{
     check::{is_build_in_directive, is_jsx_component, is_template, is_void_tag},
     directive::resolve_directive,
     dom::is_valid_html_nesting,
-    error::{ErrorCodes, on_error},
+    error::ErrorCodes,
     text::{camelize, get_tag_name},
     utils::get_text_like_value,
   },
@@ -37,11 +37,23 @@ pub fn is_reserved_prop(name: &str) -> bool {
   RESERVED_PROP.contains(&name)
 }
 
-static IS_EVENT_REGEX: LazyLock<regex::Regex> =
-  LazyLock::new(|| regex::Regex::new(r"^on[A-Z]").unwrap());
+pub fn is_event(s: &str) -> bool {
+  s.starts_with("on")
+    && s
+      .chars()
+      .nth(2)
+      .map(|c| c.is_ascii_uppercase())
+      .unwrap_or(false)
+}
 
-static IS_DIRECTIVE_REGEX: LazyLock<regex::Regex> =
-  LazyLock::new(|| regex::Regex::new(r"^v-[a-z]").unwrap());
+pub fn is_directive(s: &str) -> bool {
+  s.starts_with("v-")
+    && s
+      .chars()
+      .nth(2)
+      .map(|c| c.is_ascii_lowercase())
+      .unwrap_or(false)
+}
 
 pub fn transform_element<'a>(
   node: &JSXChild,
@@ -314,7 +326,7 @@ pub fn build_props<'a>(
               );
             }
           } else {
-            on_error(ErrorCodes::VOnNoExpression, context);
+            context.options.on_error.as_ref()(ErrorCodes::VOnNoExpression);
           }
           continue;
         }
@@ -397,10 +409,7 @@ pub fn transform_prop<'a>(
   } else {
     None
   };
-  if !IS_DIRECTIVE_REGEX.is_match(&name)
-    && !IS_EVENT_REGEX.is_match(&name)
-    && (prop.value.is_none() || value.is_some())
-  {
+  if !is_directive(name) && !is_event(name) && (prop.value.is_none() || value.is_some()) {
     if is_reserved_prop(name) {
       return None;
     }
@@ -429,9 +438,9 @@ pub fn transform_prop<'a>(
     ));
   }
 
-  let mut name = if IS_EVENT_REGEX.is_match(&name) {
+  let mut name = if is_event(name) {
     "on".to_string()
-  } else if IS_DIRECTIVE_REGEX.is_match(&name) {
+  } else if is_directive(name) {
     name[2..].to_string()
   } else {
     "bind".to_string()

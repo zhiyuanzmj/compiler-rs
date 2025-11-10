@@ -10,11 +10,7 @@ use crate::{
     index::{BlockIRNode, SimpleExpressionNode},
   },
   transform::TransformContext,
-  utils::{
-    check::is_jsx_component,
-    error::{ErrorCodes, on_error},
-    utils::find_prop,
-  },
+  utils::{check::is_jsx_component, error::ErrorCodes, utils::find_prop},
 };
 
 pub fn transform_v_slots<'a>(
@@ -35,7 +31,7 @@ pub fn transform_v_slots<'a>(
         })];
       }))
     } else {
-      on_error(ErrorCodes::VSlotMisplaced, context);
+      context.options.on_error.as_ref()(ErrorCodes::VSlotMisplaced);
       None
     }
   } else {

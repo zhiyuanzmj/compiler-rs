@@ -1,10 +1,8 @@
 use std::mem;
-use std::sync::LazyLock;
 
 use napi::Either;
 use napi::bindgen_prelude::Either3;
 use napi::bindgen_prelude::Either4;
-use regex::Regex;
 
 use crate::generate::CodegenContext;
 use crate::generate::expression::gen_expression;
@@ -98,8 +96,6 @@ pub fn gen_set_prop(oper: SetPropIRNode, context: &CodegenContext) -> Vec<CodeFr
   result
 }
 
-static ARIA_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"aria[A-Z]").unwrap());
-
 fn get_runtime_helper(tag: &str, key: &str, modifier: Option<String>) -> HelperConfig {
   let tag_name = tag.to_uppercase();
   if let Some(modifier) = modifier {
@@ -121,7 +117,13 @@ fn get_runtime_helper(tag: &str, key: &str, modifier: Option<String>) -> HelperC
 
   // 2. Aria DOM properties shared between all Elements in
   //    https://developer.mozilla.org/en-US/docs/Web/API/Element
-  if ARIA_REGEX.is_match(key) {
+  if key.starts_with("aria")
+    && key
+      .chars()
+      .nth(4)
+      .map(|c| c.is_ascii_uppercase())
+      .unwrap_or(false)
+  {
     return helpers("setDOMProp");
   }
 

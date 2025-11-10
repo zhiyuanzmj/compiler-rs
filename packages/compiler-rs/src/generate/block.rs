@@ -21,24 +21,20 @@ pub fn gen_block<'a>(
   args: Vec<CodeFragment>,
   root: bool,
 ) -> Vec<CodeFragment> {
-  let mut result = vec![Either3::C(Some("(".to_string()))];
-  result.extend(args);
-  result.push(Either3::C(Some(") => {".to_string())));
-  result.push(Either3::A(IndentStart));
-  result.extend(gen_block_content(
-    Some(oper),
-    context,
-    context_block,
-    root,
-    None,
-  ));
-  result.push(Either3::A(IndentEnd));
-  result.push(Either3::A(Newline));
-  result.push(Either3::C(Some("}".to_string())));
-  result
+  let mut frag = Vec::with_capacity(256);
+  frag.push(Either3::C(Some("(".to_string())));
+  frag.extend(args);
+  frag.push(Either3::C(Some(") => {".to_string())));
+  frag.push(Either3::A(IndentStart));
+  gen_block_content(&mut frag, Some(oper), context, context_block, root, None);
+  frag.push(Either3::A(IndentEnd));
+  frag.push(Either3::A(Newline));
+  frag.push(Either3::C(Some("}".to_string())));
+  frag
 }
 
 pub fn gen_block_content<'a>(
+  frag: &mut Vec<CodeFragment>,
   block: Option<BlockIRNode<'a>>,
   context: &'a CodegenContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
@@ -46,8 +42,7 @@ pub fn gen_block_content<'a>(
   gen_effects_extra_frag: Option<
     Box<dyn FnOnce(&'a mut BlockIRNode<'a>) -> Vec<CodeFragment> + 'a>,
   >,
-) -> Vec<CodeFragment> {
-  let mut frag = vec![];
+) {
   let mut reset_block = None;
   let context_block = context_block as *mut BlockIRNode;
   if let Some(block) = block {
@@ -118,5 +113,4 @@ pub fn gen_block_content<'a>(
   if let Some(reset_block) = reset_block {
     reset_block();
   }
-  frag
 }

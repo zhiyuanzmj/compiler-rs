@@ -60,8 +60,8 @@ fn gen_static_slots<'a>(
   let mut args = vec![];
   let context_block = context_block as *mut BlockIRNode;
   for name in slots.keys().cloned().collect::<Vec<String>>() {
-    let mut result = vec![Either3::C(Some(format!("\"{}\": ", name.clone())))];
     let oper = slots.remove(&name).unwrap();
+    let mut result = vec![Either3::C(Some(format!("\"{}\": ", name)))];
     result.extend(gen_slot_block_with_props(oper, context, unsafe {
       &mut *context_block
     }));
@@ -322,7 +322,7 @@ fn gen_slot_block_with_props<'a>(
     );
   }
   let block_fn = context.with_id(
-    move || {
+    || {
       gen_block(
         oper,
         context,

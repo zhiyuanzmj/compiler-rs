@@ -12,7 +12,7 @@ use crate::{
   utils::{
     check::{is_jsx_component, is_template},
     directive::resolve_directive,
-    error::{ErrorCodes, on_error},
+    error::ErrorCodes,
     text::is_empty_text,
     utils::find_prop,
   },
@@ -44,7 +44,7 @@ pub fn transform_v_slot<'a>(
   } else if is_slot_template && let Some(dir) = dir {
     return Some(transform_template_slot(dir, node, context, context_block));
   } else if !is_component && dir.is_some() {
-    on_error(ErrorCodes::VSlotMisplaced, context);
+    context.options.on_error.as_ref()(ErrorCodes::VSlotMisplaced);
   }
   None
 }
@@ -75,8 +75,7 @@ pub fn transform_component_slot<'a>(
           true
         }
     })
-    .collect::<Vec<_>>()
-    .len();
+    .count();
 
   let exit_block = create_slot_block(exp, context, context_block, false);
 
@@ -87,13 +86,13 @@ pub fn transform_component_slot<'a>(
     let has_other_slots = !slots.is_empty();
     if has_dir && has_other_slots {
       // already has on-component slot - this is incorrect usage.
-      on_error(ErrorCodes::VSlotMixedSlotUsage, context);
+      context.options.on_error.as_ref()(ErrorCodes::VSlotMixedSlotUsage);
       return;
     }
 
     if non_slot_template_children_len > 0 {
       if has_static_slot(&slots, "default") {
-        on_error(ErrorCodes::VSlotExtraneousDefaultSlotChildren, context);
+        context.options.on_error.as_ref()(ErrorCodes::VSlotExtraneousDefaultSlotChildren);
       } else {
         register_slot(&mut slots, arg, block);
         *context.slots.borrow_mut() = slots;
@@ -149,7 +148,7 @@ pub fn transform_template_slot<'a>(
         String::from("default")
       };
       if !slot_name.is_empty() && has_static_slot(&slots, &slot_name) {
-        on_error(ErrorCodes::VSlotDuplicateSlotNames, context)
+        context.options.on_error.as_ref()(ErrorCodes::VSlotDuplicateSlotNames)
       } else {
         register_slot(slots, arg, block);
       }
@@ -186,7 +185,7 @@ pub fn transform_template_slot<'a>(
           };
           set_slot(v_if_slot, negative);
         } else {
-          on_error(ErrorCodes::VElseNoAdjacentIf, context)
+          context.options.on_error.as_ref()(ErrorCodes::VElseNoAdjacentIf)
         }
       }
     } else if let Some(for_parse_result) = for_parse_result {

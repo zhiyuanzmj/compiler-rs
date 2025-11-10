@@ -58,7 +58,9 @@
     "lint": "oxlint",
     "prepublishOnly": "napi prepublish -t npm",
     "test": "vitest",
-    "version": "napi version"
+    "version": "napi version",
+    "bench": "cargo bench --no-default-features",
+    "flamegraph": "CARGO_PROFILE_RELEASE_STRIP=false CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph --test compile_test --no-default-features"
   },
   "devDependencies": {
     "@emnapi/core": "^1.5.0",

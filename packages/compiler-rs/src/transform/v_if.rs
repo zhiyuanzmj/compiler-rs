@@ -8,7 +8,7 @@ use crate::{
   utils::{
     check::{is_constant_node, is_template},
     directive::resolve_directive,
-    error::{ErrorCodes, on_error},
+    error::ErrorCodes,
     utils::find_prop,
   },
 };
@@ -46,7 +46,7 @@ pub fn transform_v_if<'a>(
   if dir.name != "else"
     && (dir.exp.is_none() || dir.exp.as_ref().unwrap().content.trim().is_empty())
   {
-    on_error(ErrorCodes::VIfNoExpression, context);
+    context.options.on_error.as_ref()(ErrorCodes::VIfNoExpression);
     dir.exp = Some(SimpleExpressionNode {
       content: "true".to_string(),
       is_static: false,
@@ -102,7 +102,7 @@ pub fn transform_v_if<'a>(
 
   // check if IfNode is the last operation and get the root IfNode
   let Some(mut last_if_node) = last_if_node else {
-    on_error(ErrorCodes::VElseNoAdjacentIf, context);
+    context.options.on_error.as_ref()(ErrorCodes::VElseNoAdjacentIf);
     return None;
   };
 
@@ -116,7 +116,7 @@ pub fn transform_v_if<'a>(
 
   // Check if v-else was followed by v-else-if
   if dir.name == "else-if" && last_if_node.negative.is_some() {
-    on_error(ErrorCodes::VElseNoAdjacentIf, context);
+    context.options.on_error.as_ref()(ErrorCodes::VElseNoAdjacentIf);
   };
 
   let exit_block = context.create_block(

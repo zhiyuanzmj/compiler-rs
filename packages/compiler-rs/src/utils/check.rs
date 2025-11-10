@@ -1,5 +1,3 @@
-use std::{collections::HashSet, sync::LazyLock};
-
 use oxc_ast::{
   AstKind,
   ast::{
@@ -8,7 +6,7 @@ use oxc_ast::{
   },
 };
 use oxc_span::GetSpan;
-use regex::Regex;
+use phf::phf_set;
 
 use crate::{ir::index::SimpleExpressionNode, utils::expression::is_globally_allowed};
 
@@ -118,8 +116,7 @@ pub fn is_constant_node(node: &Option<&Expression>) -> bool {
 }
 
 // https://developer.mozilla.org/en-US/docs/Web/HTML/Element
-static HTML_TAGS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
-  HashSet::from([
+static HTML_TAGS: phf::Set<&'static str> = phf_set! {
     "html",
     "body",
     "base",
@@ -231,15 +228,13 @@ static HTML_TAGS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     "blockquote",
     "iframe",
     "tfoot",
-  ])
-});
+};
 pub fn is_html_tag(tag_name: &str) -> bool {
   HTML_TAGS.contains(tag_name)
 }
 
 // https://developer.mozilla.org/en-US/docs/Web/SVG/Element
-static SVG_TAGS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
-  HashSet::from([
+static SVG_TAGS: phf::Set<&'static str> = phf_set! {
     "svg",
     "animate",
     "animateMotion",
@@ -310,8 +305,7 @@ static SVG_TAGS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     "unknown",
     "use",
     "view",
-  ])
-});
+};
 pub fn is_svg_tag(tag_name: &str) -> bool {
   SVG_TAGS.contains(tag_name)
 }
@@ -336,28 +330,40 @@ pub fn is_reserved_prop(prop_name: &str) -> bool {
   RESERVED_PROP.contains(&prop_name)
 }
 
-static VOID_TAGS: LazyLock<HashSet<&str>> = LazyLock::new(|| {
-  HashSet::from([
+static VOID_TAGS: phf::Set<&'static str> = phf_set! {
     "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source",
     "track", "wbr",
-  ])
-});
+};
 pub fn is_void_tag(tag_name: &str) -> bool {
   VOID_TAGS.contains(&tag_name)
 }
 
-static BUILD_IN_DIRECTIVE: [&str; 16] = [
+static BUILD_IN_DIRECTIVE: phf::Set<&'static str> = phf_set! {
   "bind", "cloak", "else-if", "else", "for", "html", "if", "model", "on", "once", "pre", "show",
   "slot", "slots", "text", "memo",
-];
+};
 pub fn is_build_in_directive(prop_name: &str) -> bool {
   BUILD_IN_DIRECTIVE.contains(&prop_name)
 }
 
-static NON_IDENTIFIER_RE: LazyLock<Regex> =
-  LazyLock::new(|| Regex::new(r"^$|^\d|[^$\w\x{00A0}-\x{FFFF}]").unwrap());
-pub fn is_simple_identifier(name: &str) -> bool {
-  !NON_IDENTIFIER_RE.is_match(name)
+pub fn is_simple_identifier(s: &str) -> bool {
+  if s.is_empty() {
+    return false;
+  }
+  let first = s.chars().next().unwrap();
+  if !(first.is_ascii_alphabetic() || first == '_' || first == '$') {
+    return false;
+  }
+  for c in s.chars().skip(1) {
+    if !(c.is_ascii_alphanumeric()
+      || c == '_'
+      || c == '$'
+      || (c as u32 >= 0x00A0 && c as u32 <= 0xFFFF))
+    {
+      return false;
+    }
+  }
+  true
 }
 
 // Checks if the input `node` is a reference to a bound variable.

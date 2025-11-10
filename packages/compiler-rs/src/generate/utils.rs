@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 use napi::{
   Either,
   bindgen_prelude::{Either3, Either4},
@@ -178,21 +176,19 @@ pub fn gen_call(
   result
 }
 
-static VALID_ASSET_REGEX: LazyLock<regex::Regex> =
-  LazyLock::new(|| regex::Regex::new(r"[^A-Za-z0-9_$]").unwrap());
-
 pub fn to_valid_asset_id(name: String, _type: String) -> String {
-  let name = VALID_ASSET_REGEX
-    .replace_all(name.as_str(), |caps: &regex::Captures| {
-      let ch = caps.get(0).unwrap().as_str();
-      if ch == "-" {
-        "_".to_string()
+  let name = name
+    .chars()
+    .map(|c| {
+      if c == '-' {
+        return "_".to_string();
+      } else if c.is_ascii_alphanumeric() || c == '_' || c == '$' {
+        return c.to_string();
       } else {
-        (ch.chars().next().unwrap() as u32).to_string()
+        (c as u32).to_string()
       }
     })
-    .to_string();
-
+    .collect::<String>();
   format!("_{_type}_{name}")
 }
 

@@ -1,30 +1,55 @@
 use oxc_ast::ast::{JSXChild, JSXElementName, JSXExpression, JSXText};
-use oxc_span::Span;
-use std::{rc::Rc, sync::LazyLock};
-
-use regex::{Captures, Regex};
 
 use crate::transform::TransformContext;
 
-static EMPTY_TEXT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-  Regex::new(r"^[\t\v\f \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]*[\n\r]\s*$")
-    .unwrap()
-});
+fn is_all_empty_text(s: &str) -> bool {
+  let mut has_newline = false;
+  for c in s.chars() {
+    if !c.is_whitespace() {
+      return false;
+    }
+    if c == '\n' || c == '\r' {
+      has_newline = true;
+    }
+  }
+  has_newline
+}
 
-static START_EMPTY_TEXT_REGEX: LazyLock<Regex> =
-  LazyLock::new(|| Regex::new(r"^\s*[\n\r]").unwrap());
+fn start_with_newline_and_spaces(s: &str) -> bool {
+  let mut chars = s.chars();
 
-static END_EMPTY_TEXT_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[\n\r]\s*$").unwrap());
+  while let Some(c) = chars.next() {
+    if c.is_whitespace() && c != '\n' && c != '\r' {
+      continue;
+    } else {
+      return c == '\n' || c == '\r';
+    }
+  }
+  false
+}
+
+fn ends_with_newline_and_spaces(s: &str) -> bool {
+  let mut chars = s.chars().rev();
+
+  while let Some(c) = chars.next() {
+    if c.is_whitespace() && c != '\n' && c != '\r' {
+      continue;
+    } else {
+      return c == '\n' || c == '\r';
+    }
+  }
+  false
+}
 
 pub fn resolve_jsx_text(node: &JSXText) -> String {
-  if EMPTY_TEXT_REGEX.is_match(&node.raw.unwrap()) {
+  if is_all_empty_text(&node.raw.unwrap()) {
     return String::new();
   }
   let mut value = node.value.to_string();
-  if START_EMPTY_TEXT_REGEX.is_match(&value) {
+  if start_with_newline_and_spaces(&value) {
     value = value.trim_start().to_owned();
   }
-  if END_EMPTY_TEXT_REGEX.is_match(&value) {
+  if ends_with_newline_and_spaces(&value) {
     value = value.trim_end().to_owned();
   }
   return value;
@@ -32,7 +57,7 @@ pub fn resolve_jsx_text(node: &JSXText) -> String {
 
 pub fn is_empty_text(node: &JSXChild) -> bool {
   match node {
-    JSXChild::Text(node) => EMPTY_TEXT_REGEX.is_match(&node.raw.unwrap()),
+    JSXChild::Text(node) => is_all_empty_text(&node.raw.unwrap()),
     JSXChild::ExpressionContainer(node) => {
       matches!(node.expression, JSXExpression::EmptyExpression(_))
     }
@@ -56,15 +81,20 @@ pub fn get_tag_name(name: &JSXElementName, context: &TransformContext) -> String
   }
 }
 
-pub fn get_text(span: Span, context: &Rc<TransformContext>) -> String {
-  let start = span.start as usize;
-  let end = span.end as usize;
-  context.ir.borrow().source[start..end].to_string()
-}
-
-static CAMELIZE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"-(\w)").unwrap());
 pub fn camelize(str: String) -> String {
-  CAMELIZE_RE
-    .replace_all(&str, |caps: &Captures| caps[1].to_uppercase())
-    .to_string()
+  str
+    .split('-')
+    .enumerate()
+    .map(|(idx, word)| {
+      if idx == 0 {
+        word.to_string()
+      } else {
+        let mut chars = word.chars();
+        match chars.next() {
+          Some(first) => first.to_ascii_uppercase().to_string() + chars.as_str(),
+          None => String::new(),
+        }
+      }
+    })
+    .collect()
 }

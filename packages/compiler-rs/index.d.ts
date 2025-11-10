@@ -27,9 +27,6 @@ export interface CompilerOptions {
    * @default false
    */
   withFallback?: boolean
-  /** * Indicates that transforms and codegen should try to output valid TS code
-   */
-  isTS?: boolean
   /** * Separate option for end users to extend the native elements list
    */
   isCustomElement?: (arg: string) => boolean

@@ -4,10 +4,7 @@ use oxc_ast::ast::{JSXAttribute, JSXElement};
 use crate::{
   ir::index::{BlockIRNode, DirectiveIRNode, SimpleExpressionNode},
   transform::{DirectiveTransformResult, TransformContext},
-  utils::{
-    directive::resolve_directive,
-    error::{ErrorCodes, on_error},
-  },
+  utils::{directive::resolve_directive, error::ErrorCodes},
 };
 
 pub fn transform_v_show<'a>(
@@ -18,7 +15,7 @@ pub fn transform_v_show<'a>(
 ) -> Option<DirectiveTransformResult<'a>> {
   let mut dir = resolve_directive(_dir, context);
   if dir.exp.is_none() {
-    on_error(ErrorCodes::VShowNoExpression, context);
+    context.options.on_error.as_ref()(ErrorCodes::VShowNoExpression);
     dir.exp = Some(SimpleExpressionNode::default())
   }
 

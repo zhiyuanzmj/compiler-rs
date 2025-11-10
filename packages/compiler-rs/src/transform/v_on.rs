@@ -3,19 +3,13 @@ use napi::{
   bindgen_prelude::{Either3, Either16},
 };
 use oxc_ast::ast::{JSXAttribute, JSXAttributeName, JSXElement};
-use regex::Regex;
 use std::{collections::HashSet, sync::LazyLock};
 
 use crate::{
   ir::index::{BlockIRNode, Modifiers, SetEventIRNode, SimpleExpressionNode},
   transform::{DirectiveTransformResult, TransformContext},
-  utils::{
-    check::is_jsx_component,
-    error::{ErrorCodes, on_error},
-  },
+  utils::{check::is_jsx_component, error::ErrorCodes},
 };
-
-static EVENT_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^on([A-Z])").unwrap());
 
 pub fn transform_v_on<'a>(
   dir: &JSXAttribute,
@@ -32,17 +26,14 @@ pub fn transform_v_on<'a>(
       name.span.clone(),
     ),
   };
-  let replaced = EVENT_REGEX.replace(&name, |caps: &regex::Captures| {
-    format!("on{}", caps[1].to_lowercase())
-  })[2..]
-    .to_string();
-  let splited: Vec<&str> = replaced.split("_").collect();
+  let replaced = format!("{}{}", &name[2..2].to_lowercase(), &name[3..]);
+  let splited = replaced.split("_").collect::<Vec<_>>();
   let name_string = splited[0].to_string();
   let modifiers = splited[1..].to_vec();
 
   let value = &dir.value;
   if value.is_none() && modifiers.is_empty() {
-    on_error(ErrorCodes::VOnNoExpression, context);
+    context.options.on_error.as_ref()(ErrorCodes::VOnNoExpression);
   }
 
   let mut arg = SimpleExpressionNode {

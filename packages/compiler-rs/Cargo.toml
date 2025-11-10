@@ -6,17 +6,26 @@ name = "compiler-rs"
 version = "0.1.0"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["napi"]
+napi = []
 
 [dependencies]
 napi = {version = "3.3.0", features = ["napi9"]}
-napi-derive = "3.2.5"
+napi-derive = "3.3.0"
 oxc_parser = "0.93.0"
 oxc_ast = "0.93.0"
-regex = "1.11.3"
 oxc_allocator = "0.93.0"
 oxc_span = "0.93.0"
 oxc_ast_visit = "0.93.0"
+criterion = "0.7.0"
+phf = "0.13.1"
+
+[[bench]]
+name = "bench"
+harness = false
 
 [build-dependencies]
 napi-build = "2"
