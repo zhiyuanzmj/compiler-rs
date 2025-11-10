@@ -9,16 +9,16 @@ use crate::{
     component::{IRSlotType, IRSlotsExpression},
     index::{BlockIRNode, SimpleExpressionNode},
   },
-  transform::TransformContext,
+  transform::{ContextNode, TransformContext},
   utils::{check::is_jsx_component, error::ErrorCodes, utils::find_prop},
 };
 
 pub fn transform_v_slots<'a>(
-  node: &JSXChild,
+  context_node: &mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   _: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
-  if let JSXChild::Element(node) = node
+  if let Either::B(JSXChild::Element(node)) = context_node
     && is_jsx_component(node)
     && let Some(dir) = find_prop(node, Either::A("v-slots".to_string()))
   {

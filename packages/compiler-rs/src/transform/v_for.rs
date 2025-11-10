@@ -7,7 +7,7 @@ use oxc_ast::ast::{Expression, JSXAttribute, JSXAttributeValue, JSXChild, JSXEle
 
 use crate::{
   ir::index::{BlockIRNode, DynamicFlag, ForIRNode, IRFor, SimpleExpressionNode},
-  transform::TransformContext,
+  transform::{ContextNode, TransformContext},
   utils::{
     check::{is_constant_node, is_jsx_component, is_template},
     error::ErrorCodes,
@@ -17,11 +17,12 @@ use crate::{
 };
 
 pub fn transform_v_for<'a>(
-  node: &JSXChild,
+  context_node: &mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
-  let JSXChild::Element(node) = node else {
+  let context_node = context_node as *mut ContextNode;
+  let Either::B(JSXChild::Element(node)) = (unsafe { &*context_node }) else {
     return None;
   };
   if is_template(node) && find_prop(node, Either::A("v-slot".to_string())).is_some() {
@@ -65,6 +66,7 @@ pub fn transform_v_for<'a>(
   dynamic.flags = dynamic.flags | DynamicFlag::NonTemplate as i32 | DynamicFlag::Insert as i32;
   let block = context_block as *mut BlockIRNode;
   let exit_block = context.create_block(
+    unsafe { &mut *context_node },
     unsafe { &mut *block },
     Expression::JSXElement(node.clone_in(context.allocator)),
     Some(true),

@@ -6,15 +6,18 @@ use oxc_ast::ast::JSXChild;
 
 use crate::{
   ir::index::{BlockIRNode, DeclareOldRefIRNode, SetTemplateRefIRNode, SimpleExpressionNode},
-  transform::TransformContext,
+  transform::{ContextNode, TransformContext},
   utils::{check::is_fragment_node, utils::find_prop},
 };
 
 pub fn transform_template_ref<'a>(
-  node: &JSXChild,
+  context_node: &mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
+  let Either::B(node) = context_node else {
+    return None;
+  };
   if is_fragment_node(&node) {
     return None;
   }

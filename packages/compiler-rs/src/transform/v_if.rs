@@ -4,7 +4,7 @@ use oxc_ast::ast::{Expression, JSXChild};
 
 use crate::{
   ir::index::{BlockIRNode, DynamicFlag, IRDynamicInfo, IfIRNode, SimpleExpressionNode},
-  transform::TransformContext,
+  transform::{ContextNode, TransformContext},
   utils::{
     check::{is_constant_node, is_template},
     directive::resolve_directive,
@@ -14,11 +14,12 @@ use crate::{
 };
 
 pub fn transform_v_if<'a>(
-  node: &JSXChild,
+  context_node: &mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
-  let JSXChild::Element(node) = node else {
+  let context_node = context_node as *mut ContextNode;
+  let Either::B(JSXChild::Element(node)) = (unsafe { &*context_node }) else {
     return None;
   };
   if is_template(node) && find_prop(node, Either::A("v-slot".to_string())).is_some() {
@@ -63,6 +64,7 @@ pub fn transform_v_if<'a>(
     dynamic.flags |= DynamicFlag::Insert as i32;
     let block = context_block as *mut BlockIRNode;
     let exit_block = context.create_block(
+      unsafe { &mut *context_node },
       unsafe { &mut *block },
       Expression::JSXElement(node.clone_in(context.allocator)),
       None,
@@ -120,6 +122,7 @@ pub fn transform_v_if<'a>(
   };
 
   let exit_block = context.create_block(
+    unsafe { &mut *context_node },
     context_block,
     Expression::JSXElement(node.clone_in(context.allocator)),
     None,

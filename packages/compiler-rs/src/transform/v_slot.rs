@@ -8,7 +8,7 @@ use crate::{
     component::{IRSlotDynamicBasic, IRSlotDynamicConditional, IRSlotType, IRSlots, IRSlotsStatic},
     index::{BlockIRNode, DirectiveNode, DynamicFlag, SimpleExpressionNode},
   },
-  transform::{TransformContext, v_for::get_for_parse_result},
+  transform::{ContextNode, TransformContext, v_for::get_for_parse_result},
   utils::{
     check::{is_jsx_component, is_template},
     directive::resolve_directive,
@@ -19,11 +19,11 @@ use crate::{
 };
 
 pub fn transform_v_slot<'a>(
-  node: &JSXChild,
+  context_node: &mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
-  let JSXChild::Element(node) = &node else {
+  let Either::B(JSXChild::Element(node)) = &context_node else {
     return None;
   };
 

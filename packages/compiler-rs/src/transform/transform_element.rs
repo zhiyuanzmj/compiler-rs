@@ -18,9 +18,9 @@ use crate::{
     },
   },
   transform::{
-    DirectiveTransformResult, TransformContext, v_bind::transform_v_bind, v_html::transform_v_html,
-    v_model::transform_v_model, v_on::transform_v_on, v_show::transform_v_show,
-    v_text::transform_v_text,
+    ContextNode, DirectiveTransformResult, TransformContext, v_bind::transform_v_bind,
+    v_html::transform_v_html, v_model::transform_v_model, v_on::transform_v_on,
+    v_show::transform_v_show, v_text::transform_v_text,
   },
   utils::{
     check::{is_build_in_directive, is_jsx_component, is_template, is_void_tag},
@@ -56,10 +56,16 @@ pub fn is_directive(s: &str) -> bool {
 }
 
 pub fn transform_element<'a>(
-  node: &JSXChild,
+  context_node: &mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
+  let Either::B(JSXChild::Element(node)) = context_node else {
+    return None;
+  };
+  if is_template(node) {
+    return None;
+  }
   let mut effect_index = context_block.effect.len() as i32;
   let get_effect_index = Rc::new(RefCell::new(Box::new(move || {
     let current = effect_index;
@@ -72,12 +78,6 @@ pub fn transform_element<'a>(
     operation_index += 1;
     current
   }) as Box<dyn FnMut() -> i32>));
-  let JSXChild::Element(node) = node else {
-    return None;
-  };
-  if is_template(node) {
-    return None;
-  }
 
   let tag = get_tag_name(&node.opening_element.name, context);
   let is_component = is_jsx_component(node);

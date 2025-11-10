@@ -1,7 +1,7 @@
-use std::{cell::RefCell, collections::HashSet, mem, rc::Rc};
+use std::{cell::RefCell, collections::HashSet, mem, rc::Rc, task::Context};
 
 use napi::Either;
-use oxc_allocator::{Allocator, CloneIn};
+use oxc_allocator::{Allocator, CloneIn, TakeIn};
 use oxc_ast::ast::{
   Expression, JSXChild, JSXClosingFragment, JSXExpressionContainer, JSXFragment, JSXOpeningFragment,
 };
@@ -322,12 +322,13 @@ impl<'a> TransformContext<'a> {
 
   pub fn create_block(
     self: &'a Self,
+    context_node: &mut ContextNode<'a>,
     context_block: &'a mut BlockIRNode<'a>,
     node: Expression<'a>,
     is_v_for: Option<bool>,
   ) -> Box<dyn FnOnce() -> BlockIRNode<'a> + 'a> {
     let block = BlockIRNode::new();
-    *self.node.borrow_mut() = Either::B(self.wrap_fragment(node));
+    *context_node = Either::B(self.wrap_fragment(node));
     let _context_block = context_block as *mut BlockIRNode;
     let exit_block = self.enter_block(
       unsafe { &mut *_context_block },
@@ -373,48 +374,33 @@ impl<'a> TransformContext<'a> {
     let block = context_block as *mut BlockIRNode;
     let mut exit_fns = vec![];
 
-    let mut node = self.node.replace(Either::A(RootNode {
-      is_fragment: false,
-      children: oxc_allocator::Vec::new_in(self.allocator),
-    }));
-    let is_root = matches!(node, Either::A(_));
-    match &node {
-      Either::A(_) => (),
-      Either::B(jsx_child) => {
-        for node_transform in vec![
-          transform_v_once,
-          transform_v_if,
-          transform_v_for,
-          transform_template_ref,
-          transform_element,
-          transform_text,
-          transform_v_slots,
-          transform_v_slot,
-        ] {
-          let node = match &*self.node.borrow() {
-            Either::B(node) => &node.clone_in(self.allocator),
-            _ => jsx_child,
-          };
-          let on_exit = node_transform(node, self, unsafe { &mut *block });
-          if let Some(on_exit) = on_exit {
-            exit_fns.push(on_exit);
-          }
+    let is_root = matches!(&*self.node.borrow(), Either::A(_));
+    if !is_root {
+      for node_transform in vec![
+        transform_v_once,
+        transform_v_if,
+        transform_v_for,
+        transform_template_ref,
+        transform_element,
+        transform_text,
+        transform_v_slots,
+        transform_v_slot,
+      ] {
+        let on_exit = node_transform(&mut self.node.borrow_mut(), self, unsafe { &mut *block });
+        if let Some(on_exit) = on_exit {
+          exit_fns.push(on_exit);
         }
       }
     }
 
-    let is_updated = match &*self.node.borrow() {
-      Either::A(_) => false,
-      Either::B(_) => true,
-    };
-    if is_updated {
-      node = self.node.replace(Either::A(RootNode {
+    transform_children(
+      self.node.replace(Either::A(RootNode {
         is_fragment: false,
         children: oxc_allocator::Vec::new_in(self.allocator),
-      }));
-    }
-
-    transform_children(node, self, unsafe { &mut *block });
+      })),
+      self,
+      unsafe { &mut *block },
+    );
 
     let mut i = exit_fns.len();
     while i > 0 {
