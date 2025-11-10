@@ -26,7 +26,7 @@ pub fn transform_v_on<'a>(
       name.span.clone(),
     ),
   };
-  let replaced = format!("{}{}", &name[2..2].to_lowercase(), &name[3..]);
+  let replaced = format!("{}{}", &name[2..3].to_lowercase(), &name[3..]);
   let splited = replaced.split("_").collect::<Vec<_>>();
   let name_string = splited[0].to_string();
   let modifiers = splited[1..].to_vec();

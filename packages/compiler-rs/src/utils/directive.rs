@@ -33,17 +33,20 @@ pub fn resolve_directive<'a>(
     }
   } else {
     let cloned = arg_string.clone();
-    let result = &mut cloned.split("$");
-    if result.count() > 1 {
+    let splited = &mut cloned.split("$").collect::<Vec<_>>();
+    if splited.len() > 1 {
       is_static = false;
-      result.next();
-      arg_string = result.next().unwrap().replace("_", ".");
-      if let Some(modifier_string) = result.next() {
-        modifiers = modifier_string[1..]
+      arg_string = splited[1].replace("_", ".");
+      if !splited[2].is_empty() {
+        modifiers = splited[2][1..]
           .split("_")
           .map(|s| s.to_string())
           .collect::<Vec<_>>();
       }
+    } else {
+      let mut splited = cloned.split("_").map(|i| i.to_string()).collect::<Vec<_>>();
+      arg_string = splited.remove(0);
+      modifiers = splited;
     }
   }
 
