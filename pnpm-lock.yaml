@@ -17,9 +17,6 @@ importers:
       '@vue-jsx-vapor/compiler':
         specifier: ^2.6.8
         version: 2.6.8
-      '@vue-jsx-vapor/compiler-napi':
-        specifier: workspace:*
-        version: link:packages/compiler
       '@vue-jsx-vapor/compiler-oxc':
         specifier: workspace:*
         version: link:packages/compiler-oxc
@@ -53,21 +50,6 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@22.18.6)(jiti@2.5.1)(jsdom@26.0.0)(lightningcss@1.30.1)(terser@5.39.0)(tsx@4.20.6)(yaml@2.8.1)
-
-  packages/compiler:
-    dependencies:
-      '@vue-jsx-vapor/compiler-rs':
-        specifier: workspace:*
-        version: link:../compiler-rs
-      '@vue/shared':
-        specifier: 3.6.0-alpha.2
-        version: 3.6.0-alpha.2
-      oxc-parser:
-        specifier: ^0.92.0
-        version: 0.92.0
-      source-map-js:
-        specifier: ^1.2.1
-        version: 1.2.1
 
   packages/compiler-oxc:
     dependencies:
