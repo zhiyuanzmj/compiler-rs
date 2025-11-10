@@ -15,11 +15,11 @@ napi = []
 [dependencies]
 napi = {version = "3.3.0", features = ["napi9"]}
 napi-derive = "3.3.0"
-oxc_parser = "0.93.0"
-oxc_ast = "0.93.0"
-oxc_allocator = "0.93.0"
-oxc_span = "0.93.0"
-oxc_ast_visit = "0.93.0"
+oxc_parser = "0.96.0"
+oxc_ast = "0.96.0"
+oxc_allocator = "0.96.0"
+oxc_span = "0.96.0"
+oxc_ast_visit = "0.96.0"
 criterion = "0.7.0"
 phf = "0.13.1"
 

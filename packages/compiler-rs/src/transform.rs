@@ -1,7 +1,7 @@
-use std::{cell::RefCell, collections::HashSet, mem, rc::Rc, task::Context};
+use std::{cell::RefCell, collections::HashSet, mem, rc::Rc};
 
 use napi::Either;
-use oxc_allocator::{Allocator, CloneIn, TakeIn};
+use oxc_allocator::{Allocator, CloneIn};
 use oxc_ast::ast::{
   Expression, JSXChild, JSXClosingFragment, JSXExpressionContainer, JSXFragment, JSXOpeningFragment,
 };
