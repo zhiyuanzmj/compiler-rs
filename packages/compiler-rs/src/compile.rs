@@ -18,6 +18,7 @@ use crate::{
 
 #[cfg(feature = "napi")]
 #[napi(object)]
+#[derive(Default)]
 pub struct CompilerOptions {
   pub source: Option<String>,
   pub templates: Option<Vec<String>>,
@@ -48,15 +49,7 @@ pub struct CompilerOptions {
 #[napi]
 pub fn _compile(env: Env, source: String, options: Option<CompilerOptions>) -> VaporCodegenResult {
   use crate::utils::error::ErrorCodes;
-  let options = options.unwrap_or(CompilerOptions {
-    source: None,
-    filename: None,
-    on_error: None,
-    is_custom_element: None,
-    templates: None,
-    source_map: None,
-    with_fallback: None,
-  });
+  let options = options.unwrap_or_default();
   compile(
     String::new(),
     Some(TransformOptions {

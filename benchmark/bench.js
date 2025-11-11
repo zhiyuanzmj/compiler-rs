@@ -19,19 +19,25 @@ const bench = new Bench()
 
 let source = `
 <Comp
-  v-if={true}
   foo={foo}
   ref={foo}
   onClick={()=> alert(1)}
   v-show={true}
   v-model={foo}
-  v-test
+  v-once
   v-slot={foo}
 >
-  <div v-for={({item}, index) in list} key={key} v-once>
+  <div
+    v-if={foo}
+    v-for={({item}, index) in list}
+    key={key}
+  >
     {item}
   </div>
-  <Foo v-if={foo}>
+  <span v-else-if={bar}>
+    bar
+  </span>
+  <Foo v-else>
     default
     <template v-slot:bar={{ bar }}>
       {bar}
@@ -64,6 +70,6 @@ bench.add('vue-jsx + babel-parser', () => {
   vueJsxCompile(source)
 })
 
-await bench.run()
+// await bench.run()
 
-console.table(bench.table())
+// console.table(bench.table())
