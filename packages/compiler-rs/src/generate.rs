@@ -27,32 +27,30 @@ use napi::bindgen_prelude::Either3;
 use napi_derive::napi;
 
 use crate::{
+  compile::Template,
   generate::{
     block::gen_block_content,
-    template::gen_templates,
     utils::{CodeFragment, FragmentSymbol, code_fragment_to_string},
   },
   ir::index::{BlockIRNode, RootIRNode},
 };
 
-#[napi(object)]
-pub struct CodegenOptions {
+pub struct CodegenOptions<'a> {
   /**
    * Generate source map?
    * @default false
    */
-  pub source_map: Option<bool>,
+  pub source_map: bool,
   /**
    * Filename for source map generation.
    * Also used for self-recursive reference in templates
    * @default 'index.jsx'
    */
-  pub filename: Option<String>,
-  pub templates: Option<Vec<String>>,
+  pub filename: &'a str,
 }
 
 pub struct CodegenContext<'a> {
-  pub options: CodegenOptions,
+  pub options: CodegenOptions<'a>,
   pub helpers: RefCell<HashSet<String>>,
   pub delegates: RefCell<HashSet<String>>,
   pub identifiers: RefCell<HashMap<String, Vec<String>>>,
@@ -62,7 +60,7 @@ pub struct CodegenContext<'a> {
 }
 
 impl<'a> CodegenContext<'a> {
-  pub fn new(mut ir: RootIRNode, options: CodegenOptions) -> CodegenContext {
+  pub fn new(mut ir: RootIRNode<'a>, options: CodegenOptions<'a>) -> CodegenContext<'a> {
     let block = mem::take(&mut ir.block);
     CodegenContext {
       options,
@@ -134,21 +132,20 @@ impl<'a> CodegenContext<'a> {
   }
 }
 
-#[napi(object)]
+#[cfg_attr(feature = "napi", napi(object))]
 #[derive(Debug)]
 pub struct VaporCodegenResult {
   pub helpers: HashSet<String>,
-  pub templates: Vec<String>,
+  pub templates: Vec<Template>,
   pub delegates: HashSet<String>,
   pub code: String,
 }
 
 // IR -> JS codegen
-pub fn generate<'a>(ir: RootIRNode<'a>, options: CodegenOptions) -> VaporCodegenResult {
+pub fn generate<'a>(mut ir: RootIRNode<'a>, options: CodegenOptions) -> VaporCodegenResult {
   let mut frag = Vec::with_capacity(256);
   let has_template_ref = ir.has_template_ref;
-  let root_template_index = ir.root_template_index;
-  let templates = ir.templates.clone();
+  let templates = mem::take(&mut ir.templates);
   let context = CodegenContext::new(ir, options);
 
   frag.push(Either3::A(FragmentSymbol::IndentStart));
@@ -174,7 +171,9 @@ pub fn generate<'a>(ir: RootIRNode<'a>, options: CodegenOptions) -> VaporCodegen
   if context.delegates.borrow().len() > 0 {
     context.helper("delegateEvents");
   }
-  let templates = gen_templates(templates, root_template_index, &context);
+  if !templates.is_empty() {
+    context.helper("template");
+  }
 
   let code = code_fragment_to_string(frag, &context);
   VaporCodegenResult {

@@ -17,7 +17,7 @@ importers:
       '@types/node':
         specifier: ^22.18.6
         version: 22.18.6
-      '@vue-jsx-vapor/compiler':
+      '@vue-jsx-vapor/babel':
         specifier: ^2.6.8
         version: 2.6.8
       '@vue-jsx-vapor/compiler-oxc':
@@ -1931,6 +1931,9 @@ packages:
 
   '@vitest/utils@3.2.4':
     resolution: {integrity: sha512-fB2V0JFrQSMsCo9HiSq3Ezpdv4iYaXRG1Sx8edX3MwxfyNn83mKiGzOcH+Fkxt4MHxr3y42fQi1oeAInqgX2QA==}
+
+  '@vue-jsx-vapor/babel@2.6.8':
+    resolution: {integrity: sha512-3HmxlarHICNs2k83BpNud+giwSs6oIVK5xPhHcQyMdzoV897CPeM56Qe2ks4Mjvi2iTJn9V0HIFB5XqjD4O8aA==}
 
   '@vue-jsx-vapor/compiler@2.6.8':
     resolution: {integrity: sha512-ytFSi4TNxL+6UDTwQ5aK349K+WeJanJtuzIKEwxN3hqzjxjlJbGL7fPnhOnsyO2C7dRx/U6/YRiq7Rcx3hbyhQ==}
@@ -4584,7 +4587,7 @@ snapshots:
   '@babel/generator@7.27.5':
     dependencies:
       '@babel/parser': 7.28.5
-      '@babel/types': 7.28.4
+      '@babel/types': 7.28.5
       '@jridgewell/gen-mapping': 0.3.8
       '@jridgewell/trace-mapping': 0.3.25
       jsesc: 3.1.0
@@ -4610,7 +4613,7 @@ snapshots:
   '@babel/helper-module-imports@7.27.1':
     dependencies:
       '@babel/traverse': 7.28.5
-      '@babel/types': 7.28.4
+      '@babel/types': 7.28.5
     transitivePeerDependencies:
       - supports-color
 
@@ -4651,7 +4654,7 @@ snapshots:
     dependencies:
       '@babel/code-frame': 7.27.1
       '@babel/parser': 7.28.5
-      '@babel/types': 7.28.4
+      '@babel/types': 7.28.5
 
   '@babel/traverse@7.28.5':
     dependencies:
@@ -6133,6 +6136,18 @@ snapshots:
       '@vitest/pretty-format': 3.2.4
       loupe: 3.1.4
       tinyrainbow: 2.0.0
+
+  '@vue-jsx-vapor/babel@2.6.8':
+    dependencies:
+      '@babel/core': 7.28.5
+      '@babel/parser': 7.28.5
+      '@babel/plugin-syntax-jsx': 7.27.1(@babel/core@7.28.5)
+      '@babel/types': 7.28.5
+      '@vue-jsx-vapor/compiler': 2.6.8
+      ast-kit: 2.1.2
+      source-map-js: 1.2.1
+    transitivePeerDependencies:
+      - supports-color
 
   '@vue-jsx-vapor/compiler@2.6.8':
     dependencies:
@@ -8392,7 +8407,7 @@ snapshots:
     dependencies:
       '@babel/generator': 7.27.5
       '@babel/parser': 7.28.5
-      '@babel/types': 7.28.4
+      '@babel/types': 7.28.5
       ast-kit: 2.1.2
       birpc: 2.4.0
       debug: 4.4.1(supports-color@5.5.0)

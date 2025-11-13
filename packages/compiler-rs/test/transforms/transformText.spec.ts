@@ -1,4 +1,3 @@
-// TODO: add tests for this transform
 import { compile } from '@vue-jsx-vapor/compiler-rs'
 import { describe, expect, it, test } from 'vitest'
 
@@ -19,7 +18,10 @@ describe('compiler: text transform', () => {
     const { templates } = compile('<code>&lt;script&gt;</code>')
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<code>&lt;script&gt;</code>", true)",
+        [
+          "<code>&lt;script&gt;</code>",
+          true,
+        ],
       ]
     `)
   })
@@ -27,7 +29,12 @@ describe('compiler: text transform', () => {
   it('text like', () => {
     const { code, templates } = compile('<div>{ (2) }{`foo${1}`}{1}{1n}</div>')
     expect(code).toMatchSnapshot()
-    expect(templates[0]).includes(`_template("<div>2foo111</div>", true)`)
+    expect(templates[0]).toMatchInlineSnapshot(`
+      [
+        "<div>2foo111</div>",
+        true,
+      ]
+    `)
   })
 })
 
@@ -38,8 +45,14 @@ describe('compiler: expression', () => {
     expect(helpers).contains('createIf')
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<span> </span>")",
-        "_template("<div>fail</div>")",
+        [
+          "<span> </span>",
+          false,
+        ],
+        [
+          "<div>fail</div>",
+          false,
+        ],
       ]
     `)
   })
@@ -49,7 +62,10 @@ describe('compiler: expression', () => {
     expect(helpers).contains('createIf')
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div> </div>")",
+        [
+          "<div> </div>",
+          false,
+        ],
       ]
     `)
     expect(code).toMatchSnapshot()
@@ -61,9 +77,18 @@ describe('compiler: expression', () => {
     expect(helpers).contains('createIf')
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<span> </span>")",
-        "_template("<div>fail</div>")",
-        "_template("<div></div>", true)",
+        [
+          "<span> </span>",
+          false,
+        ],
+        [
+          "<div>fail</div>",
+          false,
+        ],
+        [
+          "<div></div>",
+          true,
+        ],
       ]
     `)
   })

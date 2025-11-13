@@ -20,8 +20,14 @@ oxc_ast = "0.96.0"
 oxc_allocator = "0.96.0"
 oxc_span = "0.96.0"
 oxc_ast_visit = "0.96.0"
-criterion = "0.7.0"
+oxc_traverse = "0.96.0"
+oxc_semantic = "0.96.0"
+oxc_codegen = "0.96.0"
 phf = "0.13.1"
+
+[dev-dependencies]
+insta = "1.43.2"
+criterion = "0.7.0"
 
 [[bench]]
 name = "bench"

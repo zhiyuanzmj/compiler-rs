@@ -12,7 +12,10 @@ describe('compiler: v-for', () => {
     expect(helpers).contains('createFor')
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div> </div>")",
+        [
+          "<div> </div>",
+          false,
+        ],
       ]
     `)
   })
@@ -93,8 +96,14 @@ describe('compiler: v-for', () => {
     expect(code).contains(`_for_item1.value+_for_item0.value`)
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<span> </span>")",
-        "_template("<div></div>")",
+        [
+          "<span> </span>",
+          false,
+        ],
+        [
+          "<div></div>",
+          false,
+        ],
       ]
     `)
   })

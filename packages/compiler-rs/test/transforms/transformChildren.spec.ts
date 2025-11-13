@@ -76,7 +76,10 @@ describe('compiler: children transform', () => {
     `)
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div></div>", true)",
+        [
+          "<div></div>",
+          true,
+        ],
       ]
     `)
   })
@@ -119,8 +122,14 @@ describe('compiler: children transform', () => {
     expect(code).toMatchSnapshot()
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div></div>")",
-        "_template("<div><div></div><!><div></div></div>", true)",
+        [
+          "<div></div>",
+          false,
+        ],
+        [
+          "<div><div></div><!><div></div></div>",
+          true,
+        ],
       ]
     `)
   })

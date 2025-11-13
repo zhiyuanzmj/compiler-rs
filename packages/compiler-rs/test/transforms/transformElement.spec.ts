@@ -130,7 +130,10 @@ describe('compiler: element transform', () => {
     expect(code).toMatchSnapshot()
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div id="foo" class="bar"></div>", true)",
+        [
+          "<div id="foo" class="bar"></div>",
+          true,
+        ],
       ]
     `)
   })
@@ -141,7 +144,10 @@ describe('compiler: element transform', () => {
     expect(code).toMatchSnapshot()
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div id="foo"><span></span></div>", true)",
+        [
+          "<div id="foo"><span></span></div>",
+          true,
+        ],
       ]
     `)
   })
@@ -200,9 +206,18 @@ describe('compiler: element transform', () => {
     expect(code).toMatchSnapshot()
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div>123</div>")",
-        "_template("<p></p>")",
-        "_template("<form></form>")",
+        [
+          "<div>123</div>",
+          false,
+        ],
+        [
+          "<p></p>",
+          false,
+        ],
+        [
+          "<form></form>",
+          false,
+        ],
       ]
     `)
   })

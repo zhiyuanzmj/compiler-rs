@@ -16,37 +16,6 @@ use crate::ir::index::BlockIRNode;
 use crate::ir::index::DynamicFlag;
 use crate::ir::index::IRDynamicInfo;
 
-pub fn gen_templates<'a>(
-  templates: Vec<String>,
-  root_index: Option<i32>,
-  context: &'a CodegenContext<'a>,
-) -> Vec<String> {
-  let mut i = 0;
-  templates
-    .into_iter()
-    .map(|template| {
-      let result = if template.starts_with("_template") {
-        template
-      } else {
-        format!(
-          "{}(\"{}\"{})",
-          context.helper("template"),
-          template,
-          if let Some(root_index) = root_index
-            && i == root_index
-          {
-            ", true"
-          } else {
-            ""
-          }
-        )
-      };
-      i += 1;
-      result
-    })
-    .collect()
-}
-
 pub fn gen_self<'a>(
   dynamic: IRDynamicInfo<'a>,
   context: &'a CodegenContext<'a>,

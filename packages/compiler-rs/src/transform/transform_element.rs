@@ -197,7 +197,7 @@ pub fn transform_native_element<'a>(
 
   if single_root {
     let ir = &mut context.ir.borrow_mut();
-    ir.root_template_index = Some(ir.templates.len() as i32)
+    ir.root_template_index = Some(ir.templates.len())
   }
 
   if let Some(Either::B(JSXChild::Element(parent_node))) = &*context.parent_node.borrow()

@@ -1,11 +1,11 @@
-use compiler_rs::compile::compile;
+use compiler_rs::transform::transform;
 use criterion::{Criterion, criterion_group, criterion_main};
 
 fn bench_compile(b: &mut Criterion) {
   b.bench_function("compile", |b| {
     b.iter(|| {
-      compile(
-        format!(
+      transform(
+        &format!(
           "<>{}</>",
           "<Comp
             foo={foo}

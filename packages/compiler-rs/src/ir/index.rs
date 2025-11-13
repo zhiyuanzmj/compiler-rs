@@ -5,7 +5,10 @@ use oxc_ast::ast::JSXChild;
 
 pub use crate::utils::expression::{SimpleExpressionNode, SourceLocation};
 
-use crate::ir::component::{IRProp, IRProps, IRSlots};
+use crate::{
+  compile::Template,
+  ir::component::{IRProp, IRProps, IRSlots},
+};
 
 #[derive(Debug)]
 pub struct RootNode<'a> {
@@ -42,16 +45,16 @@ impl<'a> Default for BlockIRNode<'a> {
 
 #[derive(Debug)]
 pub struct RootIRNode<'a> {
-  pub source: String,
-  pub templates: Vec<String>,
-  pub root_template_index: Option<i32>,
+  pub source: &'a str,
+  pub templates: Vec<Template>,
+  pub root_template_index: Option<usize>,
   pub component: HashSet<String>,
   pub directive: HashSet<String>,
   pub block: BlockIRNode<'a>,
   pub has_template_ref: bool,
 }
 impl<'a> RootIRNode<'a> {
-  pub fn new(source: String, templates: Vec<String>) -> Self {
+  pub fn new(source: &'a str, templates: Vec<Template>) -> Self {
     let root = RootIRNode {
       source,
       templates,

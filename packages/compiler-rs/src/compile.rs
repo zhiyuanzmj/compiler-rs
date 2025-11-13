@@ -1,5 +1,11 @@
 use std::path::Path;
 
+use crate::{
+  generate::VaporCodegenResult,
+  ir::index::RootNode,
+  transform::{TransformOptions, transform_jsx},
+};
+
 use napi::{
   Env,
   bindgen_prelude::{Function, Object},
@@ -10,18 +16,14 @@ use oxc_ast::ast::{Expression, JSXChild, Statement};
 use oxc_parser::{ParseOptions, Parser};
 use oxc_span::SourceType;
 
-use crate::{
-  generate::VaporCodegenResult,
-  ir::index::RootNode,
-  transform::{TransformOptions, transform},
-};
+#[cfg_attr(feature = "napi", napi)]
+pub type Template = (String, bool);
 
-#[cfg(feature = "napi")]
-#[napi(object)]
+#[cfg_attr(feature = "napi", napi(object))]
 #[derive(Default)]
 pub struct CompilerOptions {
   pub source: Option<String>,
-  pub templates: Option<Vec<String>>,
+  pub templates: Option<Vec<Template>>,
   /**
    * Whether to compile components to createComponentWithFallback.
    * @default false
@@ -43,6 +45,11 @@ pub struct CompilerOptions {
    * @default 'index.jsx'
    */
   pub filename: Option<String>,
+  /**
+   * When enabled, JSX within `defineVaporComponent` is transformed to Vapor DOM,
+   * while all other JSX is transformed to Virtual DOM.
+   */
+  pub interop: Option<bool>,
 }
 
 #[cfg(feature = "napi")]
@@ -51,13 +58,14 @@ pub fn _compile(env: Env, source: String, options: Option<CompilerOptions>) -> V
   use crate::utils::error::ErrorCodes;
   let options = options.unwrap_or_default();
   compile(
-    String::new(),
+    "",
     Some(TransformOptions {
-      source: options.source.unwrap_or(source),
-      filename: options.filename.unwrap_or("index.jsx".to_string()),
+      source: &options.source.unwrap_or(source),
+      filename: &options.filename.unwrap_or("index.jsx".to_string()),
       templates: options.templates.unwrap_or(vec![]),
       source_map: options.source_map.unwrap_or(false),
       with_fallback: options.with_fallback.unwrap_or(false),
+      interop: options.interop.unwrap_or(false),
       is_custom_element: if let Some(is_custom_element) = options.is_custom_element {
         Box::new(move |tag: String| is_custom_element.call(tag).unwrap())
           as Box<dyn Fn(String) -> bool>
@@ -78,12 +86,11 @@ pub fn _compile(env: Env, source: String, options: Option<CompilerOptions>) -> V
   )
 }
 
-pub fn compile(source: String, options: Option<TransformOptions>) -> VaporCodegenResult {
-  let options = options.unwrap_or(TransformOptions::build(source));
+pub fn compile(source: &str, options: Option<TransformOptions>) -> VaporCodegenResult {
+  let options = options.unwrap_or(TransformOptions::build(source, vec![], false));
   let source_type = SourceType::from_path(Path::new(&options.filename)).unwrap();
   let allocator = Allocator::default();
-  let cloned_source = options.source.clone();
-  let mut root = Parser::new(&allocator, &cloned_source, source_type)
+  let mut root = Parser::new(&allocator, &options.source, source_type)
     .with_options(ParseOptions {
       parse_regular_expression: true,
       ..ParseOptions::default()
@@ -94,13 +101,13 @@ pub fn compile(source: String, options: Option<TransformOptions>) -> VaporCodege
   };
   let mut is_fragment = false;
   let children = match &mut stmt.expression {
-    Expression::JSXFragment(j) => {
+    Expression::JSXFragment(node) => {
       is_fragment = true;
-      j.children.take_in(&allocator)
+      node.children.take_in(&allocator)
     }
-    Expression::JSXElement(j) => oxc_allocator::Vec::from_array_in(
+    Expression::JSXElement(node) => oxc_allocator::Vec::from_array_in(
       [JSXChild::Element(oxc_allocator::Box::new_in(
-        j.take_in(&allocator),
+        node.take_in(&allocator),
         &allocator,
       ))],
       &allocator,
@@ -108,9 +115,9 @@ pub fn compile(source: String, options: Option<TransformOptions>) -> VaporCodege
     _ => oxc_allocator::Vec::new_in(&allocator),
   };
   let root = RootNode {
-    children,
     is_fragment,
+    children,
   };
 
-  transform(&allocator, root, options)
+  transform_jsx(&allocator, root, options)
 }

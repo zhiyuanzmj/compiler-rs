@@ -14,7 +14,10 @@ describe('compiler v-bind', () => {
 
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div></div>", true)",
+        [
+          "<div></div>",
+          true,
+        ],
       ]
     `)
     expect(code).contains('_setProp(n0, "id", id)')
@@ -364,7 +367,10 @@ describe('compiler v-bind', () => {
     expect(code).matchSnapshot()
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div e="2" f="foo1" g="1" h="1"></div>", true)",
+        [
+          "<div e="2" f="foo1" g="1" h="1"></div>",
+          true,
+        ],
       ]
     `)
   })

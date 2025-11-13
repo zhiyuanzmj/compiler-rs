@@ -22,8 +22,7 @@ pub fn test_compile() {
         {bar}
       </template>
     </Foo>
-  </Comp>"
-      .to_string(),
+  </Comp>",
     None,
   );
 }

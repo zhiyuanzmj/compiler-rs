@@ -7,7 +7,10 @@ describe('compiler: template ref transform', () => {
 
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div></div>", true)",
+        [
+          "<div></div>",
+          true,
+        ],
       ]
     `)
     expect(code).matchSnapshot()
@@ -20,7 +23,10 @@ describe('compiler: template ref transform', () => {
 
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div></div>", true)",
+        [
+          "<div></div>",
+          true,
+        ],
       ]
     `)
     expect(code).matchSnapshot()
@@ -37,7 +43,10 @@ describe('compiler: template ref transform', () => {
     )
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div></div>", true)",
+        [
+          "<div></div>",
+          true,
+        ],
       ]
     `)
     expect(code).toMatchSnapshot()

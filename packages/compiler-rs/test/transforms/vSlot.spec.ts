@@ -7,7 +7,10 @@ describe('compiler: transform slot', () => {
     expect(code).toMatchSnapshot()
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div></div>")",
+        [
+          "<div></div>",
+          false,
+        ],
       ]
     `)
   })
@@ -45,9 +48,18 @@ describe('compiler: transform slot', () => {
     // TODO: expect(code).toMatchSnapshot()
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("foo")",
-        "_template("bar")",
-        "_template("<span></span>")",
+        [
+          "foo",
+          false,
+        ],
+        [
+          "bar",
+          false,
+        ],
+        [
+          "<span></span>",
+          false,
+        ],
       ]
     `)
     // ['foo', 'bar', '<span></span>']

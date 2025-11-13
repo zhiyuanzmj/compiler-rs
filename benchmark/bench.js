@@ -1,12 +1,23 @@
 /* eslint-disable */
-import { compile as jsCompile } from '@vue-jsx-vapor/compiler'
-import { compile as rsCompile } from '@vue-jsx-vapor/compiler-rs'
+import { transfrom as rsTransfrom } from '@vue-jsx-vapor/compiler-rs'
+import vueJsxVapor from '@vue-jsx-vapor/babel'
 import { Bench } from 'tinybench'
 import { transformSync } from '@babel/core'
 import vueJsx from '@vue/babel-plugin-jsx'
-function vueJsxCompile(source) {
+function vueJsxTransform(source) {
   transformSync(source, {
     plugins: [vueJsx],
+    filename: 'index.jsx',
+    sourceMaps: false,
+    sourceFileName: 'index.jsx',
+    babelrc: false,
+    configFile: false,
+  })
+}
+
+function vueJsxVaporTransform(source) {
+  transformSync(source, {
+    plugins: [vueJsxVapor],
     filename: 'index.jsx',
     sourceMaps: false,
     sourceFileName: 'index.jsx',
@@ -46,30 +57,30 @@ let source = `
 </Comp>`
 source = `<>${source.repeat(12)}</>`
 
-console.time('@vue-jsx-vapor/compiler-rs + oxc-parser    ')
-rsCompile(source)
-console.timeEnd('@vue-jsx-vapor/compiler-rs + oxc-parser    ')
-
-console.time('@vue-jsx-vapor/compiler    + babel-parser  ')
-jsCompile(source)
-console.timeEnd('@vue-jsx-vapor/compiler    + babel-parser  ')
-
 console.time('vue-jsx                    + babel-parser  ')
-vueJsxCompile(source)
+vueJsxTransform(source)
 console.timeEnd('vue-jsx                    + babel-parser  ')
 
-bench.add('compiler-rs + oxc-parser', () => {
-  rsCompile(source, {})
+console.time('@vue-jsx-vapor/compiler    + babel-parser  ')
+vueJsxVaporTransform(source)
+console.timeEnd('@vue-jsx-vapor/compiler    + babel-parser  ')
+
+console.time('@vue-jsx-vapor/compiler-rs + oxc-parser    ')
+rsTransfrom(source)
+console.timeEnd('@vue-jsx-vapor/compiler-rs + oxc-parser    ')
+
+bench.add('vue-jsx + babel-parser', () => {
+  vueJsxTransform(source)
 })
 
 bench.add('compiler-js + babel-parser', () => {
-  jsCompile(source)
+  vueJsxVaporTransform(source)
 })
 
-bench.add('vue-jsx + babel-parser', () => {
-  vueJsxCompile(source)
+bench.add('compiler-rs + oxc-parser', () => {
+  rsTransfrom(source, {})
 })
 
-// await bench.run()
+await bench.run()
 
-// console.table(bench.table())
+console.table(bench.table())

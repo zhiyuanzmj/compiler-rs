@@ -57,9 +57,10 @@
     "format:rs": "cargo fmt",
     "lint": "oxlint",
     "prepublishOnly": "napi prepublish -t npm",
-    "test": "vitest",
+    "vitest": "vitest",
     "version": "napi version",
     "bench": "cargo bench --no-default-features",
+    "test": "cargo test --no-default-features -- --nocapture",
     "flamegraph": "CARGO_PROFILE_RELEASE_STRIP=false CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph --test compile_test --no-default-features"
   },
   "devDependencies": {

@@ -14,9 +14,18 @@ describe('compiler: v-if', () => {
     expect(code).matchSnapshot()
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div></div>")",
-        "_template("hello")",
-        "_template("<p> </p>")",
+        [
+          "<div></div>",
+          false,
+        ],
+        [
+          "hello",
+          false,
+        ],
+        [
+          "<p> </p>",
+          false,
+        ],
       ]
     `)
   })
@@ -26,7 +35,10 @@ describe('compiler: v-if', () => {
     expect(code).matchSnapshot()
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div>hello</div>")",
+        [
+          "<div>hello</div>",
+          false,
+        ],
       ]
     `)
   })
@@ -38,8 +50,14 @@ describe('compiler: v-if', () => {
     expect(code).matchSnapshot()
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div></div>")",
-        "_template("<p></p>")",
+        [
+          "<div></div>",
+          false,
+        ],
+        [
+          "<p></p>",
+          false,
+        ],
       ]
     `)
 
@@ -51,8 +69,14 @@ describe('compiler: v-if', () => {
     expect(code).matchSnapshot()
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div></div>")",
-        "_template("<p></p>")",
+        [
+          "<div></div>",
+          false,
+        ],
+        [
+          "<p></p>",
+          false,
+        ],
       ]
     `)
   })
@@ -62,9 +86,18 @@ describe('compiler: v-if', () => {
     expect(code).matchSnapshot()
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div></div>")",
-        "_template("<p></p>")",
-        "_template("fine")",
+        [
+          "<div></div>",
+          false,
+        ],
+        [
+          "<p></p>",
+          false,
+        ],
+        [
+          "fine",
+          false,
+        ],
       ]
     `)
   })
@@ -96,10 +129,22 @@ describe('compiler: v-if', () => {
     expect(code).toMatchSnapshot()
     expect(templates).toMatchInlineSnapshot(`
       [
-        "_template("<div></div>")",
-        "_template("<p></p>")",
-        "_template("fine")",
-        "_template("<div>text</div>")",
+        [
+          "<div></div>",
+          false,
+        ],
+        [
+          "<p></p>",
+          false,
+        ],
+        [
+          "fine",
+          false,
+        ],
+        [
+          "<div>text</div>",
+          false,
+        ],
       ]
     `)
   })

@@ -8,7 +8,7 @@ use crate::{
 
 pub fn resolve_directive<'a>(
   node: &JSXAttribute,
-  context: &TransformContext<'a>,
+  context: &'a TransformContext<'a>,
 ) -> DirectiveNode<'a> {
   let mut arg_string = String::new();
   let mut name_string = match &node.name {
