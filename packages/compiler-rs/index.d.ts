@@ -59,12 +59,12 @@ export declare const enum ErrorCodes {
 export type Template =
   [string, boolean]
 
+export declare function transform(source: string, options?: CompilerOptions | undefined | null): TransformReturn
+
 export interface TransformReturn {
   code: string
   map?: string
 }
-
-export declare function transfrom(source: string, options?: CompilerOptions | undefined | null): TransformReturn
 
 export interface VaporCodegenResult {
   helpers: Set<string>

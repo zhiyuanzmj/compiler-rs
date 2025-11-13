@@ -559,4 +559,4 @@ if (!nativeBinding) {
 module.exports = nativeBinding
 module.exports.compile = nativeBinding.compile
 module.exports.ErrorCodes = nativeBinding.ErrorCodes
-module.exports.transfrom = nativeBinding.transfrom
+module.exports.transform = nativeBinding.transform

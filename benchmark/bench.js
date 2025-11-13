@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { transfrom as rsTransfrom } from '@vue-jsx-vapor/compiler-rs'
+import { transform as rsTransform } from '@vue-jsx-vapor/compiler-rs'
 import vueJsxVapor from '@vue-jsx-vapor/babel'
 import { Bench } from 'tinybench'
 import { transformSync } from '@babel/core'
@@ -66,7 +66,7 @@ vueJsxVaporTransform(source)
 console.timeEnd('@vue-jsx-vapor/compiler    + babel-parser  ')
 
 console.time('@vue-jsx-vapor/compiler-rs + oxc-parser    ')
-rsTransfrom(source)
+rsTransform(source)
 console.timeEnd('@vue-jsx-vapor/compiler-rs + oxc-parser    ')
 
 bench.add('vue-jsx + babel-parser', () => {
@@ -78,7 +78,7 @@ bench.add('compiler-js + babel-parser', () => {
 })
 
 bench.add('compiler-rs + oxc-parser', () => {
-  rsTransfrom(source, {})
+  rsTransform(source, {})
 })
 
 await bench.run()

@@ -461,7 +461,7 @@ pub struct TransformReturn {
 
 #[cfg(feature = "napi")]
 #[napi]
-pub fn _transfrom(env: Env, source: String, options: Option<CompilerOptions>) -> TransformReturn {
+pub fn _transform(env: Env, source: String, options: Option<CompilerOptions>) -> TransformReturn {
   use crate::utils::error::ErrorCodes;
   let options = options.unwrap_or_default();
   let CodegenReturn { code, map, .. } = transform(
