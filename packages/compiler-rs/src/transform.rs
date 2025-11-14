@@ -489,7 +489,7 @@ pub fn _transform(env: Env, source: String, options: Option<CompilerOptions>) ->
   );
   TransformReturn {
     code,
-    map: map.map(|m| m.to_data_url()),
+    map: map.map(|m| m.to_json_string()),
   }
 }
 
