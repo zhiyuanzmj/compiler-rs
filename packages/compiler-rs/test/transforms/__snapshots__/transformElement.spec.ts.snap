@@ -208,8 +208,8 @@ exports[`compiler: element transform > props merging: class 1`] = `
 exports[`compiler: element transform > props merging: event handlers 1`] = `
 "
   const n0 = t0()
-  _delegate(n0, "click", _withKeys(e => a(e), ["foo"]))
-  _delegate(n0, "click", _withKeys(e => b(e), ["bar"]))
+  _delegate(n0, "click", _withKeys(a, ["foo"]))
+  _delegate(n0, "click", _withKeys(b, ["bar"]))
   return n0
 "
 `;

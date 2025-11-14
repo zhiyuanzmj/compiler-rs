@@ -6,8 +6,8 @@ use oxc_ast::ast::{
 };
 use oxc_codegen::{Codegen, CodegenReturn};
 use oxc_parser::Parser;
-use oxc_span::{SourceType, Span};
-use std::path::{Path, PathBuf};
+use oxc_span::{SPAN, SourceType};
+use std::path::PathBuf;
 use std::{cell::RefCell, collections::HashSet, mem, rc::Rc};
 pub mod transform_children;
 pub mod transform_element;
@@ -307,20 +307,16 @@ impl<'a> TransformContext<'a> {
     } else {
       JSXChild::Fragment(oxc_allocator::Box::new_in(
         JSXFragment {
-          span: Span::new(0, 0),
-          opening_fragment: JSXOpeningFragment {
-            span: Span::new(0, 0),
-          },
-          closing_fragment: JSXClosingFragment {
-            span: Span::new(0, 0),
-          },
+          span: SPAN,
+          opening_fragment: JSXOpeningFragment { span: SPAN },
+          closing_fragment: JSXClosingFragment { span: SPAN },
           children: oxc_allocator::Vec::from_array_in(
             [match node {
               Expression::JSXElement(node) => JSXChild::Element(node),
               Expression::JSXFragment(node) => JSXChild::Fragment(node),
               _ => JSXChild::ExpressionContainer(oxc_allocator::Box::new_in(
                 JSXExpressionContainer {
-                  span: Span::new(0, 0),
+                  span: SPAN,
                   expression: to_jsx_expression(node),
                 },
                 self.allocator,
@@ -500,12 +496,12 @@ pub fn _transform(env: Env, source: String, options: Option<CompilerOptions>) ->
 pub fn transform(source: &str, options: Option<TransformOptions>) -> CodegenReturn {
   use oxc_codegen::CodegenOptions;
   let options = options.unwrap_or(TransformOptions::build(source, vec![], false));
-  let source_type = SourceType::from_path(Path::new(&options.filename)).unwrap();
+  let source_type = SourceType::from_path(&options.filename).unwrap();
   let allocator = Allocator::default();
   let mut program = Parser::new(&allocator, &options.source, source_type)
     .parse()
     .program;
-  JsxTraverse::new(&allocator, true, options.interop).traverse(&mut program);
+  JsxTraverse::new(&allocator, vec![], true, options.interop).traverse(&mut program);
   Codegen::new()
     .with_options(CodegenOptions {
       single_quote: true,

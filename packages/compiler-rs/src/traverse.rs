@@ -1,4 +1,4 @@
-use std::{collections::HashSet, mem};
+use std::{collections::HashSet, mem, path::Path};
 
 use crate::{
   compile::Template,
@@ -14,8 +14,9 @@ use oxc_ast::{
   },
 };
 use oxc_parser::Parser;
-use oxc_semantic::{Scoping, SemanticBuilder};
+use oxc_semantic::SemanticBuilder;
 use oxc_span::{GetSpan, SPAN, SourceType};
+use oxc_transformer::Transformer;
 use oxc_traverse::{Ancestor, Traverse, TraverseCtx, traverse_mut};
 
 pub struct JsxTraverse<'a> {
@@ -30,20 +31,25 @@ pub struct JsxTraverse<'a> {
 }
 
 impl<'a> JsxTraverse<'a> {
-  pub fn new(allocator: &'a Allocator, root: bool, interop: bool) -> Self {
+  pub fn new(
+    allocator: &'a Allocator,
+    templates: Vec<Template>,
+    root: bool,
+    interop: bool,
+  ) -> Self {
     Self {
       root,
       interop,
       allocator,
       source_text: "",
       source_type: SourceType::jsx(),
-      templates: vec![],
+      templates,
       helpers: HashSet::new(),
       delegates: HashSet::new(),
     }
   }
 
-  pub fn traverse(mut self, program: &mut Program<'a>) -> Scoping {
+  pub fn traverse(mut self, program: &mut Program<'a>) -> Vec<Template> {
     let allocator = self.allocator;
 
     self.source_type = program.source_type;
@@ -54,11 +60,32 @@ impl<'a> JsxTraverse<'a> {
       allocator,
       program,
       SemanticBuilder::new()
-        .build(&program)
+        .build(program)
         .semantic
         .into_scoping(),
       (),
-    )
+    );
+
+    let options = &oxc_transformer::TransformOptions::default();
+    if self.root {
+      Transformer::new(
+        allocator,
+        Path::new(if self.source_type.is_typescript() {
+          "index.tsx"
+        } else {
+          "index.jsx"
+        }),
+        options,
+      )
+      .build_with_scoping(
+        SemanticBuilder::new()
+          .build(program)
+          .semantic
+          .into_scoping(),
+        program,
+      );
+    }
+    self.templates
   }
 }
 
@@ -109,7 +136,6 @@ impl<'a> Traverse<'a, ()> for JsxTraverse<'a> {
     let source = &self.source_text[..span.end as usize];
     let options = TransformOptions::build(source, mem::take(&mut self.templates), self.interop);
     let result = transform_jsx(allocator, root, options);
-    self.templates = result.templates;
     self.helpers.extend(result.helpers);
     self.delegates.extend(result.delegates);
     let code_boxed = format!("(() => {{{}}})()", result.code).into_boxed_str();
@@ -117,8 +143,9 @@ impl<'a> Traverse<'a, ()> for JsxTraverse<'a> {
     let mut program = Parser::new(self.allocator, unsafe { &*code_raw }, self.source_type)
       .parse()
       .program;
-    JsxTraverse::new(self.allocator, false, self.interop).traverse(&mut program);
-    if let Statement::ExpressionStatement(stmt) = &mut program.body[0] {
+    self.templates = JsxTraverse::new(self.allocator, result.templates, false, self.interop)
+      .traverse(&mut program);
+    if let Some(Statement::ExpressionStatement(stmt)) = &mut program.body.get_mut(0) {
       *node = stmt.expression.take_in(allocator);
     }
   }
@@ -146,7 +173,7 @@ impl<'a> Traverse<'a, ()> for JsxTraverse<'a> {
       ));
     }
 
-    if self.helpers.len() > 0 {
+    if !self.helpers.is_empty() {
       let helpers = vec![
         "setNodes",
         "createNodes",
@@ -181,21 +208,23 @@ impl<'a> Traverse<'a, ()> for JsxTraverse<'a> {
         )))
       }
 
-      statements.push(Statement::ImportDeclaration(ast.alloc_import_declaration(
-        SPAN,
-        Some(ast.vec_from_iter(self.helpers.iter().map(|helper| {
-          ast.import_declaration_specifier_import_specifier(
-            SPAN,
-            ast.module_export_name_identifier_name(SPAN, ast.atom(helper)),
-            ast.binding_identifier(SPAN, ast.atom(format!("_{}", helper).as_str())),
-            ImportOrExportKind::Value,
-          )
-        }))),
-        ast.string_literal(SPAN, ast.atom("vue"), None),
-        None,
-        NONE,
-        ImportOrExportKind::Value,
-      )))
+      if !self.helpers.is_empty() {
+        statements.push(Statement::ImportDeclaration(ast.alloc_import_declaration(
+          SPAN,
+          Some(ast.vec_from_iter(self.helpers.iter().map(|helper| {
+            ast.import_declaration_specifier_import_specifier(
+              SPAN,
+              ast.module_export_name_identifier_name(SPAN, ast.atom(helper)),
+              ast.binding_identifier(SPAN, ast.atom(format!("_{}", helper).as_str())),
+              ImportOrExportKind::Value,
+            )
+          }))),
+          ast.string_literal(SPAN, ast.atom("vue"), None),
+          None,
+          NONE,
+          ImportOrExportKind::Value,
+        )))
+      }
     }
 
     let template_len = self.templates.len();

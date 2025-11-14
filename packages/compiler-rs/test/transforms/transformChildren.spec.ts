@@ -88,9 +88,9 @@ describe('compiler: children transform', () => {
     const { code } = compile(
       `<div>
     <div>x</div>
-    <div><span>{ msg }</span></div>
-    <div><span>{ msg }</span></div>
-    <div><span>{ msg }</span></div>
+    <div><span>{{ msg }}</span></div>
+    <div><span>{{ msg }}</span></div>
+    <div><span>{{ msg }}</span></div>
   </div>`,
     )
     expect(code).toMatchSnapshot()

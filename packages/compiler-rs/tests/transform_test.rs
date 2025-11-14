@@ -12,6 +12,32 @@ fn transform_test() {
       const D = <>{foo} <div /></>
       return <div />
      })";
-  let code = transform(source, Some(TransformOptions::build(source, vec![], true))).code;
+  let code = transform(
+    source,
+    Some(TransformOptions {
+      source,
+      filename: "index.tsx",
+      templates: vec![],
+      source_map: false,
+      with_fallback: false,
+      is_custom_element: Box::new(|_| false),
+      on_error: Box::new(|_| {}),
+      interop: true,
+    }),
+  )
+  .code;
+  assert_snapshot!(code);
+}
+
+#[test]
+fn map_expression_test() {
+  let source = "<>{Array.from({ length: count.value }).map((_, index) => {
+      if (index > 1) {
+        return <div>1</div>
+      } else {
+        return [<span>({index}) lt 1</span>, <br />]
+      }
+    })}</>";
+  let code = transform(source, None).code;
   assert_snapshot!(code);
 }

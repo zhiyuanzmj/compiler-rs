@@ -125,10 +125,11 @@ impl<'a> Visit<'a> for WalkIdentifiers<'a> {
       && let Some(scope_ids) = self.scope_ids_map.get(&node.span())
     {
       for id in scope_ids {
-        let size = known_ids[id];
-        known_ids.insert(id.clone(), size - 1);
-        if known_ids[id] == 0 {
-          known_ids.remove(id);
+        if let Some(size) = known_ids.get(id) {
+          known_ids.insert(id.clone(), size - 1);
+          if known_ids[id] == 0 {
+            known_ids.remove(id);
+          }
         }
       }
     }

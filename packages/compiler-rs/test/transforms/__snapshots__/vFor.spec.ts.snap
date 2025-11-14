@@ -202,6 +202,19 @@ exports[`compiler: v-for > v-for aliases w/ complex expressions 1`] = `
 "
 `;
 
+exports[`compiler: v-for > v-for expression object 1`] = `
+"
+  const n0 = _createFor(() => (Array.from({ length: count.value }).map((_, id) => ({ id }))), (_for_item0, _for_key0) => {
+    const n2 = t0()
+    const x2 = _child(n2)
+    _setNodes(x2, () => (_for_item0.value))
+    _renderEffect(() => _setProp(n2, "id", _for_key0.value))
+    return n2
+  })
+  return n0
+"
+`;
+
 exports[`compiler: v-for > v-for identifiers 1`] = `
 "
   const n0 = _createFor(() => (items), (_for_item0, _for_key0) => {

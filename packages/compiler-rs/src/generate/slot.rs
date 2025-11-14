@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use napi::bindgen_prelude::{Either, Either3, Either4};
+use oxc_ast::ast::Expression;
 use oxc_ast_visit::Visit;
 
 use crate::{
@@ -289,8 +290,10 @@ fn gen_slot_block_with_props<'a>(
 
   if let Some(props) = &oper.props {
     let raw_props = props.content.clone();
-    is_destructure_assignment = props.ast.is_some();
-    if is_destructure_assignment {
+    if let Some(ast) = &props.ast
+      && let Expression::ObjectExpression(_) = ast.without_parentheses().get_inner_expression()
+    {
+      is_destructure_assignment = true;
       let scope = context.enter_scope();
       props_name = format!("_slotProps{}", scope.0);
       if let Some(ast) = &props.ast {

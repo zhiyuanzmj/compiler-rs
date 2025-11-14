@@ -16,19 +16,19 @@ describe('compiler: transform slot', () => {
   })
 
   test('on-component default slot', () => {
-    const { code } = compile(`<Comp v-slot={{ foo }}>{ foo + bar }</Comp>`)
+    const { code } = compile(`<Comp v-slot={scope}>{ scope.foo + bar }</Comp>`)
     expect(code).toMatchSnapshot()
 
-    expect(code).contains(`"default": (_slotProps0) =>`)
-    expect(code).contains(`_slotProps0["foo"] + bar`)
+    expect(code).contains(`"default": (scope) =>`)
+    expect(code).contains(`scope.foo + bar`)
   })
 
   test('on component named slot', () => {
-    const { code } = compile(`<Comp v-slot:named={{ foo }}>{ foo + bar }</Comp>`)
+    const { code } = compile(`<Comp v-slot:named={({ foo })}>{{ foo }}</Comp>`)
     expect(code).toMatchSnapshot()
 
     expect(code).contains(`"named": (_slotProps0) =>`)
-    expect(code).contains(`_slotProps0["foo"] + bar`)
+    expect(code).contains(`{ foo: _slotProps0["foo"] }`)
   })
 
   test('on component dynamically named slot', () => {
@@ -62,7 +62,6 @@ describe('compiler: transform slot', () => {
         ],
       ]
     `)
-    // ['foo', 'bar', '<span></span>']
   })
 
   test('named slots w/ comment', () => {

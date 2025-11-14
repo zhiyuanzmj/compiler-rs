@@ -182,4 +182,14 @@ describe('compiler: v-for', () => {
 
     expect(code).toMatchSnapshot()
   })
+
+  test('v-for expression object', () => {
+    const { code } = compile(
+      `<div v-for={(item, index) in Array.from({ length: count.value }).map((_, id) => ({ id }))} id={index}>
+        {item}
+      </div>`,
+    )
+
+    expect(code).toMatchSnapshot()
+  })
 })

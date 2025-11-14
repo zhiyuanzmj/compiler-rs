@@ -150,7 +150,7 @@ exports[`compiler: transform slot > on component named slot 1`] = `
 "
   const n1 = _createComponent(Comp, null, {
     "named": (_slotProps0) => {
-      const n0 = _createNodes(() => (_slotProps0["foo"] + bar))
+      const n0 = _createNodes(() => ({ foo: _slotProps0["foo"] }))
       return n0
     }
   }, true)
@@ -161,8 +161,8 @@ exports[`compiler: transform slot > on component named slot 1`] = `
 exports[`compiler: transform slot > on-component default slot 1`] = `
 "
   const n1 = _createComponent(Comp, null, {
-    "default": (_slotProps0) => {
-      const n0 = _createNodes(() => (_slotProps0["foo"] + bar))
+    "default": (scope) => {
+      const n0 = _createNodes(() => (scope.foo + bar))
       return n0
     }
   }, true)

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 use napi::bindgen_prelude::Either3;
 use oxc_ast::{AstKind, ast::Expression};
@@ -50,23 +50,23 @@ pub fn gen_expression(
   }
 
   let Some(ast) = &node.ast else {
-    return gen_identifier(content, context, loc, assignment.as_ref(), None);
+    return gen_identifier(content, context, loc, assignment.as_ref(), false);
   };
 
   let mut ids: Vec<Span> = vec![];
-  let mut parent_map: HashMap<u32, bool> = HashMap::new();
+  let mut shorthands: HashSet<u32> = HashSet::new();
   if let Expression::Identifier(ast) = ast {
     ids.push(ast.span)
-  } else if let Expression::StaticMemberExpression(ast) = ast {
-    ids = vec![ast.span];
-  } else if let Expression::JSXElement(ast) = ast {
-    ids = vec![ast.span];
   } else {
     WalkIdentifiers::new(
       Box::new(|id, parent, _, _, _| {
         ids.push(id.span());
         if let Some(AstKind::AssignmentTargetPropertyIdentifier(_)) = parent {
-          parent_map.insert(id.span().start, true);
+          shorthands.insert(id.span().start);
+        } else if let Some(AstKind::ObjectProperty(parent)) = parent
+          && parent.shorthand
+        {
+          shorthands.insert(id.span().start);
         }
       }),
       false,
@@ -80,7 +80,6 @@ pub fn gen_expression(
     if need_wrap {
       frag.push(Either3::C(Some("() => (".to_string())));
     }
-    let is_ts_node = ast.is_typescript_syntax();
     let offset = ast.span().start as usize;
     let mut i = 0;
     for id in ids.iter() {
@@ -88,25 +87,23 @@ pub fn gen_expression(
       let end = id.end as usize - offset;
       let prev = if i > 0 { ids.get(i - 1) } else { None };
 
-      if !is_ts_node || i != 0 {
-        let leading_text = content[if let Some(prev) = prev {
-          prev.end as usize - offset
-        } else {
-          0
-        }..start]
-          .to_string();
-        if !leading_text.is_empty() {
-          frag.push(Either3::B((
-            leading_text,
-            NewlineType::Unknown,
-            None,
-            Some(" ".to_string()),
-          )))
-        }
+      let leading_text = content[if let Some(prev) = prev {
+        prev.end as usize - offset
+      } else {
+        0
+      }..start]
+        .to_string();
+      if !leading_text.is_empty() {
+        frag.push(Either3::B((
+          leading_text,
+          NewlineType::Unknown,
+          None,
+          Some(" ".to_string()),
+        )))
       }
 
       let source = content[start..end].to_string();
-      let parent = parent_map.get(&id.start);
+      let shorthand = shorthands.contains(&id.start);
 
       frag.extend(gen_identifier(
         source, context, None,
@@ -114,10 +111,10 @@ pub fn gen_expression(
         //   start: advancePositionWithClone(node.loc?.start, source, start),
         //   end: advancePositionWithClone(node.loc?.start, source, end),
         // },
-        None, parent,
+        None, shorthand,
       ));
 
-      if i == len - 1 && end < content.len() && !is_ts_node {
+      if i == len - 1 && end < content.len() {
         frag.push(Either3::B((
           content[end..].to_string(),
           NewlineType::Unknown,
@@ -148,17 +145,13 @@ pub fn gen_identifier(
   context: &CodegenContext,
   loc: Option<SourceLocation>,
   assignment: Option<&String>,
-  parent: Option<&bool>,
+  shorthand: bool,
 ) -> Vec<CodeFragment> {
   if let Some(id_map) = context.identifiers.borrow().get(&name)
     && id_map.len() > 0
   {
     if let Some(replacement) = id_map.get(0) {
-      if let Some(parent) = parent
-        && *parent
-      // && parent.get_named_property::<String>("type")?.eq("Property")
-      // && parent.get_named_property::<bool>("shorthand")?
-      {
+      if shorthand {
         return vec![Either3::B((
           format!("{name}: {replacement}"),
           NewlineType::None,
@@ -177,9 +170,7 @@ pub fn gen_identifier(
   }
 
   let mut prefix = String::new();
-  if let Some(parent) = parent
-    && *parent
-  {
+  if shorthand {
     // property shorthand like { foo }, we need to add the key since
     // we rewrite the value
     prefix = format!("{name}: ");

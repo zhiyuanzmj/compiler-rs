@@ -8,7 +8,7 @@ describe('v-on', () => {
     expect(code).toMatchInlineSnapshot(`
       "
         const n0 = t0()
-        n0.$evtclick = e => handleClick(e)
+        n0.$evtclick = handleClick
         return n0
       "
     `)
@@ -75,7 +75,7 @@ describe('v-on', () => {
     expect(code).toMatchSnapshot()
     expect(helpers).contains('on')
     expect(code).contains(
-      `_on(n0, "click", _withModifiers(e => test(e), ["stop","prevent"]), {
+      `_on(n0, "click", _withModifiers(test, ["stop","prevent"]), {
     capture: true,
     once: true
   })`,
@@ -87,13 +87,13 @@ describe('v-on', () => {
     expect(code).toMatchInlineSnapshot(`
       "
         const n0 = t0()
-        n0.$evtclick = _withModifiers(e => test(e), ["stop"])
-        n0.$evtkeyup = _withKeys(e => test(e), ["enter"])
+        n0.$evtclick = _withModifiers(test, ["stop"])
+        n0.$evtkeyup = _withKeys(test, ["enter"])
         return n0
       "
     `)
-    expect(code).contains(`n0.$evtclick = _withModifiers(e => test(e), ["stop"])`)
-    expect(code).contains(`n0.$evtkeyup = _withKeys(e => test(e), ["enter"])`)
+    expect(code).contains(`n0.$evtclick = _withModifiers(test, ["stop"])`)
+    expect(code).contains(`n0.$evtkeyup = _withKeys(test, ["enter"])`)
   })
 
   test('should wrap keys guard for keyboard events or dynamic events', () => {
@@ -135,8 +135,8 @@ describe('v-on', () => {
     const { code, helpers } = compile(`<div onClick={test} onClick_stop={test} />`)
     expect(helpers).contains('delegate')
     expect(code).toMatchSnapshot()
-    expect(code).contains('_delegate(n0, "click", e => test(e))')
-    expect(code).contains('_delegate(n0, "click", _withModifiers(e => test(e), ["stop"]))')
+    expect(code).contains('_delegate(n0, "click", test)')
+    expect(code).contains('_delegate(n0, "click", _withModifiers(test, ["stop"]))')
   })
 
   test('namespace event with Component', () => {
@@ -150,10 +150,10 @@ describe('v-on', () => {
     expect(code).toMatchInlineSnapshot(`
       "
         const n0 = t0()
-        n0.$evtclick = e => handleClick(e)
+        n0.$evtclick = handleClick as any
         return n0
       "
     `)
-    expect(code).contains('n0.$evtclick = e => handleClick(e)')
+    expect(code).contains('n0.$evtclick = handleClick')
   })
 })

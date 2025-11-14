@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use crate::{
   generate::VaporCodegenResult,
   ir::index::RootNode,
@@ -88,7 +86,7 @@ pub fn _compile(env: Env, source: String, options: Option<CompilerOptions>) -> V
 
 pub fn compile(source: &str, options: Option<TransformOptions>) -> VaporCodegenResult {
   let options = options.unwrap_or(TransformOptions::build(source, vec![], false));
-  let source_type = SourceType::from_path(Path::new(&options.filename)).unwrap();
+  let source_type = SourceType::from_path(&options.filename).unwrap();
   let allocator = Allocator::default();
   let mut root = Parser::new(&allocator, &options.source, source_type)
     .with_options(ParseOptions {

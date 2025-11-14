@@ -119,13 +119,6 @@ pub fn gen_event_handler(
     if is_member_expression(&value) {
       // e.g. @click="foo.bar"
       handler_exp = gen_expression(value, context, None, None);
-      if !extra_wrap {
-        // non constant, wrap with invocation as `e => foo.bar(e)`
-        // when passing as component handler, access is always dynamic so we
-        // can skip this
-        handler_exp.insert(0, Either3::C(Some("e => ".to_string())));
-        handler_exp.push(Either3::C(Some("(e)".to_string())))
-      }
     } else if value.ast.as_ref().unwrap().is_function() {
       // Fn expression: @click="e => foo(e)"
       // no need to wrap in this case

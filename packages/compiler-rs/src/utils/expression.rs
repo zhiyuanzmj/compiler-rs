@@ -1,10 +1,9 @@
-use std::{collections::HashSet, sync::LazyLock};
-
 use napi::bindgen_prelude::Either3;
 
 use oxc_allocator::CloneIn;
 use oxc_ast::ast::{Expression, JSXAttributeValue, JSXChild, JSXExpression};
 use oxc_span::{GetSpan, Span};
+use phf::phf_set;
 
 use crate::{
   transform::TransformContext,
@@ -12,8 +11,6 @@ use crate::{
 };
 
 pub type SourceLocation = Span;
-
-pub const LOC_STUB: LazyLock<Span> = LazyLock::new(|| Span::new(0, 0));
 
 #[derive(Debug)]
 pub struct SimpleExpressionNode<'a> {
@@ -181,8 +178,7 @@ pub fn is_literal_whitelisted(key: &str) -> bool {
   LITERAL_WHITELIST.contains(&key)
 }
 
-static GLOBALLY_ALLOWED: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
-  HashSet::from([
+static GLOBALLY_ALLOWED: phf::Set<&'static str> = phf_set! {
     "Infinity",
     "undefined",
     "NaN",
@@ -210,8 +206,7 @@ static GLOBALLY_ALLOWED: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     "console",
     "Error",
     "Symbol",
-  ])
-});
+};
 pub fn is_globally_allowed(key: &str) -> bool {
   GLOBALLY_ALLOWED.contains(&key)
 }
