@@ -1,9 +1,7 @@
+use std::cell::RefCell;
 use std::{collections::HashSet, path::PathBuf};
 
-use crate::{
-  generate::{CodegenContext, generate},
-  transform::{TransformContext, TransformOptions},
-};
+use crate::transform::{TransformContext, TransformOptions};
 
 use napi::{
   Env,
@@ -11,10 +9,10 @@ use napi::{
 };
 use napi_derive::napi;
 use oxc_allocator::{Allocator, TakeIn};
-use oxc_ast::ast::Statement;
+use oxc_ast::ast::{ExpressionStatement, Program, Statement};
 use oxc_codegen::{Codegen, CodegenOptions, CodegenReturn, IndentChar};
 use oxc_parser::{ParseOptions, Parser};
-use oxc_span::SourceType;
+use oxc_span::{SPAN, SourceType};
 
 #[cfg_attr(feature = "napi", napi)]
 pub type Template = (String, bool);
@@ -22,7 +20,6 @@ pub type Template = (String, bool);
 #[cfg_attr(feature = "napi", napi(object))]
 #[derive(Default)]
 pub struct CompilerOptions {
-  pub source: Option<String>,
   /**
    * Whether to compile components to createComponentWithFallback.
    * @default false
@@ -67,8 +64,6 @@ pub fn _compile(
   source: String,
   options: Option<CompilerOptions>,
 ) -> CompileCodegenResult {
-  use std::cell::RefCell;
-
   use crate::utils::error::ErrorCodes;
   let options = options.unwrap_or_default();
   compile(
@@ -118,19 +113,27 @@ pub fn compile(source: &str, options: Option<TransformOptions>) -> CompileCodege
   let filename = options.filename;
   let source_map = options.source_map;
 
-  let context = TransformContext::new(
-    &allocator,
-    stmt.expression.take_in(&allocator),
-    source,
-    &options,
-  );
-  context.transform_node(None);
-  let ir = &context.ir.borrow();
-  let block = context.block.take();
-  let generate_context = CodegenContext::new(&allocator, ir, block, context.options);
-
-  let program = generate(&generate_context);
-
+  let context = TransformContext::new(&allocator, &options);
+  let expression = context.transform(stmt.expression.take_in(&allocator), source);
+  let program = Program {
+    span: SPAN,
+    source_text: source,
+    comments: oxc_allocator::Vec::new_in(&allocator),
+    hashbang: None,
+    directives: oxc_allocator::Vec::new_in(&allocator),
+    body: oxc_allocator::Vec::from_array_in(
+      [Statement::ExpressionStatement(oxc_allocator::Box::new_in(
+        ExpressionStatement {
+          span: SPAN,
+          expression,
+        },
+        &allocator,
+      ))],
+      &allocator,
+    ),
+    scope_id: Default::default(),
+    source_type,
+  };
   let CodegenReturn { code, .. } = Codegen::new()
     .with_options(CodegenOptions {
       source_map_path: if source_map {

@@ -1,10 +1,5 @@
-use std::path::Path;
-
-use crate::{
-  generate::{CodegenContext, generate},
-  transform::{TransformContext, TransformOptions},
-};
-use oxc_allocator::{Allocator, CloneIn, TakeIn};
+use crate::transform::TransformContext;
+use oxc_allocator::{Allocator, TakeIn};
 use oxc_ast::{
   NONE,
   ast::{
@@ -14,23 +9,24 @@ use oxc_ast::{
 };
 use oxc_semantic::SemanticBuilder;
 use oxc_span::{GetSpan, SPAN, SourceType};
-use oxc_transformer::Transformer;
 use oxc_traverse::{Ancestor, Traverse, TraverseCtx, traverse_mut};
 
-pub struct JsxTraverse<'a> {
-  options: TransformOptions<'a>,
+pub struct JsxTraverse<'a, 'ctx> {
   allocator: &'a Allocator,
   source_text: &'a str,
   source_type: SourceType,
+  roots: Vec<*mut Expression<'a>>,
+  context: &'ctx TransformContext<'a>,
 }
 
-impl<'a> JsxTraverse<'a> {
-  pub fn new(allocator: &'a Allocator, options: TransformOptions<'a>) -> Self {
+impl<'a, 'ctx: 'a> JsxTraverse<'a, 'ctx> {
+  pub fn new(allocator: &'a Allocator, context: &'ctx TransformContext<'a>) -> Self {
     Self {
-      options,
       allocator,
       source_text: "",
       source_type: SourceType::jsx(),
+      roots: vec![],
+      context,
     }
   }
 
@@ -50,28 +46,10 @@ impl<'a> JsxTraverse<'a> {
         .into_scoping(),
       (),
     );
-
-    let options = &oxc_transformer::TransformOptions::default();
-    Transformer::new(
-      allocator,
-      Path::new(if self.source_type.is_typescript() {
-        "index.tsx"
-      } else {
-        "index.jsx"
-      }),
-      options,
-    )
-    .build_with_scoping(
-      SemanticBuilder::new()
-        .build(program)
-        .semantic
-        .into_scoping(),
-      program,
-    );
   }
 }
 
-impl<'a> Traverse<'a, ()> for JsxTraverse<'a> {
+impl<'a, 'ctx: 'a> Traverse<'a, ()> for JsxTraverse<'a, 'ctx> {
   fn enter_expression(
     &mut self,
     node: &mut Expression<'a>,
@@ -80,7 +58,7 @@ impl<'a> Traverse<'a, ()> for JsxTraverse<'a> {
     if !matches!(node, Expression::JSXElement(_) | Expression::JSXFragment(_)) {
       return;
     }
-    if self.options.interop {
+    if self.context.options.interop {
       for node in ctx.ancestors() {
         if let Ancestor::CallExpressionArguments(node) = node {
           let name = node.callee().span().source_text(self.source_text);
@@ -90,30 +68,23 @@ impl<'a> Traverse<'a, ()> for JsxTraverse<'a> {
             return;
           }
         }
-        continue;
+      }
+    }
+    self.roots.push(node as *mut Expression);
+  }
+  fn exit_program(&mut self, program: &mut Program<'a>, ctx: &mut TraverseCtx<'a, ()>) {
+    let allocator = ctx.ast.allocator;
+    unsafe {
+      for root in self.roots.drain(..) {
+        let root = &mut *root;
+        let source = &self.source_text[..root.span().end as usize];
+        *root = self.context.transform(root.take_in(allocator), source);
       }
     }
 
-    let allocator = ctx.ast.allocator;
-    let span = node.span();
-    let source = &self.source_text[..span.end as usize];
-    let transform_context =
-      TransformContext::new(allocator, node.take_in(allocator), source, &self.options);
-    transform_context.transform_node(None);
-    let ir = &transform_context.ir.borrow();
-    let block = transform_context.block.take();
-    let generate_context = CodegenContext::new(allocator, ir, block, &self.options);
-    let mut program = generate(&generate_context).clone_in(allocator);
-    SemanticBuilder::new().build(&program);
-
-    if let Some(Statement::ExpressionStatement(stmt)) = &mut program.body.get_mut(0) {
-      *node = stmt.expression.take_in(allocator);
-    }
-  }
-  fn exit_program(&mut self, program: &mut Program<'a>, ctx: &mut TraverseCtx<'a, ()>) {
     let ast = &ctx.ast;
     let mut statements = vec![];
-    let delegates = self.options.delegates.take();
+    let delegates = self.context.options.delegates.take();
     if !delegates.is_empty() {
       statements.push(ast.statement_expression(
         SPAN,
@@ -132,7 +103,7 @@ impl<'a> Traverse<'a, ()> for JsxTraverse<'a> {
       ));
     }
 
-    let mut helpers = self.options.helpers.take();
+    let mut helpers = self.context.options.helpers.take();
     if !helpers.is_empty() {
       let jsx_helpers = vec![
         "setNodes",
@@ -187,7 +158,7 @@ impl<'a> Traverse<'a, ()> for JsxTraverse<'a> {
       }
     }
 
-    let templates = self.options.templates.take();
+    let templates = self.context.options.templates.take();
     let template_len = templates.len();
     if template_len > 0 {
       let template_statements = templates

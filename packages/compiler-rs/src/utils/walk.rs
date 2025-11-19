@@ -3,7 +3,7 @@ use oxc_ast::ast::{
   ArrowFunctionExpression, AssignmentTargetMaybeDefault, AssignmentTargetProperty,
   BindingIdentifier, BindingPattern, BindingPatternKind, BlockStatement, CatchClause, Expression,
   ForInStatement, ForOfStatement, ForStatement, ForStatementInit, ForStatementLeft, Function,
-  FunctionBody, Statement, VariableDeclarationKind,
+  FunctionBody, Program, Statement, VariableDeclarationKind,
 };
 use oxc_semantic::SemanticBuilder;
 use oxc_traverse::{Ancestor, Traverse, TraverseAncestry, TraverseCtx, traverse_mut};
@@ -14,9 +14,7 @@ use oxc_ast::{AstKind, ast::IdentifierReference};
 use oxc_span::{GetSpan, SPAN, SourceType, Span};
 
 use crate::{
-  generate::{CodegenContext, generate},
-  transform::TransformContext,
-  utils::check::is_referenced_identifier,
+  generate::CodegenContext, transform::TransformContext, utils::check::is_referenced_identifier,
 };
 
 /**
@@ -36,6 +34,7 @@ pub struct WalkIdentifiers<'a, 'ctx> {
       + 'a,
   >,
   scope_ids_map: HashMap<Span, HashSet<String>>,
+  roots: Vec<*mut Expression<'a>>,
 }
 
 impl<'a, 'ctx> WalkIdentifiers<'a, 'ctx> {
@@ -59,6 +58,7 @@ impl<'a, 'ctx> WalkIdentifiers<'a, 'ctx> {
       include_all,
       known_ids: HashMap::new(),
       scope_ids_map: HashMap::new(),
+      roots: vec![],
     }
   }
 
@@ -188,28 +188,35 @@ impl<'a> Traverse<'a, ()> for WalkIdentifiers<'a, '_> {
       if let Some(replacer) = self.on_identifier_reference(id, ctx) {
         *node = replacer;
       }
+    } else if matches!(node, Expression::JSXElement(_) | Expression::JSXFragment(_)) {
+      if self.context.options.interop {
+        for node in ctx.ancestors() {
+          if let Ancestor::CallExpressionArguments(node) = node {
+            let name = node.callee().span().source_text(self.context.ir.source);
+            if name == "defineVaporComponent" {
+              break;
+            } else if name == "defineComponent" {
+              return;
+            }
+          }
+        }
+      }
+      self.roots.push(node as *mut Expression);
     }
   }
-  fn exit_expression(&mut self, node: &mut Expression<'a>, _: &mut TraverseCtx<'a, ()>) {
-    if matches!(node, Expression::JSXElement(_) | Expression::JSXFragment(_)) {
-      let allocator = self.context.ast.allocator;
-      let source = &self.context.ir.source[..node.span().end as usize];
-      let transform_context = TransformContext::new(
-        allocator,
-        node.clone_in(allocator),
-        source,
-        self.context.options,
-      );
-      transform_context.transform_node(None);
-      let block = transform_context.block.take();
-      let ir = &mut transform_context.ir.borrow_mut();
-      let generate_context = CodegenContext::new(allocator, ir, block, self.context.options);
-      let mut program = generate(&generate_context).clone_in(allocator);
-      SemanticBuilder::new().build(&program);
-      let Statement::ExpressionStatement(stmt) = &mut program.body[0] else {
-        unreachable!();
-      };
-      *node = stmt.expression.take_in(allocator);
+  fn exit_program(&mut self, _: &mut Program<'a>, _: &mut TraverseCtx<'a, ()>) {
+    let allocator = self.context.ast.allocator;
+    let transform_context = self.context.transform_cotext;
+    unsafe {
+      for root in self.roots.drain(..) {
+        let root = &mut *root;
+        let context: *mut TransformContext =
+          &mut TransformContext::new(allocator, self.context.options);
+        *(&mut *context).in_v_once.borrow_mut() = *transform_context.in_v_once.borrow();
+        *(&mut *context).in_v_for.borrow_mut() = *transform_context.in_v_for.borrow();
+        let source = &self.context.ir.source[..root.span().end as usize];
+        *root = (&*context).transform(root.take_in(allocator), source);
+      }
     }
   }
   fn exit_identifier_reference(

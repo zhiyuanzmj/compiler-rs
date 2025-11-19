@@ -15,7 +15,6 @@ export interface CompilerError extends SyntaxError {
 }
 
 export interface CompilerOptions {
-  source?: string
   /** * Whether to compile components to createComponentWithFallback.
    * @default false
    */

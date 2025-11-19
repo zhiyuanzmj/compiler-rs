@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use napi::{Either, bindgen_prelude::Either16};
+use oxc_allocator::Allocator;
 use oxc_ast::ast::JSXChild;
 use oxc_span::Span;
 
@@ -12,6 +13,14 @@ use crate::ir::component::{IRProp, IRProps, IRSlots};
 pub struct RootNode<'a> {
   pub is_fragment: bool,
   pub children: oxc_allocator::Vec<'a, JSXChild<'a>>,
+}
+impl<'a> RootNode<'a> {
+  pub fn new(allocator: &'a Allocator) -> Self {
+    RootNode {
+      is_fragment: false,
+      children: oxc_allocator::Vec::new_in(allocator),
+    }
+  }
 }
 
 #[derive(Debug)]
@@ -41,7 +50,7 @@ impl<'a> Default for BlockIRNode<'a> {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct RootIRNode<'a> {
   pub source: &'a str,
   pub root_template_index: Option<usize>,

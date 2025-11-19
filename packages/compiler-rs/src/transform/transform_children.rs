@@ -12,7 +12,7 @@ use crate::{
 
 pub fn transform_children<'a>(
   node: Either<RootNode<'a>, JSXChild<'a>>,
-  context: &'a TransformContext<'a>,
+  context: &TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
   let is_fragment_or_component = match &node {

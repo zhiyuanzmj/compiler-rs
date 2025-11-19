@@ -4,7 +4,7 @@ use oxc_allocator::{Allocator, CloneIn, TakeIn};
 use oxc_ast::ast::{
   Expression, JSXChild, JSXClosingFragment, JSXExpressionContainer, JSXFragment, JSXOpeningFragment,
 };
-use oxc_codegen::{Codegen, CodegenReturn};
+use oxc_codegen::{Codegen, CodegenReturn, IndentChar};
 use oxc_parser::Parser;
 use oxc_span::{SPAN, SourceType};
 use std::path::PathBuf;
@@ -27,6 +27,7 @@ pub mod v_text;
 
 use crate::compile::CompilerOptions;
 use crate::compile::Template;
+use crate::generate::CodegenContext;
 use crate::traverse::JsxTraverse;
 use crate::{
   ir::{
@@ -131,13 +132,29 @@ pub struct TransformContext<'a> {
 }
 
 impl<'a> TransformContext<'a> {
-  pub fn new(
-    allocator: &'a Allocator,
-    expression: Expression<'a>,
-    source: &'a str,
-    options: &'a TransformOptions<'a>,
-  ) -> Self {
+  pub fn new(allocator: &'a Allocator, options: &'a TransformOptions<'a>) -> Self {
+    TransformContext {
+      allocator,
+      index: RefCell::new(0),
+      template: RefCell::new(String::new()),
+      children_template: RefCell::new(Vec::new()),
+      in_v_once: RefCell::new(false),
+      in_v_for: RefCell::new(0),
+      slots: RefCell::new(Vec::new()),
+      seen: Rc::new(RefCell::new(HashSet::new())),
+      global_id: RefCell::new(0),
+      node: RefCell::new(Either::A(RootNode::new(allocator))),
+      parent_node: RefCell::new(None),
+      parent_dynamic: RefCell::new(IRDynamicInfo::new()),
+      ir: Rc::new(RefCell::new(RootIRNode::new(""))),
+      block: RefCell::new(BlockIRNode::new()),
+      options,
+    }
+  }
+
+  pub fn transform(&'a self, expression: Expression<'a>, source: &'a str) -> Expression<'a> {
     let mut is_fragment = false;
+    let allocator = self.allocator;
     let children = match expression {
       Expression::JSXFragment(mut node) => {
         is_fragment = true;
@@ -152,29 +169,24 @@ impl<'a> TransformContext<'a> {
       ),
       _ => oxc_allocator::Vec::new_in(&allocator),
     };
-    let root = RootNode {
+    let mut ir = RootIRNode::new(source);
+    *self.node.borrow_mut() = Either::A(RootNode {
       is_fragment,
       children,
-    };
-    let mut ir = RootIRNode::new(source);
-    let block = mem::take(&mut ir.block);
-    TransformContext {
-      allocator,
-      index: RefCell::new(0),
-      template: RefCell::new(String::new()),
-      children_template: RefCell::new(Vec::new()),
-      in_v_once: RefCell::new(false),
-      in_v_for: RefCell::new(0),
-      slots: RefCell::new(Vec::new()),
-      seen: Rc::new(RefCell::new(HashSet::new())),
-      global_id: RefCell::new(0),
-      node: RefCell::new(Either::A(root)),
-      parent_node: RefCell::new(None),
-      parent_dynamic: RefCell::new(IRDynamicInfo::new()),
-      ir: Rc::new(RefCell::new(ir)),
-      block: RefCell::new(block),
-      options,
-    }
+    });
+    *self.block.borrow_mut() = mem::take(&mut ir.block);
+    *self.ir.borrow_mut() = ir;
+    *self.index.borrow_mut() = 0;
+    *self.slots.borrow_mut() = vec![];
+    *self.template.borrow_mut() = String::new();
+    *self.children_template.borrow_mut() = vec![];
+    *self.in_v_once.borrow_mut() = false;
+    *self.in_v_for.borrow_mut() = 0;
+    *self.parent_node.borrow_mut() = None;
+    *self.parent_dynamic.borrow_mut() = IRDynamicInfo::new();
+    self.transform_node(None);
+    let generate_context: *const CodegenContext = &CodegenContext::new(self);
+    (unsafe { &*generate_context }).generate()
   }
 
   pub fn increase_id(self: &Self) -> i32 {
@@ -210,7 +222,7 @@ impl<'a> TransformContext<'a> {
   }
 
   pub fn register_effect(
-    self: &'a Self,
+    self: &Self,
     context_block: &mut BlockIRNode<'a>,
     is_operation: bool,
     operation: OperationNode<'a>,
@@ -252,14 +264,14 @@ impl<'a> TransformContext<'a> {
   pub fn push_template(self: &Self, content: String) -> i32 {
     let ir = self.ir.borrow_mut();
     let root_template_index = ir.root_template_index;
-    let templates_ref = self.options.templates.borrow();
-    let templates = &templates_ref;
-    let len = templates.len();
+    let len = self.options.templates.borrow().len();
     let root = root_template_index.map(|i| i.eq(&len)).unwrap_or(false);
-    let existing = templates
+    let existing = self
+      .options
+      .templates
+      .borrow()
       .iter()
       .position(|i| i.0.eq(&content) && i.1.eq(&root));
-    drop(templates_ref);
     if let Some(existing) = existing {
       return existing as i32;
     }
@@ -391,8 +403,8 @@ impl<'a> TransformContext<'a> {
     }
   }
 
-  pub fn transform_node<'b>(
-    self: &'a TransformContext<'a>,
+  pub fn transform_node(
+    self: &TransformContext<'a>,
     context_block: Option<&'a mut BlockIRNode<'a>>,
   ) {
     let context_block = if let Some(context_block) = context_block {
@@ -406,6 +418,7 @@ impl<'a> TransformContext<'a> {
 
     let is_root = matches!(&*self.node.borrow(), Either::A(_));
     if !is_root {
+      let context = self as *const TransformContext;
       for node_transform in vec![
         transform_v_once,
         transform_v_if,
@@ -416,7 +429,9 @@ impl<'a> TransformContext<'a> {
         transform_v_slots,
         transform_v_slot,
       ] {
-        let on_exit = node_transform(&mut self.node.borrow_mut(), self, unsafe { &mut *block });
+        let on_exit = node_transform(&mut self.node.borrow_mut(), unsafe { &*context }, unsafe {
+          &mut *block
+        });
         if let Some(on_exit) = on_exit {
           exit_fns.push(on_exit);
         }
@@ -424,10 +439,7 @@ impl<'a> TransformContext<'a> {
     }
 
     transform_children(
-      self.node.replace(Either::A(RootNode {
-        is_fragment: false,
-        children: oxc_allocator::Vec::new_in(self.allocator),
-      })),
+      self.node.replace(Either::A(RootNode::new(self.allocator))),
       self,
       unsafe { &mut *block },
     );
@@ -499,7 +511,8 @@ pub fn transform(source: &str, options: Option<TransformOptions>) -> CodegenRetu
   let source_type = SourceType::from_path(&options.filename).unwrap();
   let allocator = Allocator::default();
   let mut program = Parser::new(&allocator, source, source_type).parse().program;
-  JsxTraverse::new(&allocator, options).traverse(&mut program);
+  let context = TransformContext::new(&allocator, &options);
+  JsxTraverse::new(&allocator, &context).traverse(&mut program);
   Codegen::new()
     .with_options(CodegenOptions {
       source_map_path: if source_map {
@@ -507,6 +520,8 @@ pub fn transform(source: &str, options: Option<TransformOptions>) -> CodegenRetu
       } else {
         None
       },
+      indent_width: 2,
+      indent_char: IndentChar::Space,
       ..CodegenOptions::default()
     })
     .build(&program)

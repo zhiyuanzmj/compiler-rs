@@ -23,39 +23,38 @@ use std::{
   mem,
 };
 
-use oxc_allocator::{Allocator, CloneIn};
+use oxc_allocator::CloneIn;
 use oxc_ast::{
   AstBuilder, NONE,
   ast::{Expression, FormalParameterKind, Program, Statement, VariableDeclarationKind},
 };
-use oxc_span::{SPAN, SourceType};
+use oxc_span::SPAN;
 
 use crate::{
   compile::Template,
   generate::block::gen_block_content,
   ir::index::{BlockIRNode, RootIRNode},
-  transform::TransformOptions,
+  transform::{TransformContext, TransformOptions},
 };
 
 pub struct CodegenContext<'a> {
   pub options: &'a TransformOptions<'a>,
   pub identifiers: RefCell<HashMap<String, Vec<Expression<'a>>>>,
-  pub ir: &'a RootIRNode<'a>,
+  pub ir: RootIRNode<'a>,
   pub block: RefCell<BlockIRNode<'a>>,
   pub scope_level: RefCell<i32>,
   pub ast: AstBuilder<'a>,
+  pub transform_cotext: &'a TransformContext<'a>,
 }
 
 impl<'a> CodegenContext<'a> {
-  pub fn new(
-    allocator: &'a Allocator,
-    ir: &'a RootIRNode<'a>,
-    block: BlockIRNode<'a>,
-    options: &'a TransformOptions<'a>,
-  ) -> CodegenContext<'a> {
-    let ast = AstBuilder::new(allocator);
+  pub fn new(context: &'a TransformContext<'a>) -> CodegenContext<'a> {
+    let ir = context.ir.take();
+    let block = context.block.take();
+    let ast = AstBuilder::new(context.allocator);
     CodegenContext {
-      options,
+      transform_cotext: context,
+      options: &context.options,
       identifiers: RefCell::new(HashMap::new()),
       block: RefCell::new(block),
       scope_level: RefCell::new(0),
@@ -121,6 +120,78 @@ impl<'a> CodegenContext<'a> {
     *scope_level += 1;
     (current, || *self.scope_level.borrow_mut() -= 1)
   }
+
+  // IR -> JS codegen
+  pub fn generate(self: &'a CodegenContext<'a>) -> Expression<'a> {
+    let ast = &self.ast;
+    let mut statements = ast.vec();
+
+    if self.ir.has_template_ref {
+      statements.push(Statement::VariableDeclaration(
+        ast.alloc_variable_declaration(
+          SPAN,
+          VariableDeclarationKind::Const,
+          ast.vec1(ast.variable_declarator(
+            SPAN,
+            VariableDeclarationKind::Const,
+            ast.binding_pattern(
+              ast.binding_pattern_kind_binding_identifier(SPAN, ast.atom("_setTemplateRef")),
+              NONE,
+              false,
+            ),
+            Some(ast.expression_call(
+              SPAN,
+              ast.expression_identifier(SPAN, ast.atom(&self.helper("createTemplateRefSetter"))),
+              NONE,
+              ast.vec(),
+              false,
+            )),
+            false,
+          )),
+          false,
+        ),
+      ));
+    }
+    let context_block = &mut *self.block.borrow_mut() as *mut BlockIRNode;
+    statements.extend(gen_block_content(
+      None,
+      self,
+      unsafe { &mut *context_block },
+      true,
+      None,
+    ));
+
+    if !self.options.delegates.borrow().is_empty() {
+      self.helper("delegateEvents");
+    }
+    if !&self.options.templates.borrow().is_empty() {
+      self.helper("template");
+    }
+
+    ast.expression_call(
+      SPAN,
+      ast.expression_parenthesized(
+        SPAN,
+        ast.expression_arrow_function(
+          SPAN,
+          false,
+          false,
+          NONE,
+          ast.formal_parameters(
+            SPAN,
+            FormalParameterKind::ArrowFormalParameters,
+            ast.vec(),
+            NONE,
+          ),
+          NONE,
+          ast.function_body(SPAN, ast.vec(), statements),
+        ),
+      ),
+      NONE,
+      ast.vec(),
+      false,
+    )
+  }
 }
 
 pub struct VaporCodegenResult<'a> {
@@ -128,89 +199,4 @@ pub struct VaporCodegenResult<'a> {
   pub templates: Vec<Template>,
   pub delegates: HashSet<String>,
   pub program: Program<'a>,
-}
-
-// IR -> JS codegen
-pub fn generate<'a>(context: &'a CodegenContext<'a>) -> Program<'a> {
-  let ir = &context.ir;
-  let source = ir.source;
-  let ast = &context.ast;
-  let mut statements = ast.vec();
-
-  if ir.has_template_ref {
-    statements.push(Statement::VariableDeclaration(
-      ast.alloc_variable_declaration(
-        SPAN,
-        VariableDeclarationKind::Const,
-        ast.vec1(ast.variable_declarator(
-          SPAN,
-          VariableDeclarationKind::Const,
-          ast.binding_pattern(
-            ast.binding_pattern_kind_binding_identifier(SPAN, ast.atom("_setTemplateRef")),
-            NONE,
-            false,
-          ),
-          Some(ast.expression_call(
-            SPAN,
-            ast.expression_identifier(SPAN, ast.atom(&context.helper("createTemplateRefSetter"))),
-            NONE,
-            ast.vec(),
-            false,
-          )),
-          false,
-        )),
-        false,
-      ),
-    ));
-  }
-  let context_block = &mut *context.block.borrow_mut() as *mut BlockIRNode;
-  statements.extend(gen_block_content(
-    None,
-    &context,
-    unsafe { &mut *context_block },
-    true,
-    None,
-  ));
-
-  if !context.options.delegates.borrow().is_empty() {
-    context.helper("delegateEvents");
-  }
-  if !&context.options.templates.borrow().is_empty() {
-    context.helper("template");
-  }
-
-  ast.program(
-    SPAN,
-    SourceType::tsx(),
-    source,
-    ast.vec(),
-    None,
-    ast.vec(),
-    ast.vec1(ast.statement_expression(
-      SPAN,
-      ast.expression_call(
-        SPAN,
-        ast.expression_parenthesized(
-          SPAN,
-          ast.expression_arrow_function(
-            SPAN,
-            false,
-            false,
-            NONE,
-            ast.formal_parameters(
-              SPAN,
-              FormalParameterKind::ArrowFormalParameters,
-              ast.vec(),
-              NONE,
-            ),
-            NONE,
-            ast.function_body(SPAN, ast.vec(), statements),
-          ),
-        ),
-        NONE,
-        ast.vec(),
-        false,
-      ),
-    )),
-  )
 }
