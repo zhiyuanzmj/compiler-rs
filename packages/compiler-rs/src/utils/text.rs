@@ -81,7 +81,7 @@ pub fn get_tag_name(name: &JSXElementName, context: &TransformContext) -> String
   }
 }
 
-pub fn camelize(str: String) -> String {
+pub fn camelize(str: &str) -> String {
   str
     .split('-')
     .enumerate()

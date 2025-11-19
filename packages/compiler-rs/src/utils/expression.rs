@@ -2,7 +2,7 @@ use napi::bindgen_prelude::Either3;
 
 use oxc_allocator::CloneIn;
 use oxc_ast::ast::{Expression, JSXAttributeValue, JSXChild, JSXExpression};
-use oxc_span::{GetSpan, Span};
+use oxc_span::{GetSpan, SPAN, Span};
 use phf::phf_set;
 
 use crate::{
@@ -10,13 +10,11 @@ use crate::{
   utils::{text::resolve_jsx_text, utils::get_text_like_value},
 };
 
-pub type SourceLocation = Span;
-
 #[derive(Debug)]
 pub struct SimpleExpressionNode<'a> {
   pub content: String,
   pub is_static: bool,
-  pub loc: Option<SourceLocation>,
+  pub loc: Span,
   pub ast: Option<Expression<'a>>,
 }
 
@@ -36,7 +34,7 @@ impl<'a> Default for SimpleExpressionNode<'a> {
     Self {
       content: String::new(),
       is_static: true,
-      loc: None,
+      loc: SPAN,
       ast: None,
     }
   }
@@ -49,18 +47,19 @@ impl<'a> SimpleExpressionNode<'a> {
   ) -> SimpleExpressionNode<'a> {
     let mut is_static = false;
     let mut ast = None;
+    let mut loc = SPAN;
     let content = match node {
       Either3::A(node) => {
         ast = Some(node.clone_in(context.allocator));
-        let span = node.span();
-        context.ir.borrow().source[span.start as usize..span.end as usize].to_string()
+        loc = node.span();
+        loc.source_text(context.ir.borrow().source).to_string()
       }
       Either3::B(node) => match node {
         JSXChild::ExpressionContainer(node) => {
           let expression = node.expression.to_expression();
           ast = Some(expression.clone_in(context.allocator));
-          let span = expression.span();
-          context.ir.borrow().source[span.start as usize..span.end as usize].to_string()
+          loc = expression.span();
+          loc.source_text(context.ir.borrow().source).to_string()
         }
         JSXChild::Text(node) => {
           is_static = true;
@@ -81,12 +80,13 @@ impl<'a> SimpleExpressionNode<'a> {
           let expression = node.expression.to_expression();
           ast = Some(expression.clone_in(context.allocator));
           is_static = matches!(expression, Expression::StringLiteral(_));
-          let span = expression.span();
-          context.ir.borrow().source[span.start as usize..span.end as usize].to_string()
+          loc = expression.span();
+          loc.source_text(context.ir.borrow().source).to_string()
         }
         JSXAttributeValue::StringLiteral(node) => {
           is_static = true;
           ast = Some(Expression::StringLiteral(node.clone_in(context.allocator)));
+          loc = node.span;
           node.value.to_string()
         }
         JSXAttributeValue::Element(node) => {
@@ -101,7 +101,7 @@ impl<'a> SimpleExpressionNode<'a> {
       content,
       is_static,
       ast,
-      loc: None,
+      loc,
     }
   }
 

@@ -1,48 +1,52 @@
 use std::mem;
 
-use napi::Either;
-use napi::bindgen_prelude::{Either3, Either4};
+use oxc_ast::NONE;
+use oxc_ast::ast::{
+  Argument, ArrayExpressionElement, BindingPatternKind, Expression, FormalParameter,
+  FormalParameterKind, Statement, VariableDeclarationKind,
+};
+use oxc_span::SPAN;
 
 use crate::generate::CodegenContext;
-use crate::generate::operation::{gen_effects, gen_operations};
+use crate::generate::operation::gen_operations;
 use crate::generate::template::gen_self;
-use crate::generate::utils::FragmentSymbol::IndentEnd;
-use crate::generate::utils::FragmentSymbol::IndentStart;
-use crate::generate::utils::FragmentSymbol::Newline;
-use crate::generate::utils::{
-  CodeFragments, gen_call, gen_multi, get_delimiters_array, to_valid_asset_id,
-};
-use crate::{generate::utils::CodeFragment, ir::index::BlockIRNode};
+use crate::generate::utils::to_valid_asset_id;
+use crate::ir::index::BlockIRNode;
 
 pub fn gen_block<'a>(
   oper: BlockIRNode<'a>,
   context: &'a CodegenContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
-  args: Vec<CodeFragment>,
+  args: oxc_allocator::Vec<'a, FormalParameter<'a>>,
   root: bool,
-) -> Vec<CodeFragment> {
-  let mut frag = Vec::with_capacity(256);
-  frag.push(Either3::C(Some("(".to_string())));
-  frag.extend(args);
-  frag.push(Either3::C(Some(") => {".to_string())));
-  frag.push(Either3::A(IndentStart));
-  gen_block_content(&mut frag, Some(oper), context, context_block, root, None);
-  frag.push(Either3::A(IndentEnd));
-  frag.push(Either3::A(Newline));
-  frag.push(Either3::C(Some("}".to_string())));
-  frag
+) -> Expression<'a> {
+  let ast = context.ast;
+  ast.expression_arrow_function(
+    SPAN,
+    false,
+    false,
+    NONE,
+    ast.alloc_formal_parameters(SPAN, FormalParameterKind::ArrowFormalParameters, args, NONE),
+    NONE,
+    ast.alloc_function_body(
+      SPAN,
+      ast.vec(),
+      gen_block_content(Some(oper), context, context_block, root, None),
+    ),
+  )
 }
 
 pub fn gen_block_content<'a>(
-  frag: &mut Vec<CodeFragment>,
   block: Option<BlockIRNode<'a>>,
   context: &'a CodegenContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   root: bool,
   gen_effects_extra_frag: Option<
-    Box<dyn FnOnce(&'a mut BlockIRNode<'a>) -> Vec<CodeFragment> + 'a>,
+    Box<dyn FnOnce(&mut oxc_allocator::Vec<'a, Statement<'a>>, &'a mut BlockIRNode<'a>) + 'a>,
   >,
-) {
+) -> oxc_allocator::Vec<'a, Statement<'a>> {
+  let ast = &context.ast;
+  let mut statements = ast.vec();
   let mut reset_block = None;
   let context_block = context_block as *mut BlockIRNode;
   if let Some(block) = block {
@@ -51,66 +55,171 @@ pub fn gen_block_content<'a>(
 
   if root {
     for name in &context.ir.component {
-      let id = to_valid_asset_id(name.to_string(), "component".to_string());
-      frag.push(Either3::A(Newline));
-      frag.push(Either3::C(Some(format!("const {id} = "))));
-      frag.extend(gen_call(
-        Either::A(context.helper("resolveComponent")),
-        vec![Either4::C(Some(format!("\"{name}\"")))],
-      ))
+      statements.push(Statement::VariableDeclaration(
+        ast.alloc_variable_declaration(
+          SPAN,
+          VariableDeclarationKind::Const,
+          ast.vec1(
+            ast.variable_declarator(
+              SPAN,
+              VariableDeclarationKind::Const,
+              ast.binding_pattern(
+                BindingPatternKind::BindingIdentifier(ast.alloc_binding_identifier(
+                  SPAN,
+                  ast.atom(&to_valid_asset_id(&name, "component")),
+                )),
+                NONE,
+                false,
+              ),
+              Some(ast.expression_call(
+                SPAN,
+                ast.expression_identifier(SPAN, ast.atom(&context.helper("resolveComponent"))),
+                NONE,
+                ast.vec_from_array([Argument::StringLiteral(ast.alloc_string_literal(
+                  SPAN,
+                  ast.atom(&name),
+                  None,
+                ))]),
+                false,
+              )),
+              false,
+            ),
+          ),
+          false,
+        ),
+      ));
     }
     for name in &context.ir.directive {
-      frag.push(Either3::A(Newline));
-      frag.push(Either3::C(Some(format!(
-        "const {} = ",
-        to_valid_asset_id(name.clone(), "directive".to_string())
-      ))));
-      frag.extend(gen_call(
-        Either::A(context.helper("resolveDirective")),
-        vec![Either4::C(Some(format!("\"{name}\"")))],
-      ));
+      statements.push(Statement::VariableDeclaration(
+        ast.alloc_variable_declaration(
+          SPAN,
+          VariableDeclarationKind::Const,
+          ast.vec1(
+            ast.variable_declarator(
+              SPAN,
+              VariableDeclarationKind::Const,
+              ast.binding_pattern(
+                BindingPatternKind::BindingIdentifier(ast.alloc_binding_identifier(
+                  SPAN,
+                  ast.atom(&to_valid_asset_id(&name, "directive")),
+                )),
+                NONE,
+                false,
+              ),
+              Some(ast.expression_call(
+                SPAN,
+                ast.expression_identifier(SPAN, ast.atom(&context.helper("resolveDirective"))),
+                NONE,
+                ast.vec1(Argument::StringLiteral(ast.alloc_string_literal(
+                  SPAN,
+                  ast.atom(&name),
+                  None,
+                ))),
+                false,
+              )),
+              false,
+            ),
+          ),
+          false,
+        ),
+      ))
     }
   }
 
   for child in mem::take(&mut unsafe { &mut *context_block }.dynamic.children) {
-    frag.extend(gen_self(child, context, unsafe { &mut *context_block }));
+    gen_self(&mut statements, child, context, unsafe {
+      &mut *context_block
+    });
   }
 
-  frag.extend(gen_operations(
+  gen_operations(
+    &mut statements,
     mem::take(&mut unsafe { &mut *context_block }.operation),
     context,
     unsafe { &mut *context_block },
-  ));
-  let return_nodes = unsafe { &mut *context_block }
-    .returns
-    .iter()
-    .map(|n| Either4::C(Some(format!("n{n}"))))
-    .collect::<Vec<CodeFragments>>();
-  let mut effects_frag = gen_effects(context, unsafe { &mut *context_block });
-  if let Some(gen_extra_frag) = gen_effects_extra_frag {
-    effects_frag.extend(gen_extra_frag(unsafe { &mut *context_block }))
+  );
+  if let Some(statement) = gen_effects(context, unsafe { &mut *context_block }) {
+    statements.push(statement);
   }
-  frag.extend(effects_frag);
+  if let Some(gen_extra_frag) = gen_effects_extra_frag {
+    gen_extra_frag(&mut statements, unsafe { &mut *context_block })
+  }
 
-  frag.push(Either3::A(Newline));
-  frag.push(Either3::C(Some("return ".to_string())));
-
-  let returns_code = if &return_nodes.len() > &1 {
-    gen_multi(get_delimiters_array(), return_nodes)
-  } else {
-    vec![Either3::C(Some(
-      if let Some(node) = return_nodes.get(0)
-        && let Either4::C(Some(node)) = node
+  let mut return_nodes = unsafe { &mut *context_block }.returns.iter().map(|n| {
+    ast
+      .expression_identifier(SPAN, ast.atom(&format!("n{n}")))
+      .into()
+  });
+  statements.push(ast.statement_return(
+    SPAN,
+    Some(if &return_nodes.len() > &1 {
+      ast.expression_array(SPAN, ast.vec_from_iter(return_nodes))
+    } else {
+      if let Some(node) = return_nodes.nth(0)
+        && let ArrayExpressionElement::Identifier(node) = node
       {
-        node.clone()
+        ast.expression_identifier(SPAN, node.name)
       } else {
-        "null".to_string()
-      },
-    ))]
-  };
-  frag.extend(returns_code);
+        ast.expression_null_literal(SPAN)
+      }
+    }),
+  ));
 
   if let Some(reset_block) = reset_block {
     reset_block();
+  }
+  statements
+}
+
+pub fn gen_effects<'a>(
+  context: &'a CodegenContext<'a>,
+  context_block: &'a mut BlockIRNode<'a>,
+) -> Option<Statement<'a>> {
+  let ast = &context.ast;
+  let mut statements = ast.vec();
+  let mut operations_count = 0;
+
+  let effects = mem::take(&mut context_block.effect);
+  let effects_is_empty = effects.is_empty();
+  for effect in effects {
+    operations_count += effect.operations.len();
+    let _context_block = context_block as *mut BlockIRNode;
+    gen_operations(&mut statements, effect.operations, context, unsafe {
+      &mut *_context_block
+    });
+  }
+
+  if effects_is_empty {
+    None
+  } else {
+    Some(
+      ast.statement_expression(
+        SPAN,
+        ast.expression_call(
+          SPAN,
+          ast.expression_identifier(SPAN, ast.atom(&context.helper("renderEffect"))),
+          NONE,
+          ast.vec1(
+            ast
+              .expression_arrow_function(
+                SPAN,
+                operations_count == 1,
+                false,
+                NONE,
+                ast.formal_parameters(
+                  SPAN,
+                  FormalParameterKind::ArrowFormalParameters,
+                  ast.vec(),
+                  NONE,
+                ),
+                NONE,
+                ast.function_body(SPAN, ast.vec(), statements),
+              )
+              .into(),
+          ),
+          false,
+        ),
+      ),
+    )
   }
 }

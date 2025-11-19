@@ -2,8 +2,9 @@ use napi::{
   Either,
   bindgen_prelude::{Either3, Either4},
 };
+use oxc_span::Span;
 
-use crate::{generate::CodegenContext, ir::index::SourceLocation};
+use crate::generate::CodegenContext;
 
 #[derive(Clone)]
 pub enum NewlineType {
@@ -17,7 +18,7 @@ pub enum NewlineType {
   Unknown = -3,
 }
 
-pub type Fragment = (String, NewlineType, Option<SourceLocation>, Option<String>);
+pub type Fragment = (String, NewlineType, Option<Span>, Option<String>);
 
 #[derive(Clone)]
 pub enum FragmentSymbol {
@@ -136,7 +137,6 @@ pub fn gen_multi(
   push(left);
   let mut i = 0;
   let len = frags.len();
-  let seg = seg;
   for item in frags {
     push(item);
     if i < len - 1 {
@@ -176,7 +176,7 @@ pub fn gen_call(
   result
 }
 
-pub fn to_valid_asset_id(name: String, _type: String) -> String {
+pub fn to_valid_asset_id(name: &str, _type: &str) -> String {
   let name = name
     .chars()
     .map(|c| {

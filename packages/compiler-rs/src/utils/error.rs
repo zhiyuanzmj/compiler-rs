@@ -2,8 +2,7 @@ use std::{collections::HashMap, sync::LazyLock};
 
 use napi::{Env, Error, Result, bindgen_prelude::Object};
 use napi_derive::napi;
-
-use crate::ir::index::SourceLocation;
+use oxc_span::Span;
 
 #[cfg_attr(feature = "napi", napi)]
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -118,7 +117,7 @@ pub struct CompilerError {
 pub fn create_compiler_error<'a>(
   env: &'a Env,
   code: ErrorCodes,
-  loc: Option<SourceLocation>,
+  loc: Option<Span>,
 ) -> Result<Object<'a>> {
   let msg = ERROR_MESSAGES.get(&code).unwrap().to_string();
   let mut error = env.create_error(Error::from_reason(&msg))?;

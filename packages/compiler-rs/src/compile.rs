@@ -1,7 +1,8 @@
+use std::{collections::HashSet, path::PathBuf};
+
 use crate::{
-  generate::VaporCodegenResult,
-  ir::index::RootNode,
-  transform::{TransformOptions, transform_jsx},
+  generate::{CodegenContext, generate},
+  transform::{TransformContext, TransformOptions},
 };
 
 use napi::{
@@ -10,7 +11,8 @@ use napi::{
 };
 use napi_derive::napi;
 use oxc_allocator::{Allocator, TakeIn};
-use oxc_ast::ast::{Expression, JSXChild, Statement};
+use oxc_ast::ast::Statement;
+use oxc_codegen::{Codegen, CodegenOptions, CodegenReturn, IndentChar};
 use oxc_parser::{ParseOptions, Parser};
 use oxc_span::SourceType;
 
@@ -21,7 +23,6 @@ pub type Template = (String, bool);
 #[derive(Default)]
 pub struct CompilerOptions {
   pub source: Option<String>,
-  pub templates: Option<Vec<Template>>,
   /**
    * Whether to compile components to createComponentWithFallback.
    * @default false
@@ -50,17 +51,33 @@ pub struct CompilerOptions {
   pub interop: Option<bool>,
 }
 
+#[cfg_attr(feature = "napi", napi(object))]
+#[derive(Debug)]
+pub struct CompileCodegenResult {
+  pub helpers: HashSet<String>,
+  pub templates: Vec<Template>,
+  pub delegates: HashSet<String>,
+  pub code: String,
+}
+
 #[cfg(feature = "napi")]
 #[napi]
-pub fn _compile(env: Env, source: String, options: Option<CompilerOptions>) -> VaporCodegenResult {
+pub fn _compile(
+  env: Env,
+  source: String,
+  options: Option<CompilerOptions>,
+) -> CompileCodegenResult {
+  use std::cell::RefCell;
+
   use crate::utils::error::ErrorCodes;
   let options = options.unwrap_or_default();
   compile(
-    "",
+    &source,
     Some(TransformOptions {
-      source: &options.source.unwrap_or(source),
       filename: &options.filename.unwrap_or("index.jsx".to_string()),
-      templates: options.templates.unwrap_or(vec![]),
+      templates: RefCell::new(vec![]),
+      helpers: RefCell::new(HashSet::new()),
+      delegates: RefCell::new(HashSet::new()),
       source_map: options.source_map.unwrap_or(false),
       with_fallback: options.with_fallback.unwrap_or(false),
       interop: options.interop.unwrap_or(false),
@@ -84,11 +101,11 @@ pub fn _compile(env: Env, source: String, options: Option<CompilerOptions>) -> V
   )
 }
 
-pub fn compile(source: &str, options: Option<TransformOptions>) -> VaporCodegenResult {
-  let options = options.unwrap_or(TransformOptions::build(source, vec![], false));
+pub fn compile(source: &str, options: Option<TransformOptions>) -> CompileCodegenResult {
+  let options = options.unwrap_or(TransformOptions::new());
   let source_type = SourceType::from_path(&options.filename).unwrap();
   let allocator = Allocator::default();
-  let mut root = Parser::new(&allocator, &options.source, source_type)
+  let mut root = Parser::new(&allocator, source, source_type)
     .with_options(ParseOptions {
       parse_regular_expression: true,
       ..ParseOptions::default()
@@ -97,25 +114,40 @@ pub fn compile(source: &str, options: Option<TransformOptions>) -> VaporCodegenR
   let Statement::ExpressionStatement(stmt) = root.program.body.get_mut(0).unwrap() else {
     panic!("Expected ExpressionStatement");
   };
-  let mut is_fragment = false;
-  let children = match &mut stmt.expression {
-    Expression::JSXFragment(node) => {
-      is_fragment = true;
-      node.children.take_in(&allocator)
-    }
-    Expression::JSXElement(node) => oxc_allocator::Vec::from_array_in(
-      [JSXChild::Element(oxc_allocator::Box::new_in(
-        node.take_in(&allocator),
-        &allocator,
-      ))],
-      &allocator,
-    ),
-    _ => oxc_allocator::Vec::new_in(&allocator),
-  };
-  let root = RootNode {
-    is_fragment,
-    children,
-  };
 
-  transform_jsx(&allocator, root, options)
+  let filename = options.filename;
+  let source_map = options.source_map;
+
+  let context = TransformContext::new(
+    &allocator,
+    stmt.expression.take_in(&allocator),
+    source,
+    &options,
+  );
+  context.transform_node(None);
+  let ir = &context.ir.borrow();
+  let block = context.block.take();
+  let generate_context = CodegenContext::new(&allocator, ir, block, context.options);
+
+  let program = generate(&generate_context);
+
+  let CodegenReturn { code, .. } = Codegen::new()
+    .with_options(CodegenOptions {
+      source_map_path: if source_map {
+        Some(PathBuf::from(filename))
+      } else {
+        None
+      },
+      indent_width: 2,
+      indent_char: IndentChar::Space,
+      ..CodegenOptions::default()
+    })
+    .build(&program);
+
+  CompileCodegenResult {
+    code,
+    delegates: context.options.delegates.take(),
+    helpers: context.options.helpers.take(),
+    templates: context.options.templates.take(),
+  }
 }

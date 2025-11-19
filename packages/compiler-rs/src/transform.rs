@@ -1,6 +1,6 @@
 use napi::{Either, Env};
 use napi_derive::napi;
-use oxc_allocator::{Allocator, CloneIn};
+use oxc_allocator::{Allocator, CloneIn, TakeIn};
 use oxc_ast::ast::{
   Expression, JSXChild, JSXClosingFragment, JSXExpressionContainer, JSXFragment, JSXOpeningFragment,
 };
@@ -29,7 +29,6 @@ use crate::compile::CompilerOptions;
 use crate::compile::Template;
 use crate::traverse::JsxTraverse;
 use crate::{
-  generate::{CodegenOptions, VaporCodegenResult, generate},
   ir::{
     component::IRSlots,
     index::{
@@ -51,8 +50,9 @@ use crate::{
 };
 
 pub struct TransformOptions<'a> {
-  pub source: &'a str,
-  pub templates: Vec<Template>,
+  pub templates: RefCell<Vec<Template>>,
+  pub helpers: RefCell<HashSet<String>>,
+  pub delegates: RefCell<HashSet<String>>,
   pub with_fallback: bool,
   pub is_custom_element: Box<dyn Fn(String) -> bool>,
   pub on_error: Box<dyn Fn(ErrorCodes)>,
@@ -61,16 +61,17 @@ pub struct TransformOptions<'a> {
   pub interop: bool,
 }
 impl<'a> TransformOptions<'a> {
-  pub fn build(source: &'a str, templates: Vec<Template>, interop: bool) -> Self {
+  pub fn new() -> Self {
     TransformOptions {
-      source,
       filename: "index.jsx",
-      templates: templates,
+      templates: RefCell::new(vec![]),
+      helpers: RefCell::new(HashSet::new()),
+      delegates: RefCell::new(HashSet::new()),
       source_map: false,
       with_fallback: false,
       is_custom_element: Box::new(|_| false),
       on_error: Box::new(|_| {}),
-      interop,
+      interop: false,
     }
   }
 }
@@ -108,7 +109,7 @@ pub struct TransformContext<'a> {
   pub index: RefCell<i32>,
 
   pub block: RefCell<BlockIRNode<'a>>,
-  pub options: TransformOptions<'a>,
+  pub options: &'a TransformOptions<'a>,
 
   pub template: RefCell<String>,
   pub children_template: RefCell<Vec<String>>,
@@ -132,12 +133,32 @@ pub struct TransformContext<'a> {
 impl<'a> TransformContext<'a> {
   pub fn new(
     allocator: &'a Allocator,
-    mut ir: RootIRNode<'a>,
-    node: ContextNode<'a>,
-    options: TransformOptions<'a>,
+    expression: Expression<'a>,
+    source: &'a str,
+    options: &'a TransformOptions<'a>,
   ) -> Self {
+    let mut is_fragment = false;
+    let children = match expression {
+      Expression::JSXFragment(mut node) => {
+        is_fragment = true;
+        node.children.take_in(allocator)
+      }
+      Expression::JSXElement(mut node) => oxc_allocator::Vec::from_array_in(
+        [JSXChild::Element(oxc_allocator::Box::new_in(
+          node.take_in(allocator),
+          allocator,
+        ))],
+        allocator,
+      ),
+      _ => oxc_allocator::Vec::new_in(&allocator),
+    };
+    let root = RootNode {
+      is_fragment,
+      children,
+    };
+    let mut ir = RootIRNode::new(source);
     let block = mem::take(&mut ir.block);
-    let context = TransformContext {
+    TransformContext {
       allocator,
       index: RefCell::new(0),
       template: RefCell::new(String::new()),
@@ -147,14 +168,13 @@ impl<'a> TransformContext<'a> {
       slots: RefCell::new(Vec::new()),
       seen: Rc::new(RefCell::new(HashSet::new())),
       global_id: RefCell::new(0),
-      node: RefCell::new(node),
+      node: RefCell::new(Either::A(root)),
       parent_node: RefCell::new(None),
       parent_dynamic: RefCell::new(IRDynamicInfo::new()),
       ir: Rc::new(RefCell::new(ir)),
       block: RefCell::new(block),
       options,
-    };
-    context
+    }
   }
 
   pub fn increase_id(self: &Self) -> i32 {
@@ -206,12 +226,12 @@ impl<'a> TransformContext<'a> {
     } else {
       context_block.effect.len()
     };
-    context_block.effect.splice(
-      index..index,
-      vec![IREffect {
+    context_block.effect.insert(
+      index,
+      IREffect {
         expressions: vec![],
         operations: vec![operation],
-      }],
+      },
     );
   }
 
@@ -226,24 +246,24 @@ impl<'a> TransformContext<'a> {
     } else {
       context_block.operation.len()
     };
-    context_block
-      .operation
-      .splice(index..index, vec![operation]);
+    context_block.operation.insert(index, operation);
   }
 
   pub fn push_template(self: &Self, content: String) -> i32 {
-    let mut ir = self.ir.borrow_mut();
+    let ir = self.ir.borrow_mut();
     let root_template_index = ir.root_template_index;
-    let templates = &mut ir.templates;
+    let templates_ref = self.options.templates.borrow();
+    let templates = &templates_ref;
     let len = templates.len();
     let root = root_template_index.map(|i| i.eq(&len)).unwrap_or(false);
-    if let Some(existing) = templates
+    let existing = templates
       .iter()
-      .position(|i| i.0.eq(&content) && i.1.eq(&root))
-    {
+      .position(|i| i.0.eq(&content) && i.1.eq(&root));
+    drop(templates_ref);
+    if let Some(existing) = existing {
       return existing as i32;
     }
-    templates.push((content, root));
+    self.options.templates.borrow_mut().push((content, root));
     len as i32
   }
 
@@ -425,29 +445,6 @@ impl<'a> TransformContext<'a> {
   }
 }
 
-pub fn transform_jsx<'a>(
-  allocator: &'a Allocator,
-  node: RootNode<'a>,
-  mut options: TransformOptions<'a>,
-) -> VaporCodegenResult {
-  let filename = options.filename;
-  let source_map = options.source_map;
-  let ir = RootIRNode::new(options.source, mem::take(&mut options.templates));
-
-  let context = TransformContext::new(allocator, ir, Either::A(node), options);
-  context.transform_node(None);
-
-  let mut ir = context.ir.replace(RootIRNode::new("", vec![]));
-  ir.block = context.block.take();
-  generate(
-    ir,
-    CodegenOptions {
-      filename,
-      source_map,
-    },
-  )
-}
-
 #[cfg(feature = "napi")]
 #[napi(object)]
 pub struct TransformReturn {
@@ -461,11 +458,12 @@ pub fn _transform(env: Env, source: String, options: Option<CompilerOptions>) ->
   use crate::utils::error::ErrorCodes;
   let options = options.unwrap_or_default();
   let CodegenReturn { code, map, .. } = transform(
-    "",
+    &source,
     Some(TransformOptions {
-      source: &options.source.unwrap_or(source),
       filename: &options.filename.unwrap_or("index.jsx".to_string()),
-      templates: options.templates.unwrap_or(vec![]),
+      templates: RefCell::new(vec![]),
+      helpers: RefCell::new(HashSet::new()),
+      delegates: RefCell::new(HashSet::new()),
       source_map: options.source_map.unwrap_or(false),
       with_fallback: options.with_fallback.unwrap_or(false),
       interop: options.interop.unwrap_or(false),
@@ -495,18 +493,17 @@ pub fn _transform(env: Env, source: String, options: Option<CompilerOptions>) ->
 
 pub fn transform(source: &str, options: Option<TransformOptions>) -> CodegenReturn {
   use oxc_codegen::CodegenOptions;
-  let options = options.unwrap_or(TransformOptions::build(source, vec![], false));
+  let options = options.unwrap_or(TransformOptions::new());
+  let filename = options.filename;
+  let source_map = options.source_map;
   let source_type = SourceType::from_path(&options.filename).unwrap();
   let allocator = Allocator::default();
-  let mut program = Parser::new(&allocator, &options.source, source_type)
-    .parse()
-    .program;
-  JsxTraverse::new(&allocator, vec![], true, options.interop).traverse(&mut program);
+  let mut program = Parser::new(&allocator, source, source_type).parse().program;
+  JsxTraverse::new(&allocator, options).traverse(&mut program);
   Codegen::new()
     .with_options(CodegenOptions {
-      single_quote: true,
-      source_map_path: if options.source_map {
-        Some(PathBuf::from(&options.filename))
+      source_map_path: if source_map {
+        Some(PathBuf::from(&filename))
       } else {
         None
       },

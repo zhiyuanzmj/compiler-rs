@@ -3,6 +3,7 @@ use napi::{
   bindgen_prelude::{Either3, Either16},
 };
 use oxc_ast::ast::{JSXAttribute, JSXAttributeName, JSXElement};
+use oxc_span::SPAN;
 use std::{collections::HashSet, sync::LazyLock};
 
 use crate::{
@@ -39,7 +40,7 @@ pub fn transform_v_on<'a>(
   let mut arg = SimpleExpressionNode {
     content: name_string.clone(),
     is_static: true,
-    loc: Some(name_loc),
+    loc: name_loc,
     ast: None,
   };
   let exp = if let Some(value) = value {
@@ -63,13 +64,12 @@ pub fn transform_v_on<'a>(
       .map(|modifier| SimpleExpressionNode {
         content: modifier.to_string(),
         is_static: false,
-        loc: None,
+        loc: SPAN,
         ast: None,
       })
       .collect(),
   );
 
-  let mut key_override = None;
   let is_static_click = arg.is_static && arg.content.to_lowercase() == "click";
 
   // normalize click.right and click.middle since they don't actually fire
@@ -77,21 +77,13 @@ pub fn transform_v_on<'a>(
     .iter()
     .any(|modifier| modifier == "middle")
   {
-    if key_override.is_some() {
-      // TODO error here
-    }
-
     if is_static_click {
       arg.content = "mouseup".to_string()
-    } else if !arg.is_static {
-      key_override = Some(("click".to_string(), "mouseup".to_string()))
     }
   }
   if non_key_modifiers.iter().any(|modifier| modifier == "right") {
     if is_static_click {
       arg.content = "contextmenu".to_string();
-    } else if !arg.is_static {
-      key_override = Some(("click".to_string(), "contextmenu".to_string()))
     }
   }
 
@@ -137,7 +129,6 @@ pub fn transform_v_on<'a>(
         non_keys: non_key_modifiers,
         options: event_option_modifiers,
       },
-      key_override,
       delegate,
       effect: !arg.is_static,
       key: arg,

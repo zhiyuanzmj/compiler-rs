@@ -2,13 +2,11 @@ use std::collections::HashSet;
 
 use napi::{Either, bindgen_prelude::Either16};
 use oxc_ast::ast::JSXChild;
+use oxc_span::Span;
 
-pub use crate::utils::expression::{SimpleExpressionNode, SourceLocation};
+pub use crate::utils::expression::SimpleExpressionNode;
 
-use crate::{
-  compile::Template,
-  ir::component::{IRProp, IRProps, IRSlots},
-};
+use crate::ir::component::{IRProp, IRProps, IRSlots};
 
 #[derive(Debug)]
 pub struct RootNode<'a> {
@@ -46,7 +44,6 @@ impl<'a> Default for BlockIRNode<'a> {
 #[derive(Debug)]
 pub struct RootIRNode<'a> {
   pub source: &'a str,
-  pub templates: Vec<Template>,
   pub root_template_index: Option<usize>,
   pub component: HashSet<String>,
   pub directive: HashSet<String>,
@@ -54,10 +51,9 @@ pub struct RootIRNode<'a> {
   pub has_template_ref: bool,
 }
 impl<'a> RootIRNode<'a> {
-  pub fn new(source: &'a str, templates: Vec<Template>) -> Self {
+  pub fn new(source: &'a str) -> Self {
     let root = RootIRNode {
       source,
-      templates,
       component: HashSet::new(),
       directive: HashSet::new(),
       block: BlockIRNode::new(),
@@ -74,7 +70,7 @@ pub struct IfIRNode<'a> {
   pub condition: SimpleExpressionNode<'a>,
   pub positive: BlockIRNode<'a>,
   pub negative: Option<Box<Either<BlockIRNode<'a>, IfIRNode<'a>>>>,
-  pub once: Option<bool>,
+  pub once: bool,
   pub parent: Option<i32>,
   pub anchor: Option<i32>,
 }
@@ -162,7 +158,6 @@ pub struct SetEventIRNode<'a> {
   pub key: SimpleExpressionNode<'a>,
   pub value: Option<SimpleExpressionNode<'a>>,
   pub modifiers: Modifiers,
-  pub key_override: Option<(String, String)>,
   pub delegate: bool,
   // Whether it's in effect
   pub effect: bool,
@@ -313,5 +308,5 @@ pub struct DirectiveNode<'a> {
   pub exp: Option<SimpleExpressionNode<'a>>,
   pub arg: Option<SimpleExpressionNode<'a>>,
   pub modifiers: Vec<SimpleExpressionNode<'a>>,
-  pub loc: Option<SourceLocation>,
+  pub loc: Span,
 }

@@ -182,35 +182,38 @@ describe('compiler: vModel transform', () => {
     test('v-model for component should work', () => {
       const { code } = compile('<Comp v-model={foo} />')
       expect(code).toMatchSnapshot()
-      expect(code).contains(`modelValue: () => (foo),`)
-      expect(code).contains(`"onUpdate:modelValue": () => _value => (foo = _value)`)
+      expect(code).contains(`modelValue: () => foo,`)
+      expect(code).contains(`"onUpdate:modelValue": () => (_value) => foo = _value`)
     })
 
     test('v-model with arguments for component should work', () => {
       const { code } = compile('<Comp v-model:bar={foo} />')
       expect(code).toMatchSnapshot()
-      expect(code).contains(`bar: () => (foo),`)
-      expect(code).contains(`"onUpdate:bar": () => _value => (foo = _value)`)
+      expect(code).contains(`bar: () => foo,`)
+      expect(code).contains(`"onUpdate:bar": () => (_value) => foo = _value`)
     })
 
     test('v-model with dynamic arguments for component should work', () => {
       const { code } = compile('<Comp v-model:$arg$={foo} />')
       expect(code).toMatchSnapshot()
       expect(code).contains(`[arg]: foo,`)
-      expect(code).contains(`["onUpdate:" + arg]: () => _value => (foo = _value)`)
+      expect(code).contains(`["onUpdate:" + arg]: () => (_value) => foo = _value`)
     })
 
     test('v-model with dynamic arguments for component w/ v-for', () => {
       const { code } = compile('<Comp v-for={{arg} in list} v-model:$arg$={foo} />')
       expect(code).toMatchSnapshot()
       expect(code).contains(`[_for_item0.value.arg]: foo,`)
-      expect(code).contains(`["onUpdate:" + _for_item0.value.arg]: () => _value => (foo = _value)`)
+      expect(code).contains(`["onUpdate:" + _for_item0.value.arg]: () => (_value) => foo = _value`)
     })
 
     test('v-model for component should generate modelValueModifiers', () => {
       const { code } = compile('<Comp v-model_trim_bar-baz={foo} />')
       expect(code).toMatchSnapshot()
-      expect(code).contain(`modelValueModifiers: () => ({ trim: true, "bar-baz": true })`)
+      expect(code).contain(`modelValueModifiers: () => ({
+      trim: true,
+      "bar-baz": true
+    })`)
     })
 
     test('v-model with arguments for component should generate modelModifiers', () => {

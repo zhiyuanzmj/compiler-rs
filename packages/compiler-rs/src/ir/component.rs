@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use indexmap::IndexMap;
 use napi::{
   Either,
   bindgen_prelude::{Either3, Either4},
@@ -43,7 +42,7 @@ pub enum IRSlotType {
 #[derive(Debug)]
 pub struct IRSlotsStatic<'a> {
   pub slot_type: IRSlotType,
-  pub slots: HashMap<String, BlockIRNode<'a>>,
+  pub slots: IndexMap<String, BlockIRNode<'a>>,
 }
 
 #[derive(Debug)]

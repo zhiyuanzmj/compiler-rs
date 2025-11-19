@@ -1,11 +1,9 @@
-use oxc_ast::{
-  AstKind,
-  ast::{
-    ArrayExpressionElement, Expression, IdentifierReference, JSXChild, JSXElement, JSXElementName,
-    ObjectPropertyKind, PropertyKey,
-  },
+use oxc_ast::ast::{
+  ArrayExpressionElement, Expression, IdentifierReference, JSXChild, JSXElement, JSXElementName,
+  ObjectPropertyKind, PropertyKey,
 };
 use oxc_span::GetSpan;
+use oxc_traverse::{Ancestor, TraverseAncestry};
 use phf::phf_set;
 
 use crate::{ir::index::SimpleExpressionNode, utils::expression::is_globally_allowed};
@@ -376,134 +374,193 @@ pub fn is_simple_identifier(s: &str) -> bool {
 // @returns True if the input `node` is a reference to a bound variable, false otherwise.
 pub fn is_referenced(
   node: &IdentifierReference,
-  parnet: &AstKind,
-  grandparent: Option<&AstKind>,
+  parent: &Ancestor,
+  grandparent: &Ancestor,
 ) -> bool {
-  match parnet {
+  match parent {
     // yes: PARENT[NODE]
     // yes: NODE.child
     // no: parent.NODE
-    AstKind::StaticMemberExpression(parent) => {
-      if parent.property.span.eq(&node.span) {
-        return false;
-      } else {
-        parent.object.span().eq(&node.span)
-      }
-    }
-    AstKind::ComputedMemberExpression(parent) => {
-      if parent.expression.span().eq(&node.span) {
-        return true;
-      } else {
-        parent.object.span().eq(&node.span)
-      }
-    }
-    AstKind::JSXMemberExpression(parent) => parent.object.span().eq(&node.span),
+    Ancestor::StaticMemberExpressionObject(parent) => !parent.property().span.eq(&node.span),
+    Ancestor::StaticMemberExpressionProperty(parent) => parent.object().span().eq(&node.span),
+
+    Ancestor::ComputedMemberExpressionObject(parent) => parent.expression().span().eq(&node.span),
+    Ancestor::ComputedMemberExpressionExpression(parent) => parent.object().span().eq(&node.span),
+
+    Ancestor::JSXMemberExpressionProperty(parent) => parent.object().span().eq(&node.span),
+    Ancestor::JSXMemberExpressionObject(_) => false,
 
     // no: let NODE = init;
     // yes: let id = NODE;
-    AstKind::VariableDeclarator(parent) => parent
-      .init
+    Ancestor::VariableDeclaratorId(parent) => parent
+      .init()
       .as_ref()
       .map(|init| init.span().eq(&node.span))
       .unwrap_or(false),
+    Ancestor::VariableDeclaratorInit(_) => false,
 
     // yes: () => NODE
     // no: (NODE) => {}
-    AstKind::ArrowFunctionExpression(parent) => parent.body.span.eq(&node.span),
+    Ancestor::ArrowFunctionExpressionParams(parent) => parent.body().span.eq(&node.span),
+    Ancestor::ArrowFunctionExpressionBody(_)
+    | Ancestor::ArrowFunctionExpressionReturnType(_)
+    | Ancestor::ArrowFunctionExpressionTypeParameters(_) => false,
 
     // no: class { #NODE; }
     // no: class { get #NODE() {} }
     // no: class { #NODE() {} }
     // no: class { fn() { return this.#NODE; } }
-    AstKind::PrivateIdentifier(_) => false,
+    Ancestor::PrivateFieldExpressionField(_)
+    | Ancestor::PrivateFieldExpressionObject(_)
+    | Ancestor::PrivateInExpressionLeft(_)
+    | Ancestor::PrivateInExpressionRight(_) => false,
 
     // no: class { NODE() {} }
     // yes: class { [NODE]() {} }
     // no: class { foo(NODE) {} }
-    AstKind::MethodDefinition(parent) => parent.key.span().eq(&node.span) && parent.computed,
+    Ancestor::MethodDefinitionValue(parent) => {
+      parent.key().span().eq(&node.span) && *parent.computed()
+    }
+    Ancestor::MethodDefinitionKey(_) | Ancestor::MethodDefinitionDecorators(_) => false,
 
     // yes: { [NODE]: "" }
     // no: { NODE: "" }
     // depends: { NODE }
     // depends: { key: NODE }
-    AstKind::ObjectProperty(parent) => {
-      if let PropertyKey::PrivateIdentifier(key) = &parent.key {
+    Ancestor::ObjectPropertyValue(parent) => {
+      if let PropertyKey::PrivateIdentifier(key) = &parent.key() {
         key.span.eq(&node.span)
-      } else if parent.computed && parent.key.span().eq(&node.span()) {
+      } else if *parent.computed() && parent.key().span().eq(&node.span()) {
         return true;
-      } else if let Some(grandparent) = grandparent {
-        !matches!(grandparent, AstKind::ObjectPattern(_))
+      } else if !matches!(grandparent, Ancestor::None) {
+        !grandparent.is_object_pattern()
       } else {
         true
       }
     }
+    Ancestor::ObjectPropertyKey(_) => false,
     // no: class { NODE = value; }
     // yes: class { [NODE] = value; }
     // yes: class { key = NODE; }
-    AstKind::AccessorProperty(parent) => {
-      if let PropertyKey::PrivateIdentifier(key) = &parent.key {
+    Ancestor::AccessorPropertyValue(parent) => {
+      if let PropertyKey::PrivateIdentifier(key) = &parent.key() {
         key.span.eq(&node.span)
-      } else if parent.key.span().eq(&node.span()) {
-        parent.computed
+      } else if parent.key().span().eq(&node.span()) {
+        *parent.computed()
       } else {
         true
       }
     }
+    Ancestor::AccessorPropertyKey(_)
+    | Ancestor::AccessorPropertyTypeAnnotation(_)
+    | Ancestor::AccessorPropertyDecorators(_) => false,
 
     // no: class NODE {}
     // yes: class Foo extends NODE {}
-    AstKind::Class(parent) => {
-      if let Some(super_class) = &parent.super_class {
-        super_class.span().eq(&parent.span)
+    Ancestor::ClassDecorators(parent) => {
+      if let Some(super_class) = &parent.super_class() {
+        super_class.span().eq(&parent.span())
       } else {
         false
       }
     }
+    Ancestor::ClassId(parent) => {
+      if let Some(super_class) = &parent.super_class() {
+        super_class.span().eq(&parent.span())
+      } else {
+        false
+      }
+    }
+    Ancestor::ClassTypeParameters(parent) => {
+      if let Some(super_class) = &parent.super_class() {
+        super_class.span().eq(&parent.span())
+      } else {
+        false
+      }
+    }
+    Ancestor::ClassSuperTypeArguments(parent) => {
+      if let Some(super_class) = &parent.super_class() {
+        super_class.span().eq(&parent.span())
+      } else {
+        false
+      }
+    }
+    Ancestor::ClassImplements(parent) => {
+      if let Some(super_class) = &parent.super_class() {
+        super_class.span().eq(&parent.span())
+      } else {
+        false
+      }
+    }
+    Ancestor::ClassBody(parent) => {
+      if let Some(super_class) = &parent.super_class() {
+        super_class.span().eq(&parent.span())
+      } else {
+        false
+      }
+    }
+    Ancestor::ClassSuperClass(_) => false,
 
     // yes: left = NODE;
     // no: NODE = right;
-    AstKind::AssignmentExpression(parent) => parent.right.span().eq(&node.span),
+    Ancestor::AssignmentExpressionLeft(parent) => parent.right().span().eq(&node.span),
+    Ancestor::AssignmentExpressionRight(_) => false,
 
     // no: [NODE = foo] = [];
     // yes: [foo = NODE] = [];
-    AstKind::AssignmentPattern(parent) => parent.right.span().eq(&node.span),
+    Ancestor::AssignmentPatternLeft(parent) => parent.right().span().eq(&node.span),
+    Ancestor::AssignmentPatternRight(_) => false,
 
     // no: NODE: for (;;) {}
-    AstKind::LabeledStatement(_) => false,
+    Ancestor::LabeledStatementLabel(_) | Ancestor::LabeledStatementBody(_) => false,
 
     // no: try {} catch (NODE) {}
-    AstKind::CatchClause(_) => false,
+    Ancestor::CatchClauseParam(_) | Ancestor::CatchClauseBody(_) => false,
 
     // no: function foo(...NODE) {}
-    AstKind::BindingRestElement(_) => false,
+    Ancestor::BindingRestElementArgument(_) => false,
 
     // no: break;
     // no: continue;
-    AstKind::BreakStatement(_) | AstKind::ContinueStatement(_) => false,
+    Ancestor::BreakStatementLabel(_) | Ancestor::ContinueStatementLabel(_) => false,
 
     // no: function NODE() {}
     // no: function foo(NODE) {}
-    AstKind::Function(_) => false,
+    Ancestor::FunctionId(_)
+    | Ancestor::FunctionTypeParameters(_)
+    | Ancestor::FunctionThisParam(_)
+    | Ancestor::FunctionParams(_)
+    | Ancestor::FunctionReturnType(_)
+    | Ancestor::FunctionBody(_) => false,
 
     // no: export NODE from "foo";
     // no: export * as NODE from "foo";
     //
     // don't support in oxc
     // case 'ExportDefaultSpecifier':
-    AstKind::ExportAllDeclaration(_) => false,
+    Ancestor::ExportAllDeclarationExported(_)
+    | Ancestor::ExportAllDeclarationSource(_)
+    | Ancestor::ExportAllDeclarationWithClause(_) => false,
 
     // no: export { foo as NODE };
     // yes: export { NODE as foo };
     // no: export { NODE as foo } from "foo";
-    AstKind::ExportSpecifier(parent) => {
-      if let Some(grandparent) = grandparent
-        && let AstKind::ExportNamedDeclaration(grandparent) = grandparent
-        && grandparent.source.is_some()
-      {
-        false
-      } else {
-        parent.local.span().eq(&node.span)
+    Ancestor::ExportSpecifierLocal(_) => !matches!(
+      grandparent,
+      Ancestor::ExportNamedDeclarationDeclaration(_)
+        | Ancestor::ExportNamedDeclarationSpecifiers(_)
+        | Ancestor::ExportNamedDeclarationWithClause(_)
+    ),
+    Ancestor::ExportSpecifierExported(parent) => {
+      if matches!(
+        grandparent,
+        Ancestor::ExportNamedDeclarationDeclaration(_)
+          | Ancestor::ExportNamedDeclarationSpecifiers(_)
+          | Ancestor::ExportNamedDeclarationWithClause(_)
+      ) {
+        return false;
       }
+      parent.local().span().eq(&node.span)
     }
 
     // no: import NODE from "foo";
@@ -511,96 +568,83 @@ pub fn is_referenced(
     // no: import { NODE as foo } from "foo";
     // no: import { foo as NODE } from "foo";
     // no: import NODE from "bar";
-    AstKind::ImportDefaultSpecifier(_)
-    | AstKind::ImportNamespaceSpecifier(_)
-    | AstKind::ImportSpecifier(_) => false,
+    Ancestor::ImportDefaultSpecifierLocal(_)
+    | Ancestor::ImportNamespaceSpecifierLocal(_)
+    | Ancestor::ImportSpecifierImported(_)
+    | Ancestor::ImportSpecifierLocal(_) => false,
 
     // no: import "foo" assert { NODE: "json" }
-    AstKind::ImportAttribute(_) => false,
+    Ancestor::ImportAttributeKey(_) | Ancestor::ImportAttributeValue(_) => false,
 
     // no: <div NODE="foo" />
     // no: <div foo:NODE="foo" />
-    AstKind::JSXAttribute(_) | AstKind::JSXNamespacedName(_) => false,
+    Ancestor::JSXAttributeName(_)
+    | Ancestor::JSXAttributeValue(_)
+    | Ancestor::JSXNamespacedNameName(_)
+    | Ancestor::JSXNamespacedNameNamespace(_) => false,
 
     // no: [NODE] = [];
     // no: ({ NODE }) = [];
-    AstKind::ObjectPattern(_) | AstKind::ArrayPattern(_) => false,
+    Ancestor::ObjectPatternProperties(_)
+    | Ancestor::ObjectPatternRest(_)
+    | Ancestor::ArrayPatternElements(_)
+    | Ancestor::ArrayPatternRest(_) => false,
 
     // no: new.NODE
     // no: NODE.target
-    AstKind::MetaProperty(_) => false,
+    Ancestor::MetaPropertyMeta(_) | Ancestor::MetaPropertyProperty(_) => false,
 
     // yes: enum X { Foo = NODE }
     // no: enum X { NODE }
-    AstKind::TSEnumMember(parent) => !parent.id.span().eq(&node.span),
+    Ancestor::TSEnumMemberInitializer(parent) => !parent.id().span().eq(&node.span),
+    Ancestor::TSEnumMemberId(_) => false,
 
     // yes: { [NODE]: value }
     // no: { NODE: value }
-    AstKind::TSPropertySignature(parent) => {
-      if parent.key.span().eq(&node.span) {
-        parent.computed
+    Ancestor::TSPropertySignatureTypeAnnotation(parent) => {
+      if parent.key().span().eq(&node.span) {
+        *parent.computed()
       } else {
         true
       }
     }
+    Ancestor::TSPropertySignatureKey(_) => false,
     _ => true,
   }
 }
 
-pub fn is_referenced_identifier(
-  id: &IdentifierReference,
-  parent: &Option<&AstKind>,
-  parent_stack: &Vec<AstKind>,
-) -> bool {
-  let Some(parent) = parent else {
+pub fn is_referenced_identifier(id: &IdentifierReference, ancestry: &TraverseAncestry) -> bool {
+  if let Ancestor::None = ancestry.parent() {
     return true;
   };
+  let parent = ancestry.parent();
 
   // is a special keyword but parsed as identifier
   if id.name.eq("arguments") {
     return false;
   }
 
-  if is_referenced(
-    id,
-    parent,
-    if parent_stack.len() > 1 {
-      parent_stack.get(parent_stack.len() - 2)
-    } else {
-      None
-    },
-  ) {
+  if is_referenced(id, &parent, &ancestry.ancestor(1)) {
     return true;
   }
 
   // babel's isReferenced check returns false for ids being assigned to, so we
   // need to cover those cases here
-  if matches!(
-    parent,
-    AstKind::AssignmentExpression(_) | AstKind::AssignmentPattern(_)
-  ) {
+  if parent.is_assignment_expression() || parent.is_assignment_pattern() {
     true
-  } else if let AstKind::ObjectProperty(_parent) = parent {
-    _parent.key.span().eq(&id.span) && is_in_desctructure_assignment(parent, parent_stack)
+  } else if let Ancestor::ObjectPropertyValue(_parent) = parent {
+    _parent.key().span().eq(&id.span) && is_in_desctructure_assignment(&parent, ancestry)
   } else {
     false
   }
 }
 
-fn is_in_desctructure_assignment(parent: &AstKind, parent_stack: &Vec<AstKind>) -> bool {
-  if matches!(
-    parent,
-    AstKind::ObjectProperty(_) | AstKind::ArrayPattern(_)
-  ) {
-    let mut i = parent_stack.len();
-    while i > 0 {
-      i -= 1;
-      let p = parent_stack[i];
-      if matches!(p, AstKind::AssignmentExpression(_)) {
+fn is_in_desctructure_assignment(parent: &Ancestor, ancestry: &TraverseAncestry) -> bool {
+  if parent.is_object_property() || parent.is_array_pattern() {
+    for p in ancestry.ancestors() {
+      if p.is_assignment_expression() {
         return true;
-      } else if !matches!(p, AstKind::BindingProperty(_))
-        && !matches!(p, AstKind::ArrayPattern(_) | AstKind::ObjectPattern(_))
-      {
+      } else if !p.is_binding_property() && !(p.is_object_pattern() || p.is_array_pattern()) {
         break;
       }
     }

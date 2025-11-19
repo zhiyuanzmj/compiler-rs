@@ -91,9 +91,9 @@ describe('compiler: v-for', () => {
   test('nested v-for', () => {
     const { code, templates } = compile(`<div v-for={i in list}><span v-for={j in i}>{ j+i }</span></div>`)
     expect(code).matchSnapshot()
-    expect(code).contains(`_createFor(() => (list), (_for_item0) => {`)
-    expect(code).contains(`_createFor(() => (_for_item0.value), (_for_item1) => {`)
-    expect(code).contains(`_for_item1.value+_for_item0.value`)
+    expect(code).contains(`_createFor(() => list, (_for_item0) => {`)
+    expect(code).contains(`_createFor(() => _for_item0.value, (_for_item1) => {`)
+    expect(code).contains(`_for_item1.value + _for_item0.value`)
     expect(templates).toMatchInlineSnapshot(`
       [
         [
@@ -130,9 +130,11 @@ describe('compiler: v-for', () => {
   })
 
   test('array de-structured value (with rest)', () => {
-    const { code } = compile(`<div v-for={([id, ...other], index) in list} key={id}>{ id + other + index }</div>`)
+    const { code } = compile(
+      `<div v-for={([id, [foo], {bar}, ...other], index) in list} key={id}>{ id + other + index + foo + bar }</div>`,
+    )
     expect(code).matchSnapshot()
-    expect(code).toContain('_for_item0.value.slice(1)')
+    expect(code).toContain('_for_item0.value.slice(3)')
   })
 
   test('v-for aliases w/ complex expressions', () => {

@@ -298,7 +298,11 @@ fn process_text_like_expressions<'a>(
 fn is_text_like(node: &JSXChild) -> bool {
   if let JSXChild::ExpressionContainer(node) = node {
     !matches!(
-      node.expression.to_expression(),
+      node
+        .expression
+        .to_expression()
+        .without_parentheses()
+        .get_inner_expression(),
       Expression::ConditionalExpression(_) | Expression::LogicalExpression(_)
     )
   } else {
@@ -307,14 +311,18 @@ fn is_text_like(node: &JSXChild) -> bool {
 }
 
 pub fn process_conditional_expression<'a>(
-  node: &ConditionalExpression,
+  node: &'a ConditionalExpression,
   context_node: &'a mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Box<dyn FnOnce() + 'a> {
-  let test = node.test.clone_in(context.allocator);
-  let consequent = node.consequent.clone_in(context.allocator);
-  let alternate = node.alternate.clone_in(context.allocator);
+  let test = &node.test;
+  let consequent = node
+    .consequent
+    .without_parentheses()
+    .get_inner_expression()
+    .clone_in(context.allocator);
+  let alternate = node.alternate.without_parentheses().get_inner_expression();
 
   let dynamic = &mut context_block.dynamic;
   dynamic.flags = dynamic.flags | DynamicFlag::NonTemplate as i32 | DynamicFlag::Insert as i32;
@@ -331,7 +339,7 @@ pub fn process_conditional_expression<'a>(
     let mut operation = IfIRNode {
       id,
       positive: block,
-      once: Some(*context.in_v_once.borrow() || is_const_test),
+      once: *context.in_v_once.borrow() || is_const_test,
       condition: test,
       negative: None,
       parent: None,
@@ -346,13 +354,13 @@ pub fn process_conditional_expression<'a>(
 }
 
 fn process_logical_expression<'a>(
-  node: &LogicalExpression,
+  node: &'a LogicalExpression,
   context_node: &'a mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Box<dyn FnOnce() + 'a> {
-  let left = node.left.clone_in(context.allocator);
-  let right = node.right.clone_in(context.allocator);
+  let left = node.left.without_parentheses().get_inner_expression();
+  let right = node.right.without_parentheses().get_inner_expression();
   let operator_is_and = node.operator.is_and();
 
   let dynamic = &mut context_block.dynamic;
@@ -376,7 +384,7 @@ fn process_logical_expression<'a>(
     let mut operation = IfIRNode {
       id,
       positive: block,
-      once: Some(*context.in_v_once.borrow() || is_constant_node(&Some(&left))),
+      once: *context.in_v_once.borrow() || is_constant_node(&Some(&left)),
       condition: SimpleExpressionNode::new(Either3::A(&left), context),
       negative: None,
       anchor: None,
@@ -397,18 +405,23 @@ fn process_logical_expression<'a>(
 }
 
 fn set_negative<'a>(
-  node: Expression<'a>,
+  node: &Expression<'a>,
   operation: &mut IfIRNode<'a>,
   context_node: &mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) {
+  let node = node.without_parentheses().get_inner_expression();
   if let Expression::ConditionalExpression(node) = node {
     let _context_block = context_block as *mut BlockIRNode;
     let exit_block = context.create_block(
       context_node,
       unsafe { &mut *_context_block },
-      node.consequent.clone_in(context.allocator),
+      node
+        .consequent
+        .without_parentheses()
+        .get_inner_expression()
+        .clone_in(context.allocator),
       None,
     );
     context.transform_node(Some(unsafe { &mut *_context_block }));
@@ -417,13 +430,13 @@ fn set_negative<'a>(
       id: -1,
       condition: SimpleExpressionNode::new(Either3::A(&node.test), context),
       positive: block,
-      once: Some(*context.in_v_once.borrow() || is_constant_node(&Some(&node.test))),
+      once: *context.in_v_once.borrow() || is_constant_node(&Some(&node.test)),
       negative: None,
       anchor: None,
       parent: None,
     };
     set_negative(
-      node.alternate.clone_in(context.allocator),
+      &node.alternate,
       &mut negative,
       context_node,
       context,
@@ -431,8 +444,8 @@ fn set_negative<'a>(
     );
     operation.negative = Some(Box::new(Either::B(negative)));
   } else if let Expression::LogicalExpression(node) = node {
-    let left = node.left.clone_in(context.allocator);
-    let right = node.right.clone_in(context.allocator);
+    let left = node.left.without_parentheses().get_inner_expression();
+    let right = node.right.without_parentheses().get_inner_expression();
     let operator_is_and = node.operator.is_and();
     let block = context_block as *mut BlockIRNode;
     let exit_block = context.create_block(
@@ -451,7 +464,7 @@ fn set_negative<'a>(
       id: -1,
       condition: SimpleExpressionNode::new(Either3::A(&left), context),
       positive: block,
-      once: Some(*context.in_v_once.borrow() || is_constant_node(&Some(&left))),
+      once: *context.in_v_once.borrow() || is_constant_node(&Some(&left)),
       negative: None,
       anchor: None,
       parent: None,
@@ -466,7 +479,12 @@ fn set_negative<'a>(
     operation.negative = Some(Box::new(Either::B(negative)));
   } else {
     let block = context_block as *mut BlockIRNode;
-    let exit_block = context.create_block(context_node, unsafe { &mut *block }, node, None);
+    let exit_block = context.create_block(
+      context_node,
+      unsafe { &mut *block },
+      node.clone_in(context.allocator),
+      None,
+    );
     context.transform_node(Some(context_block));
     let block = exit_block();
     operation.negative = Some(Box::new(Either::A(block)));

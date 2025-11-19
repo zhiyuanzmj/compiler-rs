@@ -19,7 +19,7 @@ describe('compiler: transform slot', () => {
     const { code } = compile(`<Comp v-slot={scope}>{ scope.foo + bar }</Comp>`)
     expect(code).toMatchSnapshot()
 
-    expect(code).contains(`"default": (scope) =>`)
+    expect(code).contains(`default: (scope) =>`)
     expect(code).contains(`scope.foo + bar`)
   })
 
@@ -27,8 +27,8 @@ describe('compiler: transform slot', () => {
     const { code } = compile(`<Comp v-slot:named={({ foo })}>{{ foo }}</Comp>`)
     expect(code).toMatchSnapshot()
 
-    expect(code).contains(`"named": (_slotProps0) =>`)
-    expect(code).contains(`{ foo: _slotProps0["foo"] }`)
+    expect(code).contains(`named: (_slotProps0) =>`)
+    expect(code).contains(`{ foo: _slotProps0.foo }`)
   })
 
   test('on component dynamically named slot', () => {
@@ -36,16 +36,16 @@ describe('compiler: transform slot', () => {
     expect(code).toMatchSnapshot()
 
     expect(code).contains(`fn: (_slotProps0) =>`)
-    expect(code).contains(`_slotProps0["foo"] + bar`)
+    expect(code).contains(`_slotProps0.foo + bar`)
   })
 
   test('named slots w/ implicit default slot', () => {
-    const { templates } = compile(
+    const { templates, code } = compile(
       `<Comp>
         <template v-slot:one>foo</template>bar<span/>
       </Comp>`,
     )
-    // TODO: expect(code).toMatchSnapshot()
+    expect(code).toMatchSnapshot()
     expect(templates).toMatchInlineSnapshot(`
       [
         [
@@ -87,10 +87,10 @@ describe('compiler: transform slot', () => {
     )
     expect(code).toMatchSnapshot()
 
-    expect(code).contains(`"default": (_slotProps0) =>`)
-    expect(code).contains(`"default": (_slotProps1) =>`)
-    expect(code).contains(`_slotProps0["foo"] + _slotProps1["bar"] + baz`)
-    expect(code).contains(`_slotProps0["foo"] + bar + baz`)
+    expect(code).contains(`default: (_slotProps0) =>`)
+    expect(code).contains(`default: (_slotProps1) =>`)
+    expect(code).contains(`_slotProps0.foo + _slotProps1.bar + baz`)
+    expect(code).contains(`_slotProps0.foo + bar + baz`)
   })
 
   test('dynamic slots name', () => {
@@ -111,7 +111,7 @@ describe('compiler: transform slot', () => {
     expect(code).toMatchSnapshot()
 
     expect(code).contains(`fn: (_slotProps0) =>`)
-    expect(code).contains(`_createNodes(() => (_slotProps0["bar"]))`)
+    expect(code).contains(`_createNodes(() => _slotProps0.bar)`)
   })
 
   test('dynamic slots name w/ v-if / v-else[-if]', () => {

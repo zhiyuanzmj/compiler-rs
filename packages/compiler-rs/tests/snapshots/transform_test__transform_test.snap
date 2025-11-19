@@ -2,24 +2,24 @@
 source: tests/transform_test.rs
 expression: code
 ---
-import { createNodes as _createNodes } from 'vue-jsx-vapor';
-import { template as _template } from 'vue';
-import { jsx as _jsx } from 'react/jsx-runtime';
-const t0 = _template('<span></span>', true);
-const t1 = _template('<div></div>');
-const t2 = _template('<div></div>', true);
+import { createNodes as _createNodes } from "vue-jsx-vapor";
+import { template as _template } from "vue";
+import { jsx as _jsx } from "react/jsx-runtime";
+const t0 = _template("<span></span>", true);
+const t1 = _template("<div></div>");
+const t2 = _template("<div></div>", true);
 const A = defineComponent(() => {
 	defineVaporComponent(() => (() => {
 		const n0 = t0();
 		return n0;
 	})());
-	return () => /* @__PURE__ */ _jsx('div', {});
+	return () => /* @__PURE__ */ _jsx("div", {});
 });
 const B = defineVaporComponent(() => {
-	const C = defineComponent(() => /* @__PURE__ */ _jsx('div', {}));
+	const C = defineComponent(() => /* @__PURE__ */ _jsx("div", {}));
 	const D = (() => {
 		const n2 = t1();
-		const n0 = _createNodes(() => foo, ' ');
+		const n0 = _createNodes(() => foo, " ");
 		return [n0, n2];
 	})();
 	return (() => {

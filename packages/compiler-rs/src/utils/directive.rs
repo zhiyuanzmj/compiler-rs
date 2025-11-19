@@ -1,5 +1,6 @@
 use napi::bindgen_prelude::Either3;
 use oxc_ast::ast::{JSXAttribute, JSXAttributeName};
+use oxc_span::SPAN;
 
 use crate::{
   ir::index::{DirectiveNode, SimpleExpressionNode},
@@ -64,7 +65,7 @@ pub fn resolve_directive<'a>(
         content: arg_string,
         is_static,
         ast: None,
-        loc: None,
+        loc: SPAN,
       })
     } else {
       None
@@ -74,7 +75,7 @@ pub fn resolve_directive<'a>(
       content: name_string,
       is_static: true,
       ast: None,
-      loc: None,
+      loc: SPAN,
     })
   } else {
     None
@@ -92,14 +93,14 @@ pub fn resolve_directive<'a>(
       content: modifier,
       is_static: false,
       ast: None,
-      loc: None,
+      loc: SPAN,
     })
     .collect();
   DirectiveNode {
     name: dir_name,
     exp,
     arg,
-    loc: None,
+    loc: SPAN,
     modifiers: modifiers,
   }
 }

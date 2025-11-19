@@ -1,24 +1,28 @@
-use napi::Either;
-use napi::bindgen_prelude::Either3;
-use napi::bindgen_prelude::Either4;
+use oxc_ast::NONE;
+use oxc_ast::ast::Statement;
+use oxc_span::SPAN;
 
 use crate::generate::CodegenContext;
 use crate::generate::expression::gen_expression;
-use crate::generate::utils::CodeFragment;
-use crate::generate::utils::FragmentSymbol::Newline;
-use crate::generate::utils::gen_call;
 use crate::ir::index::SetHtmlIRNode;
 
-pub fn gen_set_html(oper: SetHtmlIRNode, context: &CodegenContext) -> Vec<CodeFragment> {
+pub fn gen_set_html<'a>(oper: SetHtmlIRNode<'a>, context: &'a CodegenContext<'a>) -> Statement<'a> {
+  let ast = &context.ast;
   let SetHtmlIRNode { value, element, .. } = oper;
 
-  let mut result = vec![Either3::A(Newline)];
-  result.extend(gen_call(
-    Either::A(context.helper("setHtml")),
-    vec![
-      Either4::C(Some(format!("n{element}"))),
-      Either4::D(gen_expression(value, context, None, None)),
-    ],
-  ));
-  result
+  ast.statement_expression(
+    SPAN,
+    ast.expression_call(
+      SPAN,
+      ast.expression_identifier(SPAN, ast.atom(&context.helper("setHtml"))),
+      NONE,
+      ast.vec_from_array([
+        ast
+          .expression_identifier(SPAN, ast.atom(&format!("n{element}")))
+          .into(),
+        gen_expression(value, context, None, None).into(),
+      ]),
+      false,
+    ),
+  )
 }

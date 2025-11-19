@@ -4,14 +4,7 @@ import { describe, expect, test } from 'vitest'
 describe('compiler v-bind', () => {
   test('basic', () => {
     const { code, templates } = compile(`<div id={id}/>`)
-    expect(code).toMatchInlineSnapshot(`
-      "
-        const n0 = t0()
-        _renderEffect(() => _setProp(n0, "id", id))
-        return n0
-      "
-    `)
-
+    expect(code).toMatchSnapshot()
     expect(templates).toMatchInlineSnapshot(`
       [
         [
@@ -378,6 +371,6 @@ describe('compiler v-bind', () => {
   test('number value', () => {
     const { code } = compile(`<><div depth={0} /><Comp depth={0} /></>`)
     expect(code).matchSnapshot()
-    expect(code).contains('{ depth: () => (0) }')
+    expect(code).contains('{ depth: () => 0 }')
   })
 })

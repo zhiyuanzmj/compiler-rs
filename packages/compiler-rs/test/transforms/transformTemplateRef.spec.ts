@@ -35,27 +35,24 @@ describe('compiler: template ref transform', () => {
 
   test('function ref', () => {
     const { code, templates } = compile(
-      `<div ref={bar => {
-        foo.value = bar
-        ;({ baz } = bar)
-        console.log(foo.value, baz)
-      }} />`,
+      `<Comp v-slot={{baz}}>
+          <div ref={bar => {
+            foo.value = bar
+            ;({ baz, bar: baz } = bar)
+            console.log(foo.value, baz)
+          }} />
+      </Comp>`,
     )
     expect(templates).toMatchInlineSnapshot(`
       [
         [
           "<div></div>",
-          true,
+          false,
         ],
       ]
     `)
     expect(code).toMatchSnapshot()
     expect(code).contains('const _setTemplateRef = _createTemplateRefSetter()')
-    expect(code).contains(`_setTemplateRef(n0, bar => {
-        foo.value = bar
-        ;({ baz: baz } = bar)
-        console.log(foo.value, baz)
-      }, r0)`)
   })
 
   test('ref + v-if', () => {

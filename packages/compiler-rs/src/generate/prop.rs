@@ -1,18 +1,14 @@
-use std::mem;
-
-use napi::Either;
 use napi::bindgen_prelude::Either3;
-use napi::bindgen_prelude::Either4;
+use oxc_ast::NONE;
+use oxc_ast::ast::BinaryOperator;
+use oxc_ast::ast::Expression;
+use oxc_ast::ast::PropertyKey;
+use oxc_ast::ast::PropertyKind;
+use oxc_ast::ast::Statement;
+use oxc_span::SPAN;
 
 use crate::generate::CodegenContext;
 use crate::generate::expression::gen_expression;
-use crate::generate::utils::CodeFragment;
-use crate::generate::utils::FragmentSymbol::Newline;
-use crate::generate::utils::NewlineType;
-use crate::generate::utils::gen_call;
-use crate::generate::utils::gen_multi;
-use crate::generate::utils::get_delimiters_array;
-use crate::generate::utils::get_delimiters_object;
 use crate::ir::component::IRProp;
 use crate::ir::index::SetDynamicPropsIRNode;
 use crate::ir::index::SetPropIRNode;
@@ -67,7 +63,8 @@ fn helpers(name: &str) -> HelperConfig {
   }
 }
 
-pub fn gen_set_prop(oper: SetPropIRNode, context: &CodegenContext) -> Vec<CodeFragment> {
+pub fn gen_set_prop<'a>(oper: SetPropIRNode<'a>, context: &'a CodegenContext<'a>) -> Statement<'a> {
+  let ast = &context.ast;
   let SetPropIRNode {
     prop: IRProp {
       key,
@@ -78,22 +75,32 @@ pub fn gen_set_prop(oper: SetPropIRNode, context: &CodegenContext) -> Vec<CodeFr
     tag,
     ..
   } = oper;
+
+  let mut arguments = ast.vec();
+  arguments.push(
+    ast
+      .expression_identifier(SPAN, ast.atom(&format!("n{}", oper.element)))
+      .into(),
+  );
   let resolved_helper = get_runtime_helper(&tag, &key.content, modifier);
-  let prop_value = gen_prop_value(values, context);
-  let mut result = vec![Either3::A(Newline)];
-  result.extend(gen_call(
-    Either::B((context.helper(resolved_helper.name.as_str()), None)),
-    vec![
-      Either4::C(Some(format!("n{}", oper.element))),
-      if resolved_helper.need_key {
-        Either4::D(gen_expression(key, context, None, None))
-      } else {
-        Either4::C(None)
-      },
-      Either4::D(prop_value),
-    ],
-  ));
-  result
+  if resolved_helper.need_key {
+    arguments.push(gen_expression(key, context, None, None).into());
+  }
+  arguments.push(gen_prop_value(values, context).into());
+
+  ast.statement_expression(
+    SPAN,
+    ast.expression_call(
+      SPAN,
+      ast.expression_identifier(
+        SPAN,
+        ast.atom(&context.helper(resolved_helper.name.as_str())),
+      ),
+      NONE,
+      arguments,
+      false,
+    ),
+  )
 }
 
 fn get_runtime_helper(tag: &str, key: &str, modifier: Option<String>) -> HelperConfig {
@@ -195,68 +202,86 @@ fn get_special_helper(key_name: &str, tag_name: &str) -> Option<HelperConfig> {
 }
 
 // dynamic key props and {...obj} will reach here
-pub fn gen_dynamic_props(
-  oper: SetDynamicPropsIRNode,
-  context: &CodegenContext,
-) -> Vec<CodeFragment> {
-  let values = oper
-    .props
-    .into_iter()
-    .map(|props| {
-      Either4::D(match props {
-        // static and dynamic arg props
-        Either3::A(props) => gen_literal_object_props(props, context), // static and dynamic arg props
-        Either3::B(props) => gen_literal_object_props(vec![props], context), // dynamic arg props
-        Either3::C(props) => gen_expression(props.value, context, None, None), // {...obj}
-      })
-    })
-    .collect::<Vec<_>>();
+pub fn gen_dynamic_props<'a>(
+  oper: SetDynamicPropsIRNode<'a>,
+  context: &'a CodegenContext<'a>,
+) -> Statement<'a> {
+  let ast = &context.ast;
+  let values = oper.props.into_iter().map(|props| {
+    match props {
+      Either3::A(props) => gen_literal_object_props(props, context).into(),
+      Either3::B(prop) => gen_literal_object_props(vec![prop], context).into(),
+      Either3::C(props) => gen_expression(props.value, context, None, None).into(), // {...obj}
+    }
+  });
 
-  let mut result = vec![Either3::A(Newline)];
-  result.extend(gen_call(
-    Either::A(context.helper("setDynamicProps")),
-    vec![
-      Either4::C(Some(format!("n{}", oper.element))),
-      Either4::D(gen_multi(get_delimiters_array(), values)),
-      Either4::C(if oper.root {
-        Some("true".to_string())
-      } else {
-        None
-      }),
-    ],
-  ));
-  result
-}
-
-fn gen_literal_object_props(props: Vec<IRProp>, context: &CodegenContext) -> Vec<CodeFragment> {
-  gen_multi(
-    get_delimiters_object(),
-    props
-      .into_iter()
-      .map(|mut prop| {
-        let values = mem::take(&mut prop.values);
-        let mut result = gen_prop_key(prop, context);
-        result.push(Either3::C(Some(": ".to_string())));
-        result.extend(gen_prop_value(values, context));
-        Either4::D(result)
-      })
-      .collect::<Vec<_>>(),
+  let mut arguments = ast.vec();
+  arguments.push(
+    ast
+      .expression_identifier(SPAN, ast.atom(&format!("n{}", oper.element)))
+      .into(),
+  );
+  arguments.push(ast.expression_array(SPAN, ast.vec_from_iter(values)).into());
+  if oper.root {
+    arguments.push(ast.expression_boolean_literal(SPAN, true).into());
+  }
+  ast.statement_expression(
+    SPAN,
+    ast.expression_call(
+      SPAN,
+      ast.expression_identifier(SPAN, ast.atom(&context.helper("setDynamicProps"))),
+      NONE,
+      arguments,
+      false,
+    ),
   )
 }
 
-pub fn gen_prop_key(oper: IRProp, context: &CodegenContext) -> Vec<CodeFragment> {
-  let IRProp {
-    key: node,
-    modifier,
-    runtime_camelize,
-    handler,
-    handler_modifiers,
-    ..
-  } = oper;
+fn gen_literal_object_props<'a>(
+  props: Vec<IRProp<'a>>,
+  context: &'a CodegenContext<'a>,
+) -> Expression<'a> {
+  let ast = context.ast;
+  ast.expression_object(
+    SPAN,
+    ast.vec_from_iter(props.into_iter().map(|prop| {
+      ast
+        .object_property_kind_object_property(
+          SPAN,
+          PropertyKind::Init,
+          gen_prop_key(
+            prop.key,
+            prop.runtime_camelize,
+            prop.modifier,
+            prop.handler.unwrap_or(false),
+            prop
+              .handler_modifiers
+              .map(|i| i.options)
+              .unwrap_or_default(),
+            context,
+          ),
+          gen_prop_value(prop.values, context),
+          false,
+          false,
+          false,
+        )
+        .into()
+    })),
+  )
+}
 
-  let handler_modifier_postfix = if let Some(handler_modifiers) = handler_modifiers {
-    handler_modifiers
-      .options
+pub fn gen_prop_key<'a>(
+  node: SimpleExpressionNode<'a>,
+  runtime_camelize: Option<bool>,
+  modifier: Option<String>,
+  handler: bool,
+  options: Vec<String>,
+  context: &'a CodegenContext<'a>,
+) -> PropertyKey<'a> {
+  let ast = &context.ast;
+
+  let handler_modifier_postfix = if !options.is_empty() {
+    options
       .into_iter()
       .map(|option| option[..1].to_string().to_uppercase() + &option[1..].to_string())
       .collect::<Vec<_>>()
@@ -267,7 +292,7 @@ pub fn gen_prop_key(oper: IRProp, context: &CodegenContext) -> Vec<CodeFragment>
   // static arg was transformed by v-bind transformer
   if node.is_static {
     // only quote keys if necessary
-    let key_name = (if handler.unwrap_or(false) {
+    let key_name = (if handler {
       format!(
         "on{}",
         node.content[0..1].to_string().to_uppercase() + &node.content[1..].to_string()
@@ -275,58 +300,76 @@ pub fn gen_prop_key(oper: IRProp, context: &CodegenContext) -> Vec<CodeFragment>
     } else {
       node.content
     }) + &handler_modifier_postfix;
-    return vec![Either3::B((
-      if is_simple_identifier(&key_name) {
-        key_name
-      } else {
-        format!("\"{}\"", key_name)
-      },
-      NewlineType::None,
-      node.loc,
-      None,
-    ))];
+    let key_name = if is_simple_identifier(&key_name) {
+      &key_name
+    } else {
+      &format!("\"{}\"", key_name)
+    };
+    return ast.property_key_static_identifier(node.loc, ast.atom(key_name));
   }
 
   let mut key = gen_expression(node, context, None, None);
   if runtime_camelize.unwrap_or_default() {
-    key = gen_call(Either::A(context.helper("camelize")), vec![Either4::D(key)])
-  }
-  if handler.unwrap_or_default() {
-    key = gen_call(
-      Either::A(context.helper("toHandlerKey")),
-      vec![Either4::D(key)],
+    key = ast.expression_call(
+      SPAN,
+      ast.expression_identifier(SPAN, ast.atom(&context.helper("camelize"))),
+      NONE,
+      ast.vec1(key.into()),
+      false,
     )
   }
-  let mut result = vec![
-    Either3::C(Some("[".to_string())),
-    Either3::C(if let Some(modifier) = modifier {
-      Some(format!("\"{}\" + ", modifier))
+  if handler {
+    key = ast.expression_call(
+      SPAN,
+      ast.expression_identifier(SPAN, ast.atom(&context.helper("toHandlerKey"))),
+      NONE,
+      ast.vec1(key.into()),
+      false,
+    )
+  }
+
+  if let Some(modifier) = modifier {
+    let left = ast.expression_binary(
+      SPAN,
+      ast.expression_string_literal(SPAN, ast.atom(&format!("\"{}\" + ", modifier)), None),
+      BinaryOperator::Addition,
+      key,
+    );
+    if !handler_modifier_postfix.is_empty() {
+      ast
+        .expression_binary(
+          SPAN,
+          left,
+          BinaryOperator::Addition,
+          ast.expression_string_literal(
+            SPAN,
+            ast.atom(&format!("\"{}\" + ", handler_modifier_postfix)),
+            None,
+          ),
+        )
+        .into()
     } else {
-      None
-    }),
-  ];
-  result.extend(key);
-  result.push(Either3::C(if !handler_modifier_postfix.is_empty() {
-    Some(format!(" + \"{}\"", handler_modifier_postfix))
+      left.into()
+    }
   } else {
-    None
-  }));
-  result.push(Either3::C(Some("]".to_string())));
-  result
+    key.into()
+  }
 }
 
-pub fn gen_prop_value(
-  mut values: Vec<SimpleExpressionNode>,
-  context: &CodegenContext,
-) -> Vec<CodeFragment> {
+pub fn gen_prop_value<'a>(
+  mut values: Vec<SimpleExpressionNode<'a>>,
+  context: &'a CodegenContext<'a>,
+) -> Expression<'a> {
+  let ast = &context.ast;
   if (&values).len() == 1 {
     return gen_expression(values.remove(0), context, None, None);
   }
-  gen_multi(
-    get_delimiters_array(),
-    values
-      .into_iter()
-      .map(|expr| Either4::D(gen_expression(expr, context, None, None)))
-      .collect::<Vec<_>>(),
+  ast.expression_array(
+    SPAN,
+    ast.vec_from_iter(
+      values
+        .into_iter()
+        .map(|value| gen_expression(value, context, None, None).into()),
+    ),
   )
 }

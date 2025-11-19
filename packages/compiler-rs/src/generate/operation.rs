@@ -1,6 +1,7 @@
-use napi::Either;
-use napi::bindgen_prelude::{Either3, Either4, Either16};
-use std::mem;
+use napi::bindgen_prelude::Either16;
+use oxc_ast::NONE;
+use oxc_ast::ast::{Argument, NumberBase, Statement};
+use oxc_span::SPAN;
 
 use crate::generate::CodegenContext;
 use crate::generate::component::gen_create_component;
@@ -17,10 +18,6 @@ use crate::generate::text::gen_create_nodes;
 use crate::generate::text::gen_get_text_child;
 use crate::generate::text::gen_set_nodes;
 use crate::generate::text::gen_set_text;
-use crate::generate::utils::CodeFragment;
-use crate::generate::utils::FragmentSymbol;
-use crate::generate::utils::FragmentSymbol::Newline;
-use crate::generate::utils::gen_call;
 use crate::generate::v_for::gen_for;
 use crate::generate::v_if::gen_if;
 use crate::ir::index::BlockIRNode;
@@ -28,11 +25,11 @@ use crate::ir::index::OperationNode;
 use crate::ir::index::SetEventIRNode;
 
 pub fn gen_operations<'a>(
+  statements: &mut oxc_allocator::Vec<'a, Statement<'a>>,
   opers: Vec<OperationNode<'a>>,
   context: &'a CodegenContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
-) -> Vec<CodeFragment> {
-  let mut frag = vec![];
+) {
   let event_opers = opers
     .iter()
     .filter_map(|op| {
@@ -45,37 +42,37 @@ pub fn gen_operations<'a>(
     .collect::<Vec<_>>();
   let _context_block = context_block as *mut BlockIRNode;
   for operation in opers {
-    frag.extend(gen_operation_with_insertion_state(
+    gen_operation_with_insertion_state(
+      statements,
       operation,
       context,
       unsafe { &mut *_context_block },
       &event_opers,
-    ));
+    );
   }
-  return frag;
 }
 
 pub fn gen_operation_with_insertion_state<'a>(
+  statements: &mut oxc_allocator::Vec<'a, Statement<'a>>,
   oper: OperationNode<'a>,
   context: &'a CodegenContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   event_opers: &Vec<SetEventIRNode>,
-) -> Vec<CodeFragment> {
-  let mut frag = vec![];
+) {
   match &oper {
     Either16::A(if_ir_node) => {
       if let Some(parent) = if_ir_node.parent {
-        frag.extend(gen_insertion_state(parent, if_ir_node.anchor, context))
+        statements.push(gen_insertion_state(parent, if_ir_node.anchor, context))
       }
     }
     Either16::B(for_ir_node) => {
       if let Some(parent) = for_ir_node.parent {
-        frag.extend(gen_insertion_state(parent, for_ir_node.anchor, context))
+        statements.push(gen_insertion_state(parent, for_ir_node.anchor, context))
       }
     }
     Either16::N(create_component_ir_node) => {
       if let Some(parent) = create_component_ir_node.parent {
-        frag.extend(gen_insertion_state(
+        statements.push(gen_insertion_state(
           parent,
           create_component_ir_node.anchor,
           context,
@@ -85,136 +82,81 @@ pub fn gen_operation_with_insertion_state<'a>(
     _ => (),
   };
 
-  frag.extend(gen_operation(oper, context, context_block, event_opers));
-  frag
+  gen_operation(statements, oper, context, context_block, event_opers);
 }
 
 pub fn gen_operation<'a>(
+  statements: &mut oxc_allocator::Vec<'a, Statement<'a>>,
   oper: OperationNode<'a>,
   context: &'a CodegenContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   event_opers: &Vec<SetEventIRNode>,
-) -> Vec<CodeFragment> {
+) {
   match oper {
-    Either16::A(oper) => gen_if(oper, context, context_block, false),
-    Either16::B(oper) => gen_for(oper, context, context_block),
-    Either16::C(oper) => gen_set_text(oper, context),
-    Either16::D(oper) => gen_set_prop(oper, context),
-    Either16::E(oper) => gen_dynamic_props(oper, context),
-    Either16::F(oper) => gen_set_dynamic_events(oper, context),
-    Either16::G(oper) => gen_set_nodes(oper, context),
-    Either16::H(oper) => gen_set_event(oper, context, event_opers),
-    Either16::I(oper) => gen_set_html(oper, context),
-    Either16::J(oper) => gen_set_template_ref(oper, context),
-    Either16::K(oper) => gen_create_nodes(oper, context),
-    Either16::L(oper) => gen_insert_node(oper, context),
-    Either16::M(oper) => gen_builtin_directive(oper, context),
-    Either16::N(oper) => gen_create_component(oper, context, context_block),
-    Either16::O(oper) => gen_declare_old_ref(oper),
-    Either16::P(oper) => gen_get_text_child(oper, context),
+    Either16::A(oper) => statements.push(gen_if(oper, context, context_block, false)),
+    Either16::B(oper) => gen_for(statements, oper, context, context_block),
+    Either16::C(oper) => statements.push(gen_set_text(oper, context)),
+    Either16::D(oper) => statements.push(gen_set_prop(oper, context)),
+    Either16::E(oper) => statements.push(gen_dynamic_props(oper, context)),
+    Either16::F(oper) => statements.push(gen_set_dynamic_events(oper, context)),
+    Either16::G(oper) => statements.push(gen_set_nodes(oper, context)),
+    Either16::H(oper) => statements.push(gen_set_event(oper, context, event_opers)),
+    Either16::I(oper) => statements.push(gen_set_html(oper, context)),
+    Either16::J(oper) => statements.push(gen_set_template_ref(oper, context)),
+    Either16::K(oper) => statements.push(gen_create_nodes(oper, context)),
+    Either16::L(oper) => statements.push(gen_insert_node(oper, context)),
+    Either16::M(oper) => {
+      if let Some(statement) = gen_builtin_directive(oper, context) {
+        statements.push(statement)
+      }
+    }
+    Either16::N(oper) => gen_create_component(statements, oper, context, context_block),
+    Either16::O(oper) => statements.push(gen_declare_old_ref(oper, context)),
+    Either16::P(oper) => statements.push(gen_get_text_child(oper, context)),
   }
 }
 
-pub fn gen_insertion_state(
+pub fn gen_insertion_state<'a>(
   parent: i32,
   anchor: Option<i32>,
-  context: &CodegenContext,
-) -> Vec<CodeFragment> {
-  let mut result = vec![Either3::A(Newline)];
-  result.extend(gen_call(
-    Either::A(context.helper("setInsertionState")),
-    vec![
-      Either4::C(Some(format!("n{}", parent))),
-      Either4::C(if let Some(anchor) = anchor {
-        if anchor == -1 {
-          // -1 indicates prepend
-          Some("0".to_string()) // runtime anchor value for prepend
-        } else {
-          Some(format!("n{anchor}"))
-        }
-      } else {
-        None
-      }),
-    ],
-  ));
-  result
-}
-
-pub fn gen_effects<'a>(
-  context: &'a CodegenContext<'a>,
-  context_block: &'a mut BlockIRNode<'a>,
-) -> Vec<CodeFragment> {
-  let mut frag: Vec<CodeFragment> = vec![];
-  let mut operations_count = 0;
-
-  let mut i = 0;
-  let effects = mem::take(&mut context_block.effect);
-  let effects_len = effects.len();
-  for effect in effects {
-    operations_count += effect.operations.len();
-    let _context_block = context_block as *mut BlockIRNode;
-    let frags = gen_effect(effect.operations, context, unsafe { &mut *_context_block });
-    if i > 0 {
-      frag.push(Either3::A(Newline));
-    }
-    if let Some(last) = frag.last()
-      && matches!(last, Either3::C(Some(s)) if s.eq(")"))
-      && let Some(first) = frags.first()
-      && matches!(first, Either3::C(Some(s)) if s.eq("("))
-    {
-      frag.push(Either3::C(Some(";".to_string())))
-    }
-    frag.extend(frags);
-    i += 1;
-  }
-
-  let newline_count = frag
-    .iter()
-    .filter(|frag| matches!(frag, Either3::A(FragmentSymbol::Newline)))
-    .count();
-  if newline_count > 1 || operations_count > 1 {
-    frag.insert(0, Either3::A(FragmentSymbol::Newline));
-    frag.insert(0, Either3::A(FragmentSymbol::IndentStart));
-    frag.insert(0, Either3::C(Some("{".to_string())));
-    frag.push(Either3::A(FragmentSymbol::IndentEnd));
-    frag.push(Either3::A(FragmentSymbol::Newline));
-    frag.push(Either3::C(Some("}".to_string())));
-  }
-
-  if effects_len > 0 {
-    frag.insert(
-      0,
-      Either3::C(Some(format!("{}(() => ", context.helper("renderEffect")))),
-    );
-    frag.insert(0, Either3::A(FragmentSymbol::Newline));
-    frag.push(Either3::C(Some(")".to_string())))
-  }
-
-  frag
-}
-
-pub fn gen_effect<'a>(
-  operations: Vec<OperationNode<'a>>,
-  context: &'a CodegenContext<'a>,
-  context_block: &'a mut BlockIRNode<'a>,
-) -> Vec<CodeFragment> {
-  let mut frag = vec![];
-  let operations_exps = gen_operations(operations, context, context_block);
-  let newline_count = operations_exps
-    .iter()
-    .filter(|frag| matches!(frag, Either3::A(FragmentSymbol::Newline)))
-    .count();
-
-  if newline_count > 1 {
-    frag.extend(operations_exps);
-  } else {
-    frag.extend(
-      operations_exps
+  context: &CodegenContext<'a>,
+) -> Statement<'a> {
+  let ast = &context.ast;
+  ast.statement_expression(
+    SPAN,
+    ast.expression_call(
+      SPAN,
+      ast.expression_identifier(SPAN, ast.atom(&context.helper("setInsertionState"))),
+      NONE,
+      ast.vec_from_iter(
+        [
+          Some(Argument::Identifier(ast.alloc_identifier_reference(
+            SPAN,
+            ast.atom(&format!("n{}", parent)),
+          ))),
+          if let Some(anchor) = anchor {
+            if anchor == -1 {
+              // -1 indicates prepend
+              Some(Argument::NumericLiteral(ast.alloc_numeric_literal(
+                SPAN,
+                0 as f64,
+                None,
+                NumberBase::Hex,
+              ))) // runtime anchor value for prepend
+            } else {
+              Some(Argument::Identifier(ast.alloc_identifier_reference(
+                SPAN,
+                ast.atom(&format!("n{anchor}")),
+              )))
+            }
+          } else {
+            None
+          },
+        ]
         .into_iter()
-        .filter(|frag| !matches!(frag, Either3::A(FragmentSymbol::Newline)))
-        .collect::<Vec<_>>(),
-    )
-  }
-
-  frag
+        .flatten(),
+      ),
+      false,
+    ),
+  )
 }

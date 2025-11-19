@@ -1,187 +1,138 @@
-use std::collections::HashSet;
-
-use napi::bindgen_prelude::Either3;
-use oxc_ast::{AstKind, ast::Expression};
-use oxc_ast_visit::Visit;
-use oxc_span::{GetSpan, Span};
+use oxc_allocator::CloneIn;
+use oxc_ast::{
+  NONE,
+  ast::{AssignmentOperator, AssignmentTarget, Expression, FormalParameterKind},
+};
+use oxc_span::{GetSpan, SPAN, Span};
+use oxc_traverse::Ancestor;
 
 use crate::{
-  generate::{
-    CodegenContext,
-    utils::{CodeFragment, NewlineType},
-  },
-  ir::index::{SimpleExpressionNode, SourceLocation},
-  utils::walk::WalkIdentifiers,
+  generate::CodegenContext, ir::index::SimpleExpressionNode, utils::walk::WalkIdentifiers,
 };
 
-pub fn gen_expression(
-  node: SimpleExpressionNode,
-  context: &CodegenContext,
-  assignment: Option<String>,
+pub fn gen_expression<'a>(
+  node: SimpleExpressionNode<'a>,
+  context: &'a CodegenContext<'a>,
+  assignment: Option<Expression<'a>>,
   need_wrap: Option<bool>,
-) -> Vec<CodeFragment> {
-  let content = node.content.clone();
+) -> Expression<'a> {
+  let ast = &context.ast;
+
+  let content = &node.content;
   let loc = node.loc;
   let need_wrap = need_wrap.unwrap_or(false);
 
   if node.is_static {
-    return vec![Either3::B((
-      format!("\"{content}\""),
-      NewlineType::None,
-      loc,
-      None,
-    ))];
+    return ast.expression_string_literal(loc, ast.atom(content), None);
   }
 
-  if content.is_empty() || node.is_constant_expression() {
-    return vec![
-      Either3::B((content, NewlineType::None, loc, None)),
-      Either3::B((
-        if let Some(assignment) = assignment {
-          format!(" = {assignment}")
-        } else {
-          "".to_string()
-        },
-        NewlineType::None,
-        None,
-        None,
-      )),
-    ];
+  if node.is_constant_expression() {
+    return if let Some(assignment) = assignment {
+      ast.expression_assignment(
+        loc,
+        AssignmentOperator::Assign,
+        AssignmentTarget::AssignmentTargetIdentifier(
+          ast.alloc_identifier_reference(loc, ast.atom(&content)),
+        ),
+        assignment,
+      )
+    } else {
+      ast.expression_identifier(loc, ast.atom(&content))
+    };
   }
 
-  let Some(ast) = &node.ast else {
-    return gen_identifier(content, context, loc, assignment.as_ref(), false);
+  let Some(ast) = node.ast else {
+    return gen_identifier(content, context, loc, assignment);
   };
 
-  let mut ids: Vec<Span> = vec![];
-  let mut shorthands: HashSet<u32> = HashSet::new();
-  if let Expression::Identifier(ast) = ast {
-    ids.push(ast.span)
+  let span = ast.span();
+  let mut expression = if let Expression::Identifier(ast) = ast {
+    gen_identifier(&ast.name, context, span, None)
   } else {
     WalkIdentifiers::new(
+      context,
       Box::new(|id, parent, _, _, _| {
-        ids.push(id.span());
-        if let Some(AstKind::AssignmentTargetPropertyIdentifier(_)) = parent {
-          shorthands.insert(id.span().start);
-        } else if let Some(AstKind::ObjectProperty(parent)) = parent
-          && parent.shorthand
+        let span = id.span();
+        let content = span.source_text(context.ir.source);
+        if let Ancestor::ObjectPropertyKey(parent) = parent
+          && !parent.computed()
         {
-          shorthands.insert(id.span().start);
-        }
+          return None;
+        };
+        Some(gen_identifier(content, context, span, None).clone_in(context.ast.allocator))
       }),
       false,
     )
-    .visit_expression(ast);
+    .traverse(ast)
+  };
+  if let Some(assignment) = assignment {
+    let span = expression.span();
+    expression = context.ast.expression_assignment(
+      span,
+      AssignmentOperator::Assign,
+      match expression {
+        Expression::Identifier(id) => AssignmentTarget::AssignmentTargetIdentifier(id),
+        Expression::StaticMemberExpression(id) => AssignmentTarget::StaticMemberExpression(id),
+        Expression::ComputedMemberExpression(id) => AssignmentTarget::ComputedMemberExpression(id),
+        Expression::PrivateFieldExpression(id) => AssignmentTarget::PrivateFieldExpression(id),
+        _ => unimplemented!(),
+      },
+      assignment,
+    );
   }
 
-  let len = ids.len();
-  if len > 0 {
-    let mut frag = vec![];
-    if need_wrap {
-      frag.push(Either3::C(Some("() => (".to_string())));
-    }
-    let offset = ast.span().start as usize;
-    let mut i = 0;
-    for id in ids.iter() {
-      let start = id.start as usize - offset;
-      let end = id.end as usize - offset;
-      let prev = if i > 0 { ids.get(i - 1) } else { None };
-
-      let leading_text = content[if let Some(prev) = prev {
-        prev.end as usize - offset
-      } else {
-        0
-      }..start]
-        .to_string();
-      if !leading_text.is_empty() {
-        frag.push(Either3::B((
-          leading_text,
-          NewlineType::Unknown,
-          None,
-          Some(" ".to_string()),
-        )))
-      }
-
-      let source = content[start..end].to_string();
-      let shorthand = shorthands.contains(&id.start);
-
-      frag.extend(gen_identifier(
-        source, context, None,
-        // {
-        //   start: advancePositionWithClone(node.loc?.start, source, start),
-        //   end: advancePositionWithClone(node.loc?.start, source, end),
-        // },
-        None, shorthand,
-      ));
-
-      if i == len - 1 && end < content.len() {
-        frag.push(Either3::B((
-          content[end..].to_string(),
-          NewlineType::Unknown,
-          None,
-          None,
-        )))
-      }
-      i += 1;
-    }
-
-    if let Some(assignment) = assignment
-      && !assignment.is_empty()
-    {
-      frag.push(Either3::C(Some(format!(" = {assignment}"))))
-    }
-
-    if need_wrap {
-      frag.push(Either3::C(Some(")".to_string())))
-    }
-    frag
-  } else {
-    vec![Either3::B((content, NewlineType::Unknown, loc, None))]
+  if need_wrap {
+    expression = context.ast.expression_arrow_function(
+      SPAN,
+      true,
+      false,
+      NONE,
+      context.ast.alloc_formal_parameters(
+        SPAN,
+        FormalParameterKind::ArrowFormalParameters,
+        context.ast.vec(),
+        NONE,
+      ),
+      NONE,
+      context.ast.alloc_function_body(
+        SPAN,
+        context.ast.vec(),
+        context.ast.vec1(
+          context
+            .ast
+            .statement_expression(expression.span(), expression),
+        ),
+      ),
+    );
   }
+  expression
 }
 
-pub fn gen_identifier(
-  mut name: String,
-  context: &CodegenContext,
-  loc: Option<SourceLocation>,
-  assignment: Option<&String>,
-  shorthand: bool,
-) -> Vec<CodeFragment> {
-  if let Some(id_map) = context.identifiers.borrow().get(&name)
+pub fn gen_identifier<'a>(
+  name: &str,
+  context: &CodegenContext<'a>,
+  loc: Span,
+  assignment: Option<Expression<'a>>,
+) -> Expression<'a> {
+  let ast = &context.ast;
+  if let Some(id_map) = context.identifiers.borrow().get(name)
     && id_map.len() > 0
   {
     if let Some(replacement) = id_map.get(0) {
-      if shorthand {
-        return vec![Either3::B((
-          format!("{name}: {replacement}"),
-          NewlineType::None,
-          loc,
-          None,
-        ))];
-      } else {
-        return vec![Either3::B((
-          replacement.to_string(),
-          NewlineType::None,
-          loc,
-          None,
-        ))];
-      }
+      return replacement.clone_in(ast.allocator);
     }
   }
 
-  let mut prefix = String::new();
-  if shorthand {
-    // property shorthand like { foo }, we need to add the key since
-    // we rewrite the value
-    prefix = format!("{name}: ");
-  }
-
   if let Some(assignment) = assignment {
-    name = format!("{name} = {assignment}");
+    ast.expression_assignment(
+      loc,
+      AssignmentOperator::Assign,
+      AssignmentTarget::AssignmentTargetIdentifier(
+        ast.alloc_identifier_reference(loc, ast.atom(&name)),
+      ),
+      assignment,
+    )
+  } else {
+    ast.expression_identifier(loc, ast.atom(&name))
   }
-
-  vec![
-    Either3::B((prefix, NewlineType::None, None, None)),
-    Either3::B((name.clone(), NewlineType::None, loc, Some(name))),
-  ]
 }

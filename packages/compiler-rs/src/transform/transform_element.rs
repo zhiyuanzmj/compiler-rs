@@ -8,6 +8,7 @@ use oxc_ast::ast::{
   JSXAttribute, JSXAttributeItem, JSXAttributeName, JSXAttributeValue, JSXChild, JSXElement,
   JSXElementName, JSXExpression,
 };
+use oxc_span::SPAN;
 
 use crate::{
   ir::{
@@ -197,7 +198,7 @@ pub fn transform_native_element<'a>(
 
   if single_root {
     let ir = &mut context.ir.borrow_mut();
-    ir.root_template_index = Some(ir.templates.len())
+    ir.root_template_index = Some(context.options.templates.borrow().len())
   }
 
   if let Some(Either::B(JSXChild::Element(parent_node))) = &*context.parent_node.borrow()
@@ -418,21 +419,21 @@ pub fn transform_prop<'a>(
         content: name.to_string(),
         is_static: true,
         ast: None,
-        loc: None,
+        loc: SPAN,
       },
       if let Some(value) = value {
         SimpleExpressionNode {
           content: value,
           is_static: true,
           ast: None,
-          loc: None,
+          loc: SPAN,
         }
       } else {
         SimpleExpressionNode {
           content: "true".to_string(),
           is_static: false,
           ast: None,
-          loc: None,
+          loc: SPAN,
         }
       },
     ));
@@ -462,7 +463,7 @@ pub fn transform_prop<'a>(
       let directive = &mut context.ir.borrow_mut().directive;
       directive.insert(name.clone());
     } else {
-      name = camelize(format!("v-{name}"))
+      name = camelize(&format!("v-{name}"))
     };
 
     let element = context.reference(&mut context_block.dynamic);

@@ -1,3 +1,5 @@
+use std::{cell::RefCell, collections::HashSet};
+
 use compiler_rs::transform::{TransformOptions, transform};
 use insta::assert_snapshot;
 
@@ -15,9 +17,10 @@ fn transform_test() {
   let code = transform(
     source,
     Some(TransformOptions {
-      source,
       filename: "index.tsx",
-      templates: vec![],
+      templates: RefCell::new(vec![]),
+      helpers: RefCell::new(HashSet::new()),
+      delegates: RefCell::new(HashSet::new()),
       source_map: false,
       with_fallback: false,
       is_custom_element: Box::new(|_| false),

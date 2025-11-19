@@ -1,150 +1,71 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`compile > dynamic root 1`] = `
-"
-  const n0 = _createNodes(1, 2)
-  return n0
-"
-`;
-
-exports[`compile > dynamic root 2`] = `
-"
-  const n0 = t0()
-  const x0 = _child(n0)
-  _setNodes(x0, () => (a +b +       c))
-  return n0
+"(() => {
+  const n0 = _createNodes(1, 2, () => a + b + c);
+  return n0;
+})();
 "
 `;
 
 exports[`compile > execution order > basic 1`] = `
-"
-  const n0 = t0()
-  _setProp(n0, "foo", true)
-  const x0 = _child(n0)
-  _setNodes(x0, () => (foo))
-  return n0
+"(() => {
+  const n0 = t0();
+  _setProp(n0, "foo", true);
+  const x0 = _child(n0);
+  _setNodes(x0, () => foo);
+  return n0;
+})();
 "
 `;
 
 exports[`compile > execution order > with v-once 1`] = `
-"
-  const n3 = t0()
-  const n0 = _child(n3)
-  const n1 = _next(n0)
-  const n2 = _nthChild(n3, 3)
-  const x0 = _child(n0)
-  _setNodes(x0, foo)
-  _setNodes(n1, () => (bar))
-  _setNodes(n2, () => (baz))
-  return n3
+"(() => {
+  const n3 = t0();
+  const n0 = _child(n3);
+  const n1 = _next(n0);
+  const n2 = _nthChild(n3, 3);
+  const x0 = _child(n0);
+  _setNodes(x0, foo);
+  _setNodes(n1, () => bar);
+  _setNodes(n2, () => baz);
+  return n3;
+})();
 "
 `;
 
 exports[`compile > expression parsing > interpolation 1`] = `
-"
-  const n0 = _createNodes(() => (a + b))
-  return n0
+"(() => {
+  const n0 = _createNodes(() => a + b);
+  return n0;
+})();
 "
 `;
 
 exports[`compile > setInsertionState > next, child and nthChild should be above the setInsertionState 1`] = `
-"
-  const n6 = t1()
-  const n5 = _next(_child(n6))
-  const n7 = _nthChild(n6, 3)
-  const p0 = _next(n7)
-  const n4 = _child(p0)
-  _setInsertionState(n6, n5)
-  const n0 = _createComponent(Comp)
-  _setInsertionState(n6, n7)
-  const n1 = _createIf(() => (true), () => {
-    const n3 = t0()
-    return n3
-  }, null, true)
-  _renderEffect(() => _setProp(n4, "disabled", foo))
-  return n6
+"(() => {
+  const n6 = t1();
+  const n5 = _next(_child(n6));
+  const n7 = _nthChild(n6, 3);
+  const p0 = _next(n7);
+  const n4 = _child(p0);
+  _setInsertionState(n6, n5);
+  const n0 = _createComponent(Comp);
+  _setInsertionState(n6, n7);
+  const n1 = _createIf(() => true, () => {
+    const n3 = t0();
+    return n3;
+  }, null, true);
+  _renderEffect(() => _setProp(n4, "disabled", foo));
+  return n6;
+})();
 "
 `;
 
 exports[`compile > static template 1`] = `
-"
-  const n0 = t0()
-  return n0
-"
-`;
-
-exports[`directive > custom directive > basic 1`] = `
-"
-  const _directive_example = _resolveDirective("example")
-  const n0 = t0()
-  _withVaporDirectives(n0, [[_directive_example]])
-  return n0
-"
-`;
-
-exports[`directive > custom directive > binding value 1`] = `
-"
-  const n0 = t0()
-  _withVaporDirectives(n0, [[vExample, () => msg]])
-  return n0
-"
-`;
-
-exports[`directive > custom directive > component 1`] = `
-"
-  const n0 = _createComponent(Comp, null, {
-    "default": () => {
-      const n2 = _createIf(() => ("true"), () => {
-        const n5 = t0()
-        _setInsertionState(n5)
-        const n4 = _createComponent(Bar)
-        _withVaporDirectives(n4, [[vHello, void 0, void 0, { world: true }]])
-        return n5
-      }, null, true)
-      return n2
-    }
-  }, true)
-  _withVaporDirectives(n0, [[vTest]])
-  return n0
-"
-`;
-
-exports[`directive > custom directive > dynamic parameters 1`] = `
-"
-  const n0 = t0()
-  _withVaporDirectives(n0, [[vExample, () => msg, foo]])
-  return n0
-"
-`;
-
-exports[`directive > custom directive > modifiers 1`] = `
-"
-  const n0 = t0()
-  _withVaporDirectives(n0, [[vExample, () => msg, void 0, { bar: true }]])
-  return n0
-"
-`;
-
-exports[`directive > custom directive > modifiers w/o binding 1`] = `
-"
-  const n0 = t0()
-  _withVaporDirectives(n0, [[vExample, void 0, void 0, { "foo-bar": true }]])
-  return n0
-"
-`;
-
-exports[`directive > custom directive > static parameters 1`] = `
-"
-  const n0 = t0()
-  _withVaporDirectives(n0, [[vExample, () => msg, "foo"]])
-  return n0
-"
-`;
-
-exports[`directive > custom directive > static parameters and modifiers 1`] = `
-"
-  const n0 = t0()
-  _withVaporDirectives(n0, [[vExample, () => msg, "foo", { bar: true }]])
-  return n0
+"(() => {
+  const n0 = t0();
+  return n0;
+})();
 "
 `;

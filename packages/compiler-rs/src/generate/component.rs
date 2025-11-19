@@ -1,8 +1,17 @@
 use std::mem;
 
-use napi::Either;
 use napi::bindgen_prelude::Either3;
-use napi::bindgen_prelude::Either4;
+use oxc_allocator::CloneIn;
+use oxc_ast::NONE;
+use oxc_ast::ast::BinaryOperator;
+use oxc_ast::ast::BindingPatternKind;
+use oxc_ast::ast::Expression;
+use oxc_ast::ast::FormalParameterKind;
+use oxc_ast::ast::ObjectPropertyKind;
+use oxc_ast::ast::PropertyKind;
+use oxc_ast::ast::Statement;
+use oxc_ast::ast::VariableDeclarationKind;
+use oxc_span::SPAN;
 
 use crate::generate::CodegenContext;
 use crate::generate::directive::gen_directive_modifiers;
@@ -12,14 +21,6 @@ use crate::generate::expression::gen_expression;
 use crate::generate::prop::gen_prop_key;
 use crate::generate::prop::gen_prop_value;
 use crate::generate::slot::gen_raw_slots;
-use crate::generate::utils::CodeFragment;
-use crate::generate::utils::CodeFragments;
-use crate::generate::utils::FragmentSymbol::Newline;
-use crate::generate::utils::gen_call;
-use crate::generate::utils::gen_multi;
-use crate::generate::utils::get_delimiters_array_newline;
-use crate::generate::utils::get_delimiters_object;
-use crate::generate::utils::get_delimiters_object_newline;
 use crate::generate::utils::to_valid_asset_id;
 use crate::generate::v_model::gen_model_handler;
 use crate::ir::component::IRProp;
@@ -27,14 +28,17 @@ use crate::ir::component::IRProps;
 use crate::ir::component::IRPropsStatic;
 use crate::ir::index::BlockIRNode;
 use crate::ir::index::CreateComponentIRNode;
+use crate::ir::index::Modifiers;
 use crate::ir::index::SimpleExpressionNode;
 use crate::utils::text::camelize;
 
 pub fn gen_create_component<'a>(
+  statements: &mut oxc_allocator::Vec<'a, Statement<'a>>,
   operation: CreateComponentIRNode<'a>,
   context: &'a CodegenContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
-) -> Vec<CodeFragment> {
+) {
+  let ast = &context.ast;
   let CreateComponentIRNode {
     tag,
     root,
@@ -54,74 +58,125 @@ pub fn gen_create_component<'a>(
   } else {
     false
   };
-  let tag: CodeFragments = if let Some(dynamic) = dynamic {
-    Either4::D(if dynamic.is_static {
-      gen_call(
-        Either::A(context.helper("resolveDynamicComponent")),
-        vec![Either4::D(gen_expression(dynamic, context, None, None))],
-      )
+  let tag = if let Some(dynamic) = dynamic {
+    if dynamic.is_static {
+      ast
+        .expression_call(
+          SPAN,
+          ast.expression_identifier(SPAN, ast.atom(&context.helper("resolveDynamicComponent"))),
+          NONE,
+          ast.vec1(gen_expression(dynamic, context, None, None).into()),
+          false,
+        )
+        .into()
     } else {
-      let mut result = vec![Either3::C(Some("() => (".to_string()))];
-      result.extend(gen_expression(dynamic, context, None, None));
-      result.push(Either3::C(Some(")".to_string())));
-      result
-    })
+      ast
+        .expression_arrow_function(
+          SPAN,
+          true,
+          false,
+          NONE,
+          ast.formal_parameters(
+            SPAN,
+            FormalParameterKind::ArrowFormalParameters,
+            ast.vec(),
+            NONE,
+          ),
+          NONE,
+          ast.function_body(
+            SPAN,
+            ast.vec(),
+            ast.vec1(ast.statement_expression(SPAN, gen_expression(dynamic, context, None, None))),
+          ),
+        )
+        .into()
+    }
   } else if asset {
-    Either4::C(Some(to_valid_asset_id(tag, "component".to_string())))
+    ast
+      .expression_identifier(SPAN, ast.atom(&to_valid_asset_id(&tag, "component")))
+      .into()
   } else {
-    Either4::D(gen_expression(
+    gen_expression(
       SimpleExpressionNode {
         content: tag,
         is_static: false,
-        loc: None,
+        loc: SPAN,
         ast: None,
       },
       context,
       None,
       None,
-    ))
+    )
+    .into()
   };
 
   let raw_props = gen_raw_props(props, context);
   let _context_block = context_block as *mut BlockIRNode;
   let raw_slots = gen_raw_slots(slots, context, unsafe { &mut *_context_block });
 
-  let mut result = vec![
-    Either3::A(Newline),
-    Either3::C(Some(format!("const n{id} = "))),
-  ];
-  result.extend(gen_call(
-    Either::A(context.helper(if is_dynamic {
-      "createDynamicComponent"
-    } else if asset {
-      "createComponentWithFallback"
-    } else {
-      "createComponent"
-    })),
-    vec![
-      tag,
-      if let Some(raw_props) = raw_props {
-        Either4::D(raw_props)
-      } else {
-        Either4::C(None)
-      },
-      if let Some(raw_slots) = raw_slots {
-        Either4::D(raw_slots)
-      } else {
-        Either4::C(None)
-      },
-      Either4::C(if root { Some("true".to_string()) } else { None }),
-      Either4::C(if once { Some("true".to_string()) } else { None }),
-    ],
+  let mut arguments = ast.vec1(tag);
+  if let Some(raw_props) = raw_props {
+    arguments.push(raw_props.into());
+  } else if root || once || raw_slots.is_some() {
+    arguments.push(ast.expression_null_literal(SPAN).into());
+  }
+  if let Some(raw_slots) = raw_slots {
+    arguments.push(raw_slots.into());
+  } else if root || once {
+    arguments.push(ast.expression_null_literal(SPAN).into());
+  }
+  if root {
+    arguments.push(ast.expression_boolean_literal(SPAN, true).into());
+  } else if once {
+    arguments.push(ast.expression_null_literal(SPAN).into())
+  }
+  if once {
+    arguments.push(ast.expression_boolean_literal(SPAN, true).into());
+  }
+  statements.push(Statement::VariableDeclaration(
+    ast.alloc_variable_declaration(
+      SPAN,
+      VariableDeclarationKind::Const,
+      ast.vec1(ast.variable_declarator(
+        SPAN,
+        VariableDeclarationKind::Const,
+        ast.binding_pattern(
+          BindingPatternKind::BindingIdentifier(
+            ast.alloc_binding_identifier(SPAN, ast.atom(&format!("n{id}"))),
+          ),
+          NONE,
+          false,
+        ),
+        Some(ast.expression_call(
+          SPAN,
+          ast.expression_identifier(
+            SPAN,
+            ast.atom(&context.helper(if is_dynamic {
+              "createDynamicComponent"
+            } else if asset {
+              "createComponentWithFallback"
+            } else {
+              "createComponent"
+            })),
+          ),
+          NONE,
+          arguments,
+          false,
+        )),
+        false,
+      )),
+      false,
+    ),
   ));
-  result.extend(gen_directives_for_element(id, context, context_block));
-  result
+  if let Some(directive_statement) = gen_directives_for_element(id, context, context_block) {
+    statements.push(directive_statement);
+  }
 }
 
-pub fn gen_raw_props(
-  mut props: Vec<IRProps>,
-  context: &CodegenContext,
-) -> Option<Vec<CodeFragment>> {
+fn gen_raw_props<'a>(
+  mut props: Vec<IRProps<'a>>,
+  context: &'a CodegenContext<'a>,
+) -> Option<Expression<'a>> {
   let props_len = props.len();
   if let Either3::A(static_props) = &props[0] {
     if static_props.len() == 0 && props_len == 1 {
@@ -149,143 +204,271 @@ pub fn gen_raw_props(
   }
 }
 
-fn gen_static_props(
-  props: IRPropsStatic,
-  context: &CodegenContext,
-  dynamic_props: Option<Vec<CodeFragment>>,
-) -> Vec<CodeFragment> {
-  let mut args = props
-    .into_iter()
-    .map(|prop| Either4::D(gen_prop(prop, context, true)))
-    .collect::<Vec<_>>();
-  if let Some(dynamic_props) = dynamic_props {
-    let mut result = vec![Either3::C(Some("$: ".to_string()))];
-    result.extend(dynamic_props);
-    args.push(Either4::D(result));
+fn gen_static_props<'a>(
+  props: IRPropsStatic<'a>,
+  context: &'a CodegenContext<'a>,
+  dynamic_props: Option<Expression<'a>>,
+) -> Expression<'a> {
+  let ast = &context.ast;
+  let mut properties = ast.vec();
+  let _properties = &mut properties as *mut oxc_allocator::Vec<ObjectPropertyKind>;
+  for prop in props {
+    gen_prop(unsafe { &mut *_properties }, prop, context, true)
   }
-  return gen_multi(
-    if args.len() > 1 {
-      get_delimiters_object_newline()
-    } else {
-      get_delimiters_object()
-    },
-    args,
-  );
+  if let Some(dynamic_props) = dynamic_props {
+    properties.push(ast.object_property_kind_object_property(
+      SPAN,
+      PropertyKind::Init,
+      ast.property_key_static_identifier(SPAN, ast.atom("$")),
+      dynamic_props,
+      false,
+      false,
+      false,
+    ));
+  }
+  ast.expression_object(SPAN, properties)
 }
 
-fn gen_dynamic_props(props: Vec<IRProps>, context: &CodegenContext) -> Option<Vec<CodeFragment>> {
-  let mut frags: Vec<CodeFragments> = vec![];
+fn gen_dynamic_props<'a>(
+  props: Vec<IRProps<'a>>,
+  context: &'a CodegenContext<'a>,
+) -> Option<Expression<'a>> {
+  let ast = &context.ast;
+  let mut frags = ast.vec();
   for p in props {
     let mut expr = None;
     if let Either3::A(p) = p {
       if p.len() > 0 {
-        frags.push(Either4::D(gen_static_props(p, context, None)))
+        frags.push(gen_static_props(p, context, None))
       }
       continue;
     } else if let Either3::B(p) = p {
-      expr = Some(gen_multi(
-        get_delimiters_object(),
-        vec![Either4::D(gen_prop(p, context, false))],
-      ))
+      let mut properties = ast.vec();
+      gen_prop(&mut properties, p, context, false);
+      expr = Some(ast.expression_object(SPAN, properties));
     } else if let Either3::C(p) = p {
       let expression = gen_expression(p.value, context, None, None);
       expr = if p.handler.unwrap_or_default() {
-        Some(gen_call(
-          Either::A(context.helper("toHandlers")),
-          vec![Either4::D(expression)],
+        Some(ast.expression_call(
+          SPAN,
+          ast.expression_identifier(SPAN, ast.atom(&context.helper("toHandlers"))),
+          NONE,
+          ast.vec1(expression.into()),
+          false,
         ))
       } else {
         Some(expression)
       }
     }
-    let mut result = vec![Either3::C(Some("() => (".to_string()))];
-    result.extend(expr.unwrap());
-    result.push(Either3::C(Some(")".to_string())));
-    frags.push(Either4::D(result));
+    frags.push(ast.expression_arrow_function(
+      SPAN,
+      true,
+      false,
+      NONE,
+      ast.formal_parameters(
+        SPAN,
+        FormalParameterKind::ArrowFormalParameters,
+        ast.vec(),
+        NONE,
+      ),
+      NONE,
+      ast.function_body(
+        SPAN,
+        ast.vec(),
+        if let Some(expr) = expr {
+          ast.vec1(ast.statement_expression(SPAN, expr))
+        } else {
+          ast.vec()
+        },
+      ),
+    ));
   }
   if frags.len() > 0 {
-    return Some(gen_multi(get_delimiters_array_newline(), frags));
+    return Some(
+      ast.expression_array(SPAN, ast.vec_from_iter(frags.into_iter().map(|i| i.into()))),
+    );
   }
   None
 }
 
-fn gen_prop(mut prop: IRProp, context: &CodegenContext, is_static: bool) -> Vec<CodeFragment> {
+fn gen_prop<'a>(
+  properties: &mut oxc_allocator::Vec<'a, ObjectPropertyKind<'a>>,
+  mut prop: IRProp<'a>,
+  context: &'a CodegenContext<'a>,
+  is_static: bool,
+) {
+  let ast = &context.ast;
   let model = prop.model.unwrap_or_default();
   let handler = prop.handler.unwrap_or_default();
-  let handler_modifiers = prop.handler_modifiers.clone();
+  let Modifiers {
+    keys,
+    non_keys,
+    options,
+  } = prop.handler_modifiers.unwrap_or(Modifiers {
+    keys: vec![],
+    non_keys: vec![],
+    options: vec![],
+  });
   let mut values = mem::take(&mut prop.values);
   let first_value = values[0].clone();
-  let cloned_key = prop.key.clone();
   let model_modifiers = prop.model_modifiers.take();
-  let mut result = gen_prop_key(prop, context);
-  result.push(Either3::C(Some(": ".to_string())));
-  result.extend(if handler {
+
+  let value = if handler {
     gen_event_handler(
       context,
       Some(values.remove(0)),
-      handler_modifiers,
+      keys,
+      non_keys,
       true, /* wrap handlers passed to components */
     )
   } else {
     let values = gen_prop_value(values, context);
     if is_static {
-      let mut result: Vec<CodeFragment> = vec![Either3::C(Some("() => (".to_string()))];
-      result.extend(values);
-      result.push(Either3::C(Some(")".to_string())));
-      result
+      ast.expression_arrow_function(
+        SPAN,
+        true,
+        false,
+        NONE,
+        ast.formal_parameters(
+          SPAN,
+          FormalParameterKind::ArrowFormalParameters,
+          ast.vec(),
+          NONE,
+        ),
+        NONE,
+        ast.function_body(
+          SPAN,
+          ast.vec(),
+          ast.vec1(ast.statement_expression(SPAN, values)),
+        ),
+      )
     } else {
       values
     }
-  });
+  };
+
+  let key = gen_prop_key(
+    prop.key.clone(),
+    prop.runtime_camelize,
+    prop.modifier,
+    handler,
+    options,
+    context,
+  );
+  let computed = key.is_expression();
+  properties.push(ast.object_property_kind_object_property(
+    SPAN,
+    PropertyKind::Init,
+    key,
+    value,
+    false,
+    false,
+    computed,
+  ));
+
   if model {
-    let models = gen_model(cloned_key, first_value, model_modifiers, context);
-    result.extend(models)
+    gen_model(properties, prop.key, first_value, model_modifiers, context);
   }
-  result
 }
 
-fn gen_model(
-  key: SimpleExpressionNode,
-  value: SimpleExpressionNode,
+fn gen_model<'a>(
+  properties: &mut oxc_allocator::Vec<'a, ObjectPropertyKind<'a>>,
+  key: SimpleExpressionNode<'a>,
+  value: SimpleExpressionNode<'a>,
   model_modifiers: Option<Vec<String>>,
-  context: &CodegenContext,
-) -> Vec<CodeFragment> {
+  context: &'a CodegenContext<'a>,
+) {
+  let ast = &context.ast;
   let is_static = key.is_static;
   let content = key.content.clone();
   let expression = gen_expression(key, context, None, None);
-  let name: Vec<CodeFragment> = if is_static {
-    vec![Either3::C(Some(format!(
-      "\"onUpdate:{}\"",
-      camelize(content.clone())
-    )))]
+  let name = if is_static {
+    ast.property_key_static_identifier(
+      SPAN,
+      ast.atom(&format!("\"onUpdate:{}\"", camelize(&content))),
+    )
   } else {
-    let mut result = vec![Either3::C(Some("[\"onUpdate:\" + ".to_string()))];
-    result.extend(expression.clone());
-    result.push(Either3::C(Some("]".to_string())));
-    result
+    ast
+      .expression_binary(
+        SPAN,
+        ast.expression_string_literal(SPAN, ast.atom("onUpdate:"), None),
+        BinaryOperator::Addition,
+        expression.clone_in(ast.allocator),
+      )
+      .into()
   };
   let handler = gen_model_handler(value, context);
 
-  let mut result = vec![Either3::C(Some(",".to_string())), Either3::A(Newline)];
-  result.extend(name);
-  result.push(Either3::C(Some(": () => ".to_string())));
-  result.extend(handler);
+  properties.push(ast.object_property_kind_object_property(
+    SPAN,
+    PropertyKind::Init,
+    name,
+    ast.expression_arrow_function(
+      SPAN,
+      true,
+      false,
+      NONE,
+      ast.formal_parameters(
+        SPAN,
+        FormalParameterKind::ArrowFormalParameters,
+        ast.vec(),
+        NONE,
+      ),
+      NONE,
+      ast.function_body(
+        SPAN,
+        ast.vec(),
+        ast.vec1(ast.statement_expression(SPAN, handler)),
+      ),
+    ),
+    false,
+    false,
+    !is_static,
+  ));
 
   if let Some(model_modifiers) = model_modifiers
     && model_modifiers.len() > 0
   {
     let modifers_key = if is_static {
-      vec![Either3::C(Some(format!("{content}Modifiers")))]
+      ast
+        .property_key_static_identifier(SPAN, ast.atom(&format!("{}Modifiers", camelize(&content))))
     } else {
-      let mut result = vec![Either3::C(Some("[".to_string()))];
-      result.extend(expression);
-      result.push(Either3::C(Some(" + \"Modifiers\"]".to_string())));
-      result
+      ast
+        .expression_binary(
+          SPAN,
+          expression,
+          BinaryOperator::Addition,
+          ast.expression_string_literal(SPAN, ast.atom("Modifiers"), None),
+        )
+        .into()
     };
-    let modifiers_val = gen_directive_modifiers(model_modifiers);
-    result.extend(vec![Either3::C(Some(",".to_string())), Either3::A(Newline)]);
-    result.extend(modifers_key);
-    result.push(Either3::C(Some(format!(": () => ({{ {modifiers_val} }})"))));
+    let modifiers_val = Expression::ObjectExpression(gen_directive_modifiers(model_modifiers, ast));
+
+    properties.push(ast.object_property_kind_object_property(
+      SPAN,
+      PropertyKind::Init,
+      modifers_key,
+      ast.expression_arrow_function(
+        SPAN,
+        true,
+        false,
+        NONE,
+        ast.formal_parameters(
+          SPAN,
+          FormalParameterKind::ArrowFormalParameters,
+          ast.vec(),
+          NONE,
+        ),
+        NONE,
+        ast.function_body(
+          SPAN,
+          ast.vec(),
+          ast.vec1(ast.statement_expression(SPAN, modifiers_val)),
+        ),
+      ),
+      false,
+      false,
+      !is_static,
+    ));
   }
-  result
 }

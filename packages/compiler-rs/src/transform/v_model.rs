@@ -2,6 +2,7 @@ use napi::{Either, bindgen_prelude::Either16};
 use oxc_ast::ast::{
   JSXAttribute, JSXAttributeItem, JSXAttributeName, JSXAttributeValue, JSXElement,
 };
+use oxc_span::SPAN;
 
 use crate::{
   ir::index::{BlockIRNode, DirectiveIRNode, SimpleExpressionNode},
@@ -43,7 +44,7 @@ pub fn transform_v_model<'a>(
         SimpleExpressionNode {
           content: "modelValue".to_string(),
           is_static: true,
-          loc: None,
+          loc: SPAN,
           ast: None,
         }
       },

@@ -48,48 +48,38 @@ describe('compiler: element transform', () => {
 
       expect(code).toMatchSnapshot()
       expect(code).contains(`{
-    id: () => ("foo"),
-    class: () => ("bar")
+    id: () => "foo",
+    class: () => "bar"
   }`)
     })
 
     test('{...obj}', () => {
       const { code } = compile(`<Foo {...obj} />`)
       expect(code).toMatchSnapshot()
-      expect(code).contains(`[
-    () => (obj)
-  ]`)
+      expect(code).contains(`[() => obj]`)
     })
 
     test('{...obj} after static prop', () => {
       const { code } = compile(`<Foo id="foo" {...obj} />`)
       expect(code).toMatchSnapshot()
       expect(code).contains(`{
-    id: () => ("foo"),
-    $: [
-      () => (obj)
-    ]
+    id: () => "foo",
+    $: [() => obj]
   }`)
     })
 
     test('{...obj} before static prop', () => {
       const { code } = compile(`<Foo {...obj} id="foo" />`)
       expect(code).toMatchSnapshot()
-      expect(code).contains(`[
-    () => (obj),
-    { id: () => ("foo") }
-  ]`)
+      expect(code).contains(`[() => obj, { id: () => "foo" }]`)
     })
 
     test('{...obj} between static props', () => {
       const { code } = compile(`<Foo id="foo" {...obj} class="bar" />`)
       expect(code).toMatchSnapshot()
       expect(code).contains(`{
-    id: () => ("foo"),
-    $: [
-      () => (obj),
-      { class: () => ("bar") }
-    ]
+    id: () => "foo",
+    $: [() => obj, { class: () => "bar" }]
   }`)
     })
 
@@ -106,9 +96,7 @@ describe('compiler: element transform', () => {
     test('v-on={obj}', () => {
       const { code } = compile(`<Foo v-on={obj} />`)
       expect(code).toMatchSnapshot()
-      expect(code).contains(`[
-    () => (_toHandlers(obj))
-  ]`)
+      expect(code).contains(`[() => _toHandlers(obj)]`)
     })
 
     test('component event with once modifier', () => {
@@ -153,9 +141,17 @@ describe('compiler: element transform', () => {
   })
 
   test('{...obj}', () => {
-    const { code } = compile(`<div {...obj} />`)
+    const { code, templates } = compile(`<div {...obj} />`)
     expect(code).toMatchSnapshot()
     expect(code).contains('_setDynamicProps(n0, [obj], true)')
+    expect(templates).toMatchInlineSnapshot(`
+      [
+        [
+          "<div></div>",
+          true,
+        ],
+      ]
+    `)
   })
 
   test('{...obj} after static prop', () => {
@@ -173,7 +169,11 @@ describe('compiler: element transform', () => {
   test('{...obj} between static props', () => {
     const { code } = compile(`<div id="foo" {...obj} class="bar" />`)
     expect(code).toMatchSnapshot()
-    expect(code).contains('_setDynamicProps(n0, [{ id: "foo" }, obj, { class: "bar" }], true)')
+    expect(code).contains(`_setDynamicProps(n0, [
+    { id: "foo" },
+    obj,
+    { class: "bar" }
+  ], true)`)
   })
 
   test('props merging: event handlers', () => {

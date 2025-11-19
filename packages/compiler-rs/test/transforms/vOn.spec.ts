@@ -5,13 +5,7 @@ describe('v-on', () => {
   test('simple expression', () => {
     const { code, helpers } = compile(`<div onClick={handleClick}></div>`)
 
-    expect(code).toMatchInlineSnapshot(`
-      "
-        const n0 = t0()
-        n0.$evtclick = handleClick
-        return n0
-      "
-    `)
+    expect(code).toMatchSnapshot()
     expect(helpers).not.contains('delegate') // optimized as direct attachment
   })
 
@@ -75,7 +69,7 @@ describe('v-on', () => {
     expect(code).toMatchSnapshot()
     expect(helpers).contains('on')
     expect(code).contains(
-      `_on(n0, "click", _withModifiers(test, ["stop","prevent"]), {
+      `_on(n0, "click", _withModifiers(test, ["stop", "prevent"]), {
     capture: true,
     once: true
   })`,
@@ -84,14 +78,7 @@ describe('v-on', () => {
 
   test('should support multiple events and modifiers options', () => {
     const { code } = compile(`<div onClick_stop={test} onKeyup_enter={test} />`)
-    expect(code).toMatchInlineSnapshot(`
-      "
-        const n0 = t0()
-        n0.$evtclick = _withModifiers(test, ["stop"])
-        n0.$evtkeyup = _withKeys(test, ["enter"])
-        return n0
-      "
-    `)
+    expect(code).toMatchSnapshot()
     expect(code).contains(`n0.$evtclick = _withModifiers(test, ["stop"])`)
     expect(code).contains(`n0.$evtkeyup = _withKeys(test, ["enter"])`)
   })
@@ -147,13 +134,7 @@ describe('v-on', () => {
 
   test('expression with type', () => {
     const { code } = compile(`<div onClick={handleClick as any} />`)
-    expect(code).toMatchInlineSnapshot(`
-      "
-        const n0 = t0()
-        n0.$evtclick = handleClick as any
-        return n0
-      "
-    `)
+    expect(code).toMatchSnapshot()
     expect(code).contains('n0.$evtclick = handleClick')
   })
 })

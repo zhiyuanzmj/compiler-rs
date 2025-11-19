@@ -8,35 +8,18 @@ describe('compiler: children transform', () => {
         {foo} {bar}
        </div>`,
     )
-    expect(code).toMatchInlineSnapshot(`
-      "
-        const n0 = t0()
-        const x0 = _child(n0)
-        _setNodes(x0, () => (foo), " ", () => (bar))
-        return n0
-      "
-    `)
+    expect(code).toMatchSnapshot()
     expect(helpers).contains.all.keys('setNodes')
   })
 
   test('comments', () => {
     const { code } = compile('<>{/*foo*/}<div>{/*bar*/}</div></>')
-    expect(code).toMatchInlineSnapshot(`
-      "
-        const n1 = t0()
-        return n1
-      "
-    `)
+    expect(code).toMatchSnapshot()
   })
 
   test('fragment', () => {
     const { code } = compile('<>{foo}</>')
-    expect(code).toMatchInlineSnapshot(`
-      "
-        const n0 = _createNodes(() => (foo))
-        return n0
-      "
-    `)
+    expect(code).toMatchSnapshot()
   })
 
   test('children & sibling references', () => {
@@ -47,41 +30,8 @@ describe('compiler: children transform', () => {
         <p>{ forth }</p>
       </div>`,
     )
-    expect(code).toMatchInlineSnapshot(`
-      "
-        const n3 = t0()
-        const n0 = _child(n3)
-        const n1 = _next(n0)
-        const n2 = _next(n1)
-        const x0 = _child(n0)
-        _setNodes(x0, () => (first))
-        _setNodes(n1, "123 ", () => (second), " 456 ", () => (foo))
-        const x2 = _child(n2)
-        _setNodes(x2, () => (forth))
-        _renderEffect(() => _setProp(n3, "id", id))
-        return n3
-      "
-    `)
+    expect(code).toMatchSnapshot()
     expect(Array.from(helpers)).containSubset(['child', 'renderEffect', 'next', 'setNodes', 'template'])
-  })
-
-  test('{...obj}', () => {
-    const { code, templates } = compile(`<div {...obj} />`)
-    expect(code).toMatchInlineSnapshot(`
-      "
-        const n0 = t0()
-        _renderEffect(() => _setDynamicProps(n0, [obj], true))
-        return n0
-      "
-    `)
-    expect(templates).toMatchInlineSnapshot(`
-      [
-        [
-          "<div></div>",
-          true,
-        ],
-      ]
-    `)
   })
 
   test('efficient traversal', () => {
@@ -140,7 +90,10 @@ describe('compiler: children transform', () => {
         {<Comp />}
       </div>`,
     )
-    expect(code).contains(`_setNodes(x0, () => (<Comp />))`)
     expect(code).toMatchSnapshot()
+    expect(code).contains(`_setNodes(x0, () => (() => {
+    const n0 = _createComponent(Comp, null, null, true);
+    return n0;
+  })())`)
   })
 })

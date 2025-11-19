@@ -1,40 +1,63 @@
-use napi::Either;
-use napi::bindgen_prelude::Either3;
-use napi::bindgen_prelude::Either4;
+use oxc_ast::NONE;
+use oxc_ast::ast::Statement;
+use oxc_span::SPAN;
 
 use crate::generate::CodegenContext;
-use crate::generate::utils::CodeFragment;
-use crate::generate::utils::FragmentSymbol::Newline;
-use crate::generate::utils::gen_call;
 use crate::ir::index::InsertNodeIRNode;
 
-pub fn gen_insert_node(oper: InsertNodeIRNode, context: &CodegenContext) -> Vec<CodeFragment> {
+pub fn gen_insert_node<'a>(oper: InsertNodeIRNode, context: &CodegenContext<'a>) -> Statement<'a> {
+  let ast = &context.ast;
   let InsertNodeIRNode {
     parent,
     elements,
     anchor,
     ..
   } = oper;
-  let mut element = elements
-    .iter()
-    .map(|el| format!("n{el}"))
-    .collect::<Vec<String>>()
-    .join(", ");
+
+  let mut arguments = ast.vec();
   if elements.len() > 1 {
-    element = format!("[{element}]");
+    arguments.push(
+      ast
+        .expression_array(
+          SPAN,
+          ast.vec_from_iter(elements.into_iter().map(|element| {
+            ast
+              .expression_identifier(SPAN, ast.atom(&format!("n{}", element)))
+              .into()
+          })),
+        )
+        .into(),
+    );
+  } else {
+    arguments.push(
+      ast
+        .expression_identifier(SPAN, ast.atom(&format!("n{}", elements[0])))
+        .into(),
+    )
   }
-  let mut result = vec![Either3::A(Newline)];
-  result.extend(gen_call(
-    Either::A(context.helper("insert")),
-    vec![
-      Either4::C(Some(element)),
-      Either4::C(Some(format!("n{parent}"))),
-      if let Some(anchor) = anchor {
-        Either4::C(Some(format!("n{}", anchor.to_string())))
-      } else {
-        Either4::C(None)
-      },
-    ],
-  ));
-  result
+
+  arguments.push(
+    ast
+      .expression_identifier(SPAN, ast.atom(&format!("n{parent}")))
+      .into(),
+  );
+
+  if let Some(anchor) = anchor {
+    arguments.push(
+      ast
+        .expression_identifier(SPAN, ast.atom(&format!("n{anchor}")))
+        .into(),
+    );
+  }
+
+  ast.statement_expression(
+    SPAN,
+    ast.expression_call(
+      SPAN,
+      ast.expression_identifier(SPAN, ast.atom("insert")),
+      NONE,
+      arguments,
+      false,
+    ),
+  )
 }

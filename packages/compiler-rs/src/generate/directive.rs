@@ -1,29 +1,30 @@
-use napi::Either;
-use napi::bindgen_prelude::Either3;
-use napi::bindgen_prelude::Either4;
 use napi::bindgen_prelude::Either16;
+use oxc_ast::AstBuilder;
+use oxc_ast::NONE;
+use oxc_ast::ast::Statement;
+use oxc_ast::ast::{
+  Argument, ArrayExpressionElement, FormalParameterKind, ObjectExpression, PropertyKind,
+};
+use oxc_span::GetSpan;
+use oxc_span::SPAN;
 
 use crate::generate::CodegenContext;
 use crate::generate::expression::gen_expression;
-use crate::generate::utils::CodeFragment;
-use crate::generate::utils::CodeFragments;
-use crate::generate::utils::FragmentSymbol::Newline;
-use crate::generate::utils::gen_call;
-use crate::generate::utils::gen_multi;
-use crate::generate::utils::get_delimiters_array;
 use crate::generate::utils::to_valid_asset_id;
 use crate::generate::v_model::gen_v_model;
 use crate::generate::v_show::gen_v_show;
 use crate::ir::index::BlockIRNode;
 use crate::ir::index::DirectiveIRNode;
-use crate::ir::index::SimpleExpressionNode;
 use crate::utils::check::is_simple_identifier;
 
-pub fn gen_builtin_directive(oper: DirectiveIRNode, context: &CodegenContext) -> Vec<CodeFragment> {
+pub fn gen_builtin_directive<'a>(
+  oper: DirectiveIRNode<'a>,
+  context: &'a CodegenContext<'a>,
+) -> Option<Statement<'a>> {
   match oper.name.as_str() {
-    "show" => gen_v_show(oper, context),
-    "model" => gen_v_model(oper, context),
-    _ => vec![],
+    "show" => Some(gen_v_show(oper, context)),
+    "model" => Some(gen_v_model(oper, context)),
+    _ => None,
   }
 }
 
@@ -32,13 +33,14 @@ pub fn gen_builtin_directive(oper: DirectiveIRNode, context: &CodegenContext) ->
  * TODO the compiler side is implemented but no runtime support yet
  * it was removed due to perf issues
  */
-pub fn gen_directives_for_element(
+pub fn gen_directives_for_element<'a>(
   id: i32,
-  context: &CodegenContext,
-  context_block: &mut BlockIRNode,
-) -> Vec<CodeFragment> {
+  context: &'a CodegenContext<'a>,
+  context_block: &mut BlockIRNode<'a>,
+) -> Option<Statement<'a>> {
+  let ast = &context.ast;
   let mut element = String::new();
-  let mut directive_items: Vec<CodeFragments> = vec![];
+  let mut directive_items = ast.vec();
   for item in &mut context_block.operation {
     if let Either16::M(item) = item
       && item.element == id
@@ -47,91 +49,138 @@ pub fn gen_directives_for_element(
       if element.is_empty() {
         element = item.element.to_string();
       }
-      let name = item.name.clone();
+      let name = &item.name;
       let asset = item.asset;
-      let directive_var = if asset.unwrap_or(false) {
-        Either4::C(Some(to_valid_asset_id(name, "directive".to_string())))
-      } else {
-        Either4::D(gen_expression(
-          SimpleExpressionNode {
-            content: name,
-            is_static: false,
-            ast: None,
-            loc: None,
-          },
-          context,
-          None,
-          None,
+      let directive_var = ast.alloc_identifier_reference(
+        SPAN,
+        if asset.unwrap_or(false) {
+          ast.atom(&to_valid_asset_id(name, "directive"))
+        } else {
+          ast.atom(name)
+        },
+      );
+      let value = if let Some(exp) = item.dir.exp.take() {
+        let expression = gen_expression(exp, context, None, None);
+        Some(ast.alloc_arrow_function_expression(
+          SPAN,
+          true,
+          false,
+          NONE,
+          ast.formal_parameters(
+            SPAN,
+            FormalParameterKind::ArrowFormalParameters,
+            ast.vec(),
+            NONE,
+          ),
+          NONE,
+          ast.function_body(
+            SPAN,
+            ast.vec(),
+            ast.vec1(ast.statement_expression(expression.span(), expression)),
+          ),
         ))
-      };
-      let value = if let Some(ref exp) = item.dir.exp {
-        let mut result = gen_expression(exp.clone(), context, None, None);
-        result.insert(0, Either3::C(Some("() => ".to_string())));
-        Either4::D(result)
       } else {
-        Either4::C(None)
+        None
       };
-      let argument = if let Some(ref arg) = item.dir.arg {
-        Either4::D(gen_expression(arg.clone(), context, None, None))
+      let argument = if let Some(arg) = item.dir.arg.take() {
+        Some(gen_expression(arg, context, None, None))
       } else {
-        Either4::C(None)
+        None
       };
       let modifiers = if &item.dir.modifiers.len() > &0 {
-        Either4::D(vec![
-          Either3::C(Some("{ ".to_string())),
-          Either3::C(Some(gen_directive_modifiers(
-            item
-              .dir
-              .modifiers
-              .iter()
-              .map(|m| m.content.clone())
-              .collect(),
-          ))),
-          Either3::C(Some(" }".to_string())),
-        ])
+        Some(gen_directive_modifiers(
+          item
+            .dir
+            .modifiers
+            .drain(..)
+            .into_iter()
+            .map(|m| m.content)
+            .collect(),
+          ast,
+        ))
       } else {
-        Either4::C(None)
+        None
       };
 
-      directive_items.push(Either4::D(gen_multi(
-        (
-          Either4::C(Some("[".to_string())),
-          Either4::C(Some("]".to_string())),
-          Either4::C(Some(", ".to_string())),
-          Some("void 0".to_string()),
+      directive_items.push(ArrayExpressionElement::ArrayExpression(
+        ast.alloc_array_expression(
+          SPAN,
+          ast.vec_from_iter(
+            [
+              Some(ArrayExpressionElement::Identifier(directive_var)),
+              if let Some(value) = value {
+                Some(ArrayExpressionElement::ArrowFunctionExpression(value))
+              } else if argument.is_some() || modifiers.is_some() {
+                Some(ArrayExpressionElement::Identifier(
+                  ast.alloc_identifier_reference(SPAN, "void 0"),
+                ))
+              } else {
+                None
+              },
+              if let Some(argument) = argument {
+                Some(argument.into())
+              } else if modifiers.is_some() {
+                Some(ArrayExpressionElement::Identifier(
+                  ast.alloc_identifier_reference(SPAN, "void 0"),
+                ))
+              } else {
+                None
+              },
+              if let Some(modifiers) = modifiers {
+                Some(ArrayExpressionElement::ObjectExpression(modifiers))
+              } else {
+                None
+              },
+            ]
+            .into_iter()
+            .flatten(),
+          ),
         ),
-        vec![directive_var, value, argument, modifiers],
-      )));
+      ));
     }
   }
   if directive_items.len() == 0 {
-    return vec![];
+    return None;
   }
-  let directives = gen_multi(get_delimiters_array(), directive_items);
-  let mut result = vec![Either3::A(Newline)];
-  result.extend(gen_call(
-    Either::A(context.helper("withVaporDirectives")),
-    vec![
-      Either4::C(Some(format!("n{}", element))),
-      Either4::D(directives),
-    ],
-  ));
-  result
+  let directives = ast.alloc_array_expression(SPAN, directive_items);
+  Some(ast.statement_expression(
+    SPAN,
+    ast.expression_call(
+      SPAN,
+      ast.expression_identifier(SPAN, ast.atom(&context.helper("withVaporDirectives"))),
+      NONE,
+      ast.vec_from_array([
+        Argument::Identifier(
+          ast.alloc_identifier_reference(SPAN, ast.atom(&format!("n{}", element))),
+        ),
+        Argument::ArrayExpression(directives),
+      ]),
+      false,
+    ),
+  ))
 }
 
-pub fn gen_directive_modifiers(modifiers: Vec<String>) -> String {
-  modifiers
-    .into_iter()
-    .map(|value| {
-      format!(
-        "{}: true",
-        if is_simple_identifier(&value) {
-          value
-        } else {
-          format!("\"{value}\"")
-        }
+pub fn gen_directive_modifiers<'a>(
+  modifiers: Vec<String>,
+  ast: &AstBuilder<'a>,
+) -> oxc_allocator::Box<'a, ObjectExpression<'a>> {
+  ast.alloc_object_expression(
+    SPAN,
+    ast.vec_from_iter(modifiers.into_iter().map(|modifier| {
+      let modifier = if is_simple_identifier(&modifier) {
+        &modifier
+      } else {
+        &format!("\"{}\"", modifier)
+      };
+      ast.object_property_kind_object_property(
+        SPAN,
+        PropertyKind::Init,
+        ast.property_key_static_identifier(SPAN, ast.atom(modifier)),
+        ast.expression_boolean_literal(SPAN, true),
+        false,
+        false,
+        false,
       )
-    })
-    .collect::<Vec<_>>()
-    .join(", ")
+    })),
+  )
 }

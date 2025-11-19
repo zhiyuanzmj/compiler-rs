@@ -1,5 +1,6 @@
 use napi::bindgen_prelude::Either3;
 use oxc_ast::ast::{JSXAttribute, JSXAttributeName, JSXElement};
+use oxc_span::SPAN;
 
 use crate::{
   ir::index::{BlockIRNode, SimpleExpressionNode},
@@ -27,7 +28,7 @@ pub fn transform_v_bind<'a>(
     SimpleExpressionNode {
       content: String::from("true"),
       is_static: false,
-      loc: None,
+      loc: SPAN,
       ast: None,
     }
   };
@@ -35,7 +36,7 @@ pub fn transform_v_bind<'a>(
   let mut arg = SimpleExpressionNode {
     content: name_string,
     is_static: true,
-    loc: None,
+    loc: SPAN,
     ast: None,
   };
   if is_reserved_prop(&arg.content) {
@@ -43,7 +44,7 @@ pub fn transform_v_bind<'a>(
   }
 
   if modifiers.contains(&"camel") {
-    arg.content = camelize(arg.content)
+    arg.content = camelize(&arg.content)
   }
 
   let modifier = if modifiers.contains(&"prop") {

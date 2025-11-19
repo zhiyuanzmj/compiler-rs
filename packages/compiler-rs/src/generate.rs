@@ -23,66 +23,57 @@ use std::{
   mem,
 };
 
-use napi::bindgen_prelude::Either3;
-use napi_derive::napi;
+use oxc_allocator::{Allocator, CloneIn};
+use oxc_ast::{
+  AstBuilder, NONE,
+  ast::{Expression, FormalParameterKind, Program, Statement, VariableDeclarationKind},
+};
+use oxc_span::{SPAN, SourceType};
 
 use crate::{
   compile::Template,
-  generate::{
-    block::gen_block_content,
-    utils::{CodeFragment, FragmentSymbol, code_fragment_to_string},
-  },
+  generate::block::gen_block_content,
   ir::index::{BlockIRNode, RootIRNode},
+  transform::TransformOptions,
 };
 
-pub struct CodegenOptions<'a> {
-  /**
-   * Generate source map?
-   * @default false
-   */
-  pub source_map: bool,
-  /**
-   * Filename for source map generation.
-   * Also used for self-recursive reference in templates
-   * @default 'index.jsx'
-   */
-  pub filename: &'a str,
-}
-
 pub struct CodegenContext<'a> {
-  pub options: CodegenOptions<'a>,
-  pub helpers: RefCell<HashSet<String>>,
-  pub delegates: RefCell<HashSet<String>>,
-  pub identifiers: RefCell<HashMap<String, Vec<String>>>,
-  pub ir: RootIRNode<'a>,
+  pub options: &'a TransformOptions<'a>,
+  pub identifiers: RefCell<HashMap<String, Vec<Expression<'a>>>>,
+  pub ir: &'a RootIRNode<'a>,
   pub block: RefCell<BlockIRNode<'a>>,
   pub scope_level: RefCell<i32>,
+  pub ast: AstBuilder<'a>,
 }
 
 impl<'a> CodegenContext<'a> {
-  pub fn new(mut ir: RootIRNode<'a>, options: CodegenOptions<'a>) -> CodegenContext<'a> {
-    let block = mem::take(&mut ir.block);
+  pub fn new(
+    allocator: &'a Allocator,
+    ir: &'a RootIRNode<'a>,
+    block: BlockIRNode<'a>,
+    options: &'a TransformOptions<'a>,
+  ) -> CodegenContext<'a> {
+    let ast = AstBuilder::new(allocator);
     CodegenContext {
       options,
-      helpers: RefCell::new(HashSet::new()),
-      delegates: RefCell::new(HashSet::new()),
       identifiers: RefCell::new(HashMap::new()),
       block: RefCell::new(block),
       scope_level: RefCell::new(0),
       ir,
+      ast,
     }
   }
 
   pub fn helper(&self, name: &str) -> String {
-    self.helpers.borrow_mut().insert(name.to_string());
+    self.options.helpers.borrow_mut().insert(name.to_string());
     format!("_{name}")
   }
 
   pub fn with_id(
     &self,
-    _fn: impl FnOnce() -> Vec<CodeFragment>,
-    id_map: &HashMap<String, String>,
-  ) -> Vec<CodeFragment> {
+    _fn: impl FnOnce() -> Expression<'a>,
+    id_map: &HashMap<String, Option<Expression<'a>>>,
+  ) -> Expression<'a> {
     let ids = id_map.keys();
     for id in ids {
       let mut identifiers = self.identifiers.borrow_mut();
@@ -92,13 +83,13 @@ impl<'a> CodegenContext<'a> {
       identifiers.get_mut(id).unwrap().insert(
         0,
         if let Some(value) = id_map.get(id) {
-          if value.is_empty() {
-            id.clone()
+          if let Some(value) = value {
+            value.clone_in(self.ast.allocator)
           } else {
-            value.clone()
+            self.ast.expression_identifier(SPAN, self.ast.atom(&id))
           }
         } else {
-          id.clone()
+          self.ast.expression_identifier(SPAN, self.ast.atom(&id))
         },
       );
     }
@@ -132,54 +123,94 @@ impl<'a> CodegenContext<'a> {
   }
 }
 
-#[cfg_attr(feature = "napi", napi(object))]
-#[derive(Debug)]
-pub struct VaporCodegenResult {
+pub struct VaporCodegenResult<'a> {
   pub helpers: HashSet<String>,
   pub templates: Vec<Template>,
   pub delegates: HashSet<String>,
-  pub code: String,
+  pub program: Program<'a>,
 }
 
 // IR -> JS codegen
-pub fn generate<'a>(mut ir: RootIRNode<'a>, options: CodegenOptions) -> VaporCodegenResult {
-  let mut frag = Vec::with_capacity(256);
-  let has_template_ref = ir.has_template_ref;
-  let templates = mem::take(&mut ir.templates);
-  let context = CodegenContext::new(ir, options);
+pub fn generate<'a>(context: &'a CodegenContext<'a>) -> Program<'a> {
+  let ir = &context.ir;
+  let source = ir.source;
+  let ast = &context.ast;
+  let mut statements = ast.vec();
 
-  frag.push(Either3::A(FragmentSymbol::IndentStart));
-  if has_template_ref {
-    frag.push(Either3::A(FragmentSymbol::Newline));
-    frag.push(Either3::C(Some(format!(
-      "const _setTemplateRef = {}()",
-      context.helper("createTemplateRefSetter")
-    ))))
+  if ir.has_template_ref {
+    statements.push(Statement::VariableDeclaration(
+      ast.alloc_variable_declaration(
+        SPAN,
+        VariableDeclarationKind::Const,
+        ast.vec1(ast.variable_declarator(
+          SPAN,
+          VariableDeclarationKind::Const,
+          ast.binding_pattern(
+            ast.binding_pattern_kind_binding_identifier(SPAN, ast.atom("_setTemplateRef")),
+            NONE,
+            false,
+          ),
+          Some(ast.expression_call(
+            SPAN,
+            ast.expression_identifier(SPAN, ast.atom(&context.helper("createTemplateRefSetter"))),
+            NONE,
+            ast.vec(),
+            false,
+          )),
+          false,
+        )),
+        false,
+      ),
+    ));
   }
   let context_block = &mut *context.block.borrow_mut() as *mut BlockIRNode;
-  gen_block_content(
-    &mut frag,
+  statements.extend(gen_block_content(
     None,
     &context,
     unsafe { &mut *context_block },
     true,
     None,
-  );
-  frag.push(Either3::A(FragmentSymbol::IndentEnd));
-  frag.push(Either3::A(FragmentSymbol::Newline));
+  ));
 
-  if context.delegates.borrow().len() > 0 {
+  if !context.options.delegates.borrow().is_empty() {
     context.helper("delegateEvents");
   }
-  if !templates.is_empty() {
+  if !&context.options.templates.borrow().is_empty() {
     context.helper("template");
   }
 
-  let code = code_fragment_to_string(frag, &context);
-  VaporCodegenResult {
-    code,
-    delegates: context.delegates.take(),
-    helpers: context.helpers.take(),
-    templates,
-  }
+  ast.program(
+    SPAN,
+    SourceType::tsx(),
+    source,
+    ast.vec(),
+    None,
+    ast.vec(),
+    ast.vec1(ast.statement_expression(
+      SPAN,
+      ast.expression_call(
+        SPAN,
+        ast.expression_parenthesized(
+          SPAN,
+          ast.expression_arrow_function(
+            SPAN,
+            false,
+            false,
+            NONE,
+            ast.formal_parameters(
+              SPAN,
+              FormalParameterKind::ArrowFormalParameters,
+              ast.vec(),
+              NONE,
+            ),
+            NONE,
+            ast.function_body(SPAN, ast.vec(), statements),
+          ),
+        ),
+        NONE,
+        ast.vec(),
+        false,
+      ),
+    )),
+  )
 }

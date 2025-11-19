@@ -1,23 +1,53 @@
-use napi::Either;
-use napi::bindgen_prelude::Either3;
-use napi::bindgen_prelude::Either4;
+use oxc_ast::NONE;
+use oxc_ast::ast::FormalParameterKind;
+use oxc_ast::ast::Statement;
+use oxc_span::SPAN;
 
 use crate::generate::CodegenContext;
 use crate::generate::expression::gen_expression;
-use crate::generate::utils::CodeFragment;
-use crate::generate::utils::FragmentSymbol::Newline;
-use crate::generate::utils::gen_call;
 use crate::ir::index::DirectiveIRNode;
 
-pub fn gen_v_show(oper: DirectiveIRNode, context: &CodegenContext) -> Vec<CodeFragment> {
+pub fn gen_v_show<'a>(oper: DirectiveIRNode<'a>, context: &'a CodegenContext<'a>) -> Statement<'a> {
+  let ast = &context.ast;
   let DirectiveIRNode { dir, element, .. } = oper;
-  let mut result = vec![Either3::A(Newline)];
-  let mut body = vec![Either3::C(Some("() => (".to_string()))];
-  body.extend(gen_expression(dir.exp.unwrap(), context, None, None));
-  body.push(Either3::C(Some(")".to_string())));
-  result.extend(gen_call(
-    Either::A(context.helper("applyVShow")),
-    vec![Either4::C(Some(format!("n{element}"))), Either4::D(body)],
-  ));
-  result
+
+  ast.statement_expression(
+    SPAN,
+    ast.expression_call(
+      SPAN,
+      ast.expression_identifier(SPAN, ast.atom(&context.helper("applyVShow"))),
+      NONE,
+      ast.vec_from_array([
+        ast
+          .expression_identifier(SPAN, ast.atom(&format!("n{element}")))
+          .into(),
+        ast
+          .expression_arrow_function(
+            SPAN,
+            true,
+            false,
+            NONE,
+            ast.formal_parameters(
+              SPAN,
+              FormalParameterKind::ArrowFormalParameters,
+              ast.vec(),
+              NONE,
+            ),
+            NONE,
+            ast.function_body(
+              SPAN,
+              ast.vec(),
+              ast.vec1(
+                ast.statement_expression(
+                  SPAN,
+                  gen_expression(dir.exp.unwrap(), context, None, None),
+                ),
+              ),
+            ),
+          )
+          .into(),
+      ]),
+      false,
+    ),
+  )
 }

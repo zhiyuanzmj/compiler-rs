@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use indexmap::IndexMap;
 use napi::{Either, bindgen_prelude::Either4};
 use oxc_ast::ast::{JSXChild, JSXElement};
 
@@ -230,7 +229,7 @@ fn register_slot<'a>(
     {
       slots.push(Either4::A(IRSlotsStatic {
         slot_type: IRSlotType::STATIC,
-        slots: HashMap::new(),
+        slots: IndexMap::new(),
       }));
     }
     if let Some(Either4::A(slot)) = slots.last_mut() {

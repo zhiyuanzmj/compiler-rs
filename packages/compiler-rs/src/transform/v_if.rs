@@ -1,6 +1,7 @@
 use napi::{Either, bindgen_prelude::Either16};
 use oxc_allocator::CloneIn;
 use oxc_ast::ast::{Expression, JSXChild};
+use oxc_span::SPAN;
 
 use crate::{
   ir::index::{BlockIRNode, DynamicFlag, IRDynamicInfo, IfIRNode, SimpleExpressionNode},
@@ -51,7 +52,7 @@ pub fn transform_v_if<'a>(
     dir.exp = Some(SimpleExpressionNode {
       content: "true".to_string(),
       is_static: false,
-      loc: None,
+      loc: SPAN,
       ast: None,
     });
   }
@@ -75,9 +76,8 @@ pub fn transform_v_if<'a>(
       context_block.dynamic.operation = Some(Box::new(Either16::A(IfIRNode {
         id,
         positive: block,
-        once: Some(
-          *context.in_v_once.borrow() || is_constant_node(&dir.exp.as_ref().unwrap().ast.as_ref()),
-        ),
+        once: *context.in_v_once.borrow()
+          || is_constant_node(&dir.exp.as_ref().unwrap().ast.as_ref()),
         condition: dir.exp.unwrap(),
         negative: None,
         anchor: None,
@@ -136,9 +136,8 @@ pub fn transform_v_if<'a>(
       last_if_node.negative = Some(Box::new(Either::B(IfIRNode {
         id: -1,
         positive: block,
-        once: Some(
-          *context.in_v_once.borrow() || is_constant_node(&dir.exp.as_ref().unwrap().ast.as_ref()),
-        ),
+        once: *context.in_v_once.borrow()
+          || is_constant_node(&dir.exp.as_ref().unwrap().ast.as_ref()),
         condition: dir.exp.unwrap(),
         parent: None,
         anchor: None,

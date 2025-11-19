@@ -1,13 +1,14 @@
 use napi::Either;
-use napi::bindgen_prelude::Either3;
-use napi::bindgen_prelude::Either4;
+use oxc_ast::NONE;
+use oxc_ast::ast::BindingPatternKind;
+use oxc_ast::ast::FormalParameterKind;
+use oxc_ast::ast::Statement;
+use oxc_ast::ast::VariableDeclarationKind;
+use oxc_span::SPAN;
 
 use crate::generate::CodegenContext;
 use crate::generate::block::gen_block;
 use crate::generate::expression::gen_expression;
-use crate::generate::utils::CodeFragment;
-use crate::generate::utils::FragmentSymbol::Newline;
-use crate::generate::utils::gen_call;
 use crate::ir::index::BlockIRNode;
 use crate::ir::index::IfIRNode;
 
@@ -16,7 +17,8 @@ pub fn gen_if<'a>(
   context: &'a CodegenContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   is_nested: bool,
-) -> Vec<CodeFragment> {
+) -> Statement<'a> {
+  let ast = &context.ast;
   let IfIRNode {
     condition,
     positive,
@@ -24,54 +26,108 @@ pub fn gen_if<'a>(
     once,
     ..
   } = oper;
-  let mut frag = vec![];
 
-  let mut condition_expr = vec![Either3::C(Some("() => (".to_string()))];
-  condition_expr.extend(gen_expression(condition, context, None, None));
-  condition_expr.push(Either3::C(Some(")".to_string())));
+  let condition_expr = ast.expression_arrow_function(
+    SPAN,
+    true,
+    false,
+    NONE,
+    ast.formal_parameters(
+      SPAN,
+      FormalParameterKind::ArrowFormalParameters,
+      ast.vec(),
+      NONE,
+    ),
+    NONE,
+    ast.function_body(
+      SPAN,
+      ast.vec(),
+      ast.vec1(ast.statement_expression(SPAN, gen_expression(condition, context, None, None))),
+    ),
+  );
 
   let _context_block = context_block as *mut BlockIRNode;
   let positive_arg = gen_block(
     positive,
     context,
     unsafe { &mut *_context_block },
-    vec![],
+    ast.vec(),
     false,
   );
-  let mut negative_arg: Option<Vec<CodeFragment>> = None;
 
+  let mut negative_arg = None;
   if let Some(negative) = negative {
     let negative = *negative;
     negative_arg = Some(match negative {
-      Either::A(negative) => gen_block(negative, context, context_block, vec![], false),
-      Either::B(negative) => {
-        let mut result = vec![Either3::C(Some("() => ".to_string()))];
-        result.extend(gen_if(negative, context, context_block, true));
-        result
-      }
+      Either::A(negative) => gen_block(negative, context, context_block, ast.vec(), false),
+      Either::B(negative) => ast.expression_arrow_function(
+        SPAN,
+        true,
+        false,
+        NONE,
+        ast.formal_parameters(
+          SPAN,
+          FormalParameterKind::ArrowFormalParameters,
+          ast.vec(),
+          NONE,
+        ),
+        NONE,
+        ast.function_body(
+          SPAN,
+          ast.vec(),
+          ast.vec1(gen_if(negative, context, context_block, true)),
+        ),
+      ),
     });
   }
 
+  let expression = ast.expression_call(
+    SPAN,
+    ast.expression_identifier(SPAN, ast.atom(&context.helper("createIf"))),
+    NONE,
+    ast.vec_from_iter(
+      [
+        Some(condition_expr.into()),
+        Some(positive_arg.into()),
+        if let Some(negative_arg) = negative_arg {
+          Some(negative_arg.into())
+        } else if once {
+          Some(ast.expression_null_literal(SPAN).into())
+        } else {
+          None
+        },
+        if once {
+          Some(ast.expression_boolean_literal(SPAN, true).into())
+        } else {
+          None
+        },
+      ]
+      .into_iter()
+      .flatten(),
+    ),
+    false,
+  );
+
   if !is_nested {
-    frag.push(Either3::A(Newline));
-    frag.push(Either3::C(Some(format!("const n{} = ", oper.id))))
+    return Statement::VariableDeclaration(ast.alloc_variable_declaration(
+      SPAN,
+      VariableDeclarationKind::Const,
+      ast.vec1(ast.variable_declarator(
+        SPAN,
+        VariableDeclarationKind::Const,
+        ast.binding_pattern(
+          BindingPatternKind::BindingIdentifier(
+            ast.alloc_binding_identifier(SPAN, ast.atom(&format!("n{}", oper.id))),
+          ),
+          NONE,
+          false,
+        ),
+        Some(expression),
+        false,
+      )),
+      false,
+    ));
+  } else {
+    ast.statement_expression(SPAN, expression)
   }
-  frag.extend(gen_call(
-    Either::A(context.helper("createIf")),
-    vec![
-      Either4::D(condition_expr),
-      Either4::D(positive_arg),
-      if let Some(negative_arg) = negative_arg {
-        Either4::D(negative_arg)
-      } else {
-        Either4::C(None)
-      },
-      Either4::C(if once.unwrap_or(false) {
-        Some("true".to_string())
-      } else {
-        None
-      }),
-    ],
-  ));
-  frag
 }
