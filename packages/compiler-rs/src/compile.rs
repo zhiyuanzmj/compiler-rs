@@ -66,10 +66,12 @@ pub fn _compile(
 ) -> CompileCodegenResult {
   use crate::utils::error::ErrorCodes;
   let options = options.unwrap_or_default();
+  let filename = &options.filename.unwrap_or("index.jsx".to_string());
   compile(
     &source,
     Some(TransformOptions {
-      filename: &options.filename.unwrap_or("index.jsx".to_string()),
+      filename,
+      source_type: SourceType::from_path(filename).unwrap(),
       templates: RefCell::new(vec![]),
       helpers: RefCell::new(HashSet::new()),
       delegates: RefCell::new(HashSet::new()),
@@ -98,9 +100,8 @@ pub fn _compile(
 
 pub fn compile(source: &str, options: Option<TransformOptions>) -> CompileCodegenResult {
   let options = options.unwrap_or(TransformOptions::new());
-  let source_type = SourceType::from_path(&options.filename).unwrap();
   let allocator = Allocator::default();
-  let mut root = Parser::new(&allocator, source, source_type)
+  let mut root = Parser::new(&allocator, source, options.source_type)
     .with_options(ParseOptions {
       parse_regular_expression: true,
       ..ParseOptions::default()
@@ -132,7 +133,7 @@ pub fn compile(source: &str, options: Option<TransformOptions>) -> CompileCodege
       &allocator,
     ),
     scope_id: Default::default(),
-    source_type,
+    source_type: options.source_type,
   };
   let CodegenReturn { code, .. } = Codegen::new()
     .with_options(CodegenOptions {

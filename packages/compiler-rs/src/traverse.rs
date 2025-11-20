@@ -8,13 +8,12 @@ use oxc_ast::{
   },
 };
 use oxc_semantic::SemanticBuilder;
-use oxc_span::{GetSpan, SPAN, SourceType};
+use oxc_span::{GetSpan, SPAN};
 use oxc_traverse::{Ancestor, Traverse, TraverseCtx, traverse_mut};
 
 pub struct JsxTraverse<'a, 'ctx> {
   allocator: &'a Allocator,
   source_text: &'a str,
-  source_type: SourceType,
   roots: Vec<*mut Expression<'a>>,
   context: &'ctx TransformContext<'a>,
 }
@@ -24,7 +23,6 @@ impl<'a, 'ctx: 'a> JsxTraverse<'a, 'ctx> {
     Self {
       allocator,
       source_text: "",
-      source_type: SourceType::jsx(),
       roots: vec![],
       context,
     }
@@ -33,7 +31,6 @@ impl<'a, 'ctx: 'a> JsxTraverse<'a, 'ctx> {
   pub fn traverse(mut self, program: &mut Program<'a>) {
     let allocator = self.allocator;
 
-    self.source_type = program.source_type;
     self.source_text = program.source_text;
 
     traverse_mut(

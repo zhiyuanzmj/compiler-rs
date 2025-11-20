@@ -2,6 +2,7 @@ use std::{cell::RefCell, collections::HashSet};
 
 use compiler_rs::transform::{TransformOptions, transform};
 use insta::assert_snapshot;
+use oxc_span::SourceType;
 
 #[test]
 fn transform_test() {
@@ -18,6 +19,7 @@ fn transform_test() {
     source,
     Some(TransformOptions {
       filename: "index.tsx",
+      source_type: SourceType::jsx(),
       templates: RefCell::new(vec![]),
       helpers: RefCell::new(HashSet::new()),
       delegates: RefCell::new(HashSet::new()),

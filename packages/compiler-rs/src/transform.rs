@@ -59,12 +59,14 @@ pub struct TransformOptions<'a> {
   pub on_error: Box<dyn Fn(ErrorCodes)>,
   pub source_map: bool,
   pub filename: &'a str,
+  pub source_type: SourceType,
   pub interop: bool,
 }
 impl<'a> TransformOptions<'a> {
   pub fn new() -> Self {
     TransformOptions {
       filename: "index.jsx",
+      source_type: SourceType::jsx(),
       templates: RefCell::new(vec![]),
       helpers: RefCell::new(HashSet::new()),
       delegates: RefCell::new(HashSet::new()),
@@ -469,10 +471,12 @@ pub struct TransformReturn {
 pub fn _transform(env: Env, source: String, options: Option<CompilerOptions>) -> TransformReturn {
   use crate::utils::error::ErrorCodes;
   let options = options.unwrap_or_default();
+  let filename = &options.filename.unwrap_or("index.jsx".to_string());
   let CodegenReturn { code, map, .. } = transform(
     &source,
     Some(TransformOptions {
-      filename: &options.filename.unwrap_or("index.jsx".to_string()),
+      filename,
+      source_type: SourceType::from_path(filename).unwrap(),
       templates: RefCell::new(vec![]),
       helpers: RefCell::new(HashSet::new()),
       delegates: RefCell::new(HashSet::new()),
@@ -508,7 +512,7 @@ pub fn transform(source: &str, options: Option<TransformOptions>) -> CodegenRetu
   let options = options.unwrap_or(TransformOptions::new());
   let filename = options.filename;
   let source_map = options.source_map;
-  let source_type = SourceType::from_path(&options.filename).unwrap();
+  let source_type = options.source_type;
   let allocator = Allocator::default();
   let mut program = Parser::new(&allocator, source, source_type).parse().program;
   let context = TransformContext::new(&allocator, &options);

@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 
 use napi::bindgen_prelude::Either3;
 use oxc_ast::{AstKind, ast::IdentifierReference};
-use oxc_span::{GetSpan, SPAN, SourceType, Span};
+use oxc_span::{GetSpan, SPAN, Span};
 
 use crate::{
   generate::CodegenContext, transform::TransformContext, utils::check::is_referenced_identifier,
@@ -67,7 +67,7 @@ impl<'a, 'ctx> WalkIdentifiers<'a, 'ctx> {
     let source_text = expression.span().source_text(self.context.ir.source);
     let program = &mut ast.program(
       SPAN,
-      SourceType::tsx(),
+      self.context.options.source_type,
       source_text,
       ast.vec(),
       None,
