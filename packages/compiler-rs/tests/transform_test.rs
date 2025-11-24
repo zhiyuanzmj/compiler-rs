@@ -1,8 +1,5 @@
-use std::{cell::RefCell, collections::HashSet};
-
 use compiler_rs::transform::{TransformOptions, transform};
 use insta::assert_snapshot;
-use oxc_span::SourceType;
 
 #[test]
 fn transform_test() {
@@ -18,16 +15,8 @@ fn transform_test() {
   let code = transform(
     source,
     Some(TransformOptions {
-      filename: "index.tsx",
-      source_type: SourceType::jsx(),
-      templates: RefCell::new(vec![]),
-      helpers: RefCell::new(HashSet::new()),
-      delegates: RefCell::new(HashSet::new()),
-      source_map: false,
-      with_fallback: false,
-      is_custom_element: Box::new(|_| false),
-      on_error: Box::new(|_| {}),
       interop: true,
+      ..Default::default()
     }),
   )
   .code;

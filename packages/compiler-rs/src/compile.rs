@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::{collections::HashSet, path::PathBuf};
+use std::{collections::BTreeSet, path::PathBuf};
 
 use crate::transform::{TransformContext, TransformOptions};
 
@@ -51,9 +51,9 @@ pub struct CompilerOptions {
 #[cfg_attr(feature = "napi", napi(object))]
 #[derive(Debug)]
 pub struct CompileCodegenResult {
-  pub helpers: HashSet<String>,
+  pub helpers: BTreeSet<String>,
   pub templates: Vec<Template>,
-  pub delegates: HashSet<String>,
+  pub delegates: BTreeSet<String>,
   pub code: String,
 }
 
@@ -73,8 +73,8 @@ pub fn _compile(
       filename,
       source_type: SourceType::from_path(filename).unwrap(),
       templates: RefCell::new(vec![]),
-      helpers: RefCell::new(HashSet::new()),
-      delegates: RefCell::new(HashSet::new()),
+      helpers: RefCell::new(BTreeSet::new()),
+      delegates: RefCell::new(BTreeSet::new()),
       source_map: options.source_map.unwrap_or(false),
       with_fallback: options.with_fallback.unwrap_or(false),
       interop: options.interop.unwrap_or(false),
@@ -99,7 +99,7 @@ pub fn _compile(
 }
 
 pub fn compile(source: &str, options: Option<TransformOptions>) -> CompileCodegenResult {
-  let options = options.unwrap_or(TransformOptions::new());
+  let options = options.unwrap_or(TransformOptions::default());
   let allocator = Allocator::default();
   let mut root = Parser::new(&allocator, source, options.source_type)
     .with_options(ParseOptions {

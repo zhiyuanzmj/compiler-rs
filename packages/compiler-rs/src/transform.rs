@@ -7,6 +7,7 @@ use oxc_ast::ast::{
 use oxc_codegen::{Codegen, CodegenReturn, IndentChar};
 use oxc_parser::Parser;
 use oxc_span::{SPAN, SourceType};
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::{cell::RefCell, collections::HashSet, mem, rc::Rc};
 pub mod transform_children;
@@ -52,24 +53,24 @@ use crate::{
 
 pub struct TransformOptions<'a> {
   pub templates: RefCell<Vec<Template>>,
-  pub helpers: RefCell<HashSet<String>>,
-  pub delegates: RefCell<HashSet<String>>,
+  pub helpers: RefCell<BTreeSet<String>>,
+  pub delegates: RefCell<BTreeSet<String>>,
   pub with_fallback: bool,
-  pub is_custom_element: Box<dyn Fn(String) -> bool>,
-  pub on_error: Box<dyn Fn(ErrorCodes)>,
+  pub is_custom_element: Box<dyn Fn(String) -> bool + 'a>,
+  pub on_error: Box<dyn Fn(ErrorCodes) + 'a>,
   pub source_map: bool,
   pub filename: &'a str,
   pub source_type: SourceType,
   pub interop: bool,
 }
-impl<'a> TransformOptions<'a> {
-  pub fn new() -> Self {
+impl<'a> Default for TransformOptions<'a> {
+  fn default() -> Self {
     TransformOptions {
       filename: "index.jsx",
       source_type: SourceType::jsx(),
       templates: RefCell::new(vec![]),
-      helpers: RefCell::new(HashSet::new()),
-      delegates: RefCell::new(HashSet::new()),
+      helpers: RefCell::new(BTreeSet::new()),
+      delegates: RefCell::new(BTreeSet::new()),
       source_map: false,
       with_fallback: false,
       is_custom_element: Box::new(|_| false),
@@ -478,8 +479,8 @@ pub fn _transform(env: Env, source: String, options: Option<CompilerOptions>) ->
       filename,
       source_type: SourceType::from_path(filename).unwrap(),
       templates: RefCell::new(vec![]),
-      helpers: RefCell::new(HashSet::new()),
-      delegates: RefCell::new(HashSet::new()),
+      helpers: RefCell::new(BTreeSet::new()),
+      delegates: RefCell::new(BTreeSet::new()),
       source_map: options.source_map.unwrap_or(false),
       with_fallback: options.with_fallback.unwrap_or(false),
       interop: options.interop.unwrap_or(false),
@@ -509,7 +510,7 @@ pub fn _transform(env: Env, source: String, options: Option<CompilerOptions>) ->
 
 pub fn transform(source: &str, options: Option<TransformOptions>) -> CodegenReturn {
   use oxc_codegen::CodegenOptions;
-  let options = options.unwrap_or(TransformOptions::new());
+  let options = options.unwrap_or(TransformOptions::default());
   let filename = options.filename;
   let source_map = options.source_map;
   let source_type = options.source_type;
