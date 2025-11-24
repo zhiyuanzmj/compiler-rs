@@ -98,3 +98,19 @@ pub fn camelize(str: &str) -> String {
     })
     .collect()
 }
+
+pub fn to_valid_asset_id(name: &str, _type: &str) -> String {
+  let name = name
+    .chars()
+    .map(|c| {
+      if c == '-' {
+        return "_".to_string();
+      } else if c.is_ascii_alphanumeric() || c == '_' || c == '$' {
+        return c.to_string();
+      } else {
+        (c as u32).to_string()
+      }
+    })
+    .collect::<String>();
+  format!("_{_type}_{name}")
+}

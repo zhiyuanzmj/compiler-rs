@@ -9,7 +9,7 @@ use crate::{
 };
 
 pub fn transform_v_bind<'a>(
-  dir: &JSXAttribute,
+  dir: &'a mut JSXAttribute<'a>,
   _: &JSXElement,
   context: &'a TransformContext<'a>,
   _: &mut BlockIRNode,
@@ -22,7 +22,7 @@ pub fn transform_v_bind<'a>(
   let modifiers = name_splited[1..].to_vec();
   let name_string = name_splited[0].to_string();
 
-  let exp = if let Some(value) = &dir.value {
+  let exp = if let Some(value) = &mut dir.value {
     SimpleExpressionNode::new(Either3::C(value), context)
   } else {
     SimpleExpressionNode {

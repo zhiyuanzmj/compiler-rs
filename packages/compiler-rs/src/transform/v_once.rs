@@ -8,9 +8,10 @@ use crate::{
 };
 
 pub fn transform_v_once<'a>(
-  context_node: &mut ContextNode<'a>,
+  context_node: &'a mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   _: &'a mut BlockIRNode<'a>,
+  _: &'a mut ContextNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
   let Either::B(node) = context_node else {
     return None;

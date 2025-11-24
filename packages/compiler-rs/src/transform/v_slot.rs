@@ -13,24 +13,26 @@ use crate::{
     directive::resolve_directive,
     error::ErrorCodes,
     text::is_empty_text,
-    utils::find_prop,
+    utils::{find_prop, find_prop_mut},
   },
 };
 
 pub fn transform_v_slot<'a>(
-  context_node: &mut ContextNode<'a>,
+  context_node: &'a mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
+  parent_node: &'a mut ContextNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
-  let Either::B(JSXChild::Element(node)) = &context_node else {
+  let Either::B(JSXChild::Element(node)) = context_node else {
     return None;
   };
+  let node = node as *mut oxc_allocator::Box<JSXElement>;
 
-  let dir =
-    find_prop(&node, Either::A(String::from("v-slot"))).map(|dir| resolve_directive(dir, context));
-  let is_component = is_jsx_component(node);
-  let is_slot_template = is_template(&node)
-    && if let Some(Either::B(JSXChild::Element(parent_node))) = &*context.parent_node.borrow()
+  let dir = find_prop_mut(unsafe { &mut *node }, Either::A(String::from("v-slot")))
+    .map(|dir| resolve_directive(dir, context));
+  let is_component = is_jsx_component(unsafe { &*node });
+  let is_slot_template = is_template(unsafe { &*node })
+    && if let Either::B(JSXChild::Element(parent_node)) = parent_node
       && is_jsx_component(parent_node)
     {
       true
@@ -38,8 +40,13 @@ pub fn transform_v_slot<'a>(
       false
     };
 
-  if is_component && node.children.len() > 0 {
-    return Some(transform_component_slot(dir, node, context, context_block));
+  if is_component && unsafe { &mut *node }.children.len() > 0 {
+    return Some(transform_component_slot(
+      dir,
+      unsafe { &mut *node },
+      context,
+      context_block,
+    ));
   } else if is_slot_template && let Some(dir) = dir {
     return Some(transform_template_slot(dir, node, context, context_block));
   } else if !is_component && dir.is_some() {
@@ -51,7 +58,7 @@ pub fn transform_v_slot<'a>(
 // <Foo v-slot:default>
 pub fn transform_component_slot<'a>(
   dir: Option<DirectiveNode<'a>>,
-  node: &JSXElement,
+  node: &'a mut JSXElement<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Box<dyn FnOnce() + 'a> {
@@ -105,7 +112,7 @@ pub fn transform_component_slot<'a>(
 // <template v-slot:foo>
 pub fn transform_template_slot<'a>(
   dir: DirectiveNode<'a>,
-  node: &JSXElement,
+  node: *mut oxc_allocator::Box<'a, JSXElement<'a>>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Box<dyn FnOnce() + 'a> {
@@ -115,20 +122,20 @@ pub fn transform_template_slot<'a>(
   let DirectiveNode { arg, exp, .. } = dir;
   let exit_block = create_slot_block(exp, context, context_block, true);
 
-  let v_for = find_prop(&node, Either::A(String::from("v-for")));
+  let v_for = find_prop_mut(unsafe { &mut *node }, Either::A(String::from("v-for")));
   let for_parse_result = if let Some(v_for) = v_for {
     Some(get_for_parse_result(v_for, context))
   } else {
     None
   };
-  let v_if = find_prop(&node, Either::A(String::from("v-if")));
+  let v_if = find_prop_mut(unsafe { &mut *node }, Either::A(String::from("v-if")));
   let v_if_dir = if let Some(v_if) = v_if {
     Some(resolve_directive(v_if, context))
   } else {
     None
   };
-  let v_else = find_prop(
-    &node,
+  let v_else = find_prop_mut(
+    unsafe { &mut *node },
     Either::B(vec![String::from("v-else"), String::from("v-else-if")]),
   );
   let v_else_dir = if let Some(v_else) = v_else {

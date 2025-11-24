@@ -4,7 +4,7 @@ use napi::{
 };
 use oxc_ast::ast::{JSXAttribute, JSXAttributeName, JSXElement};
 use oxc_span::SPAN;
-use std::{collections::HashSet, sync::LazyLock};
+use phf::phf_set;
 
 use crate::{
   ir::index::{BlockIRNode, Modifiers, SetEventIRNode, SimpleExpressionNode},
@@ -13,7 +13,7 @@ use crate::{
 };
 
 pub fn transform_v_on<'a>(
-  dir: &JSXAttribute,
+  dir: &'a mut JSXAttribute<'a>,
   node: &JSXElement,
   context: &'a TransformContext<'a>,
   context_block: &mut BlockIRNode<'a>,
@@ -21,18 +21,17 @@ pub fn transform_v_on<'a>(
   let is_component = is_jsx_component(node);
 
   let (name, name_loc) = match &dir.name {
-    JSXAttributeName::Identifier(name) => (name.name.to_string(), name.span.clone()),
-    JSXAttributeName::NamespacedName(name) => (
-      context.ir.borrow().source[name.span.start as usize..name.span.end as usize].to_string(),
-      name.span.clone(),
-    ),
+    JSXAttributeName::Identifier(name) => (name.name.as_ref(), name.span.clone()),
+    JSXAttributeName::NamespacedName(name) => {
+      (name.span.source_text(context.ir.borrow().source), name.span)
+    }
   };
-  let replaced = format!("{}{}", &name[2..3].to_lowercase(), &name[3..]);
+  let replaced = format!("{}{}", name[2..3].to_lowercase(), &name[3..]);
   let splited = replaced.split("_").collect::<Vec<_>>();
   let name_string = splited[0].to_string();
   let modifiers = splited[1..].to_vec();
 
-  let value = &dir.value;
+  let value = &mut dir.value;
   if value.is_none() && modifiers.is_empty() {
     context.options.on_error.as_ref()(ErrorCodes::VOnNoExpression);
   }
@@ -139,8 +138,7 @@ pub fn transform_v_on<'a>(
   None
 }
 
-static DELEGATED_EVENTS: LazyLock<HashSet<&str>> = LazyLock::new(|| {
-  HashSet::from([
+static DELEGATED_EVENTS: phf::Set<&'static str> = phf_set! {
     "beforeinput",
     "click",
     "dblclick",
@@ -162,9 +160,8 @@ static DELEGATED_EVENTS: LazyLock<HashSet<&str>> = LazyLock::new(|| {
     "pointerup",
     "touchend",
     "touchmove",
-    "touchstart",
-  ])
-});
+    "touchstart"
+};
 
 fn is_event_option_modifier(modifier: &str) -> bool {
   matches!(modifier, "passive" | "once" | "capture")

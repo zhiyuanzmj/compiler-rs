@@ -1,7 +1,7 @@
 use std::{collections::HashMap, ops::Deref};
 
 use napi::bindgen_prelude::Either16;
-use oxc_allocator::CloneIn;
+use oxc_allocator::{CloneIn, TakeIn};
 use oxc_ast::{
   NONE,
   ast::{
@@ -126,7 +126,6 @@ pub fn gen_for<'a>(
               false,
             )
             .into();
-          id.clone_in(ast.allocator);
           let mut parent_stack = ancestry.ancestors().collect::<Vec<_>>();
           parent_stack.reverse();
           for i in 0..parent_stack.len() {
@@ -251,7 +250,7 @@ pub fn gen_for<'a>(
         }),
         false,
       )
-      .traverse(_ast);
+      .traverse(_ast.take_in(context.ast.allocator));
     } else {
       id_map.insert(
         raw_value.clone(),
@@ -308,13 +307,13 @@ pub fn gen_for<'a>(
     id_map.insert(index_var.to_string(), None);
   }
 
-  let (selector_patterns, key_only_binding_patterns) =
+  let (effect_patterns, selector_patterns, key_only_binding_patterns) =
     match_patterns(&mut render, &key_prop, &id_map, context);
   let mut selector_declarations = ast.vec();
   let mut selector_setup = ast.vec();
 
   let mut i = 0;
-  for (_, selector) in &selector_patterns {
+  for selector in selector_patterns {
     let selector_name = format!("_selector{id}_{i}");
     i += 1;
     selector_declarations.push(Statement::VariableDeclaration(
@@ -365,10 +364,9 @@ pub fn gen_for<'a>(
               ast.function_body(
                 SPAN,
                 ast.vec(),
-                ast.vec1(ast.statement_expression(
-                  SPAN,
-                  gen_expression(selector.clone(), context, None, None),
-                )),
+                ast.vec1(
+                  ast.statement_expression(SPAN, gen_expression(selector, context, None, None)),
+                ),
               ),
             ),
           )),
@@ -410,7 +408,7 @@ pub fn gen_for<'a>(
         ast.function_body(
           SPAN,
           ast.vec(),
-          if selector_patterns.len() > 0 || key_only_binding_patterns.len() > 0 {
+          if effect_patterns.len() > 0 || key_only_binding_patterns.len() > 0 {
             gen_block_content(
               Some(render),
               context,
@@ -418,7 +416,7 @@ pub fn gen_for<'a>(
               false,
               Some(Box::new(move |statements, context_block| {
                 let mut i = 0;
-                for (effect, _) in selector_patterns {
+                for effect in effect_patterns {
                   let mut body = ast.vec();
                   for oper in effect.operations {
                     let _context_block = context_block as *mut BlockIRNode;
@@ -478,7 +476,7 @@ pub fn gen_for<'a>(
         ),
       )
     },
-    &id_map,
+    id_map,
   );
   exit_scope();
 
@@ -496,7 +494,7 @@ pub fn gen_for<'a>(
   let gen_callback = if let Some(key_prop) = key_prop {
     let res = context.with_id(
       || gen_expression(key_prop, context, None, None),
-      &HashMap::new(),
+      HashMap::new(),
     );
 
     Some(
@@ -727,9 +725,11 @@ fn match_patterns<'a>(
   id_map: &HashMap<String, Option<Expression<'a>>>,
   context: &CodegenContext,
 ) -> (
-  Vec<(IREffect<'a>, SimpleExpressionNode<'a>)>,
+  Vec<IREffect<'a>>,
+  Vec<SimpleExpressionNode<'a>>,
   Vec<IREffect<'a>>,
 ) {
+  let mut effect_patterns = vec![];
   let mut selector_patterns = vec![];
   let mut key_only_binding_patterns = vec![];
 
@@ -739,7 +739,8 @@ fn match_patterns<'a>(
     for i in 0..effects.len() {
       let effect = unsafe { &mut *_effects }.get(i).unwrap();
       if let Some(selector) = match_selector_pattern(&effect, &key_prop.content, id_map, context) {
-        selector_patterns.push((effects.remove(i), selector));
+        effect_patterns.push(effects.remove(i));
+        selector_patterns.push(selector);
       } else if effect.operations.len() > 0 {
         if let Some(ast) = &get_expression(&effect).unwrap().ast
           && key_prop
@@ -752,11 +753,15 @@ fn match_patterns<'a>(
     }
   }
 
-  (selector_patterns, key_only_binding_patterns)
+  (
+    effect_patterns,
+    selector_patterns,
+    key_only_binding_patterns,
+  )
 }
 
 fn match_selector_pattern<'a>(
-  effect: &'a IREffect,
+  effect: &'a IREffect<'a>,
   key: &str,
   id_map: &HashMap<String, Option<Expression<'a>>>,
   context: &CodegenContext,
@@ -765,8 +770,7 @@ fn match_selector_pattern<'a>(
   if effect.operations.len() != 1 {
     return None;
   }
-  let expression = get_expression(effect);
-  let Some(expression) = expression else {
+  let Some(expression) = get_expression(effect) else {
     return None;
   };
   let Some(ast) = &expression.ast else {
@@ -810,7 +814,6 @@ fn match_selector_pattern<'a>(
     WalkIdentifiers::new(
       context,
       Box::new(|id, _, _, _, _| {
-        let id = id.get_identifier_reference().unwrap();
         let start = id.span.start;
         if start != key.start && start != selector.start {
           has_extra_id = true
@@ -845,7 +848,7 @@ fn analyze_variable_scopes(
   WalkIdentifiers::new(
     context,
     Box::new(|id, _, _, _, _| {
-      let name = id.get_identifier_reference().unwrap().name.to_string();
+      let name = id.name.to_string();
       if !is_globally_allowed(&name) {
         if id_map.get(&name).is_some() {
           locals.push(name);
@@ -860,7 +863,7 @@ fn analyze_variable_scopes(
   return locals;
 }
 
-fn get_expression<'a>(effect: &'a IREffect) -> Option<&'a SimpleExpressionNode<'a>> {
+fn get_expression<'a>(effect: &'a IREffect<'a>) -> Option<&'a SimpleExpressionNode<'a>> {
   let operation = effect.operations.get(0);
   match operation.as_ref().unwrap() {
     Either16::C(operation) => operation.values.get(0),

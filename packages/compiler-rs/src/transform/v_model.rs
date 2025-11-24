@@ -17,7 +17,7 @@ use crate::{
 };
 
 pub fn transform_v_model<'a>(
-  _dir: &JSXAttribute,
+  _dir: &'a mut JSXAttribute<'a>,
   node: &JSXElement,
   context: &'a TransformContext<'a>,
   context_block: &mut BlockIRNode<'a>,

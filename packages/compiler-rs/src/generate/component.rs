@@ -21,7 +21,6 @@ use crate::generate::expression::gen_expression;
 use crate::generate::prop::gen_prop_key;
 use crate::generate::prop::gen_prop_value;
 use crate::generate::slot::gen_raw_slots;
-use crate::generate::utils::to_valid_asset_id;
 use crate::generate::v_model::gen_model_handler;
 use crate::ir::component::IRProp;
 use crate::ir::component::IRProps;
@@ -31,6 +30,7 @@ use crate::ir::index::CreateComponentIRNode;
 use crate::ir::index::Modifiers;
 use crate::ir::index::SimpleExpressionNode;
 use crate::utils::text::camelize;
+use crate::utils::text::to_valid_asset_id;
 
 pub fn gen_create_component<'a>(
   statements: &mut oxc_allocator::Vec<'a, Statement<'a>>,
@@ -310,8 +310,18 @@ fn gen_prop<'a>(
     options: vec![],
   });
   let mut values = mem::take(&mut prop.values);
-  let first_value = values[0].clone();
+
   let model_modifiers = prop.model_modifiers.take();
+  let model = if model {
+    Some(gen_model(
+      prop.key.clone(),
+      values[0].clone(),
+      model_modifiers,
+      context,
+    ))
+  } else {
+    None
+  };
 
   let value = if handler {
     gen_event_handler(
@@ -348,7 +358,7 @@ fn gen_prop<'a>(
   };
 
   let key = gen_prop_key(
-    prop.key.clone(),
+    prop.key,
     prop.runtime_camelize,
     prop.modifier,
     handler,
@@ -366,22 +376,71 @@ fn gen_prop<'a>(
     computed,
   ));
 
-  if model {
-    gen_model(properties, prop.key, first_value, model_modifiers, context);
+  if let Some(model) = model {
+    properties.extend(model);
   }
 }
 
 fn gen_model<'a>(
-  properties: &mut oxc_allocator::Vec<'a, ObjectPropertyKind<'a>>,
   key: SimpleExpressionNode<'a>,
   value: SimpleExpressionNode<'a>,
   model_modifiers: Option<Vec<String>>,
   context: &'a CodegenContext<'a>,
-) {
+) -> oxc_allocator::Vec<'a, ObjectPropertyKind<'a>> {
   let ast = &context.ast;
+  let mut properties = ast.vec();
   let is_static = key.is_static;
   let content = key.content.clone();
   let expression = gen_expression(key, context, None, None);
+
+  let modifiers = if let Some(model_modifiers) = model_modifiers
+    && model_modifiers.len() > 0
+  {
+    let modifers_key = if is_static {
+      ast
+        .property_key_static_identifier(SPAN, ast.atom(&format!("{}Modifiers", camelize(&content))))
+    } else {
+      ast
+        .expression_binary(
+          SPAN,
+          expression.clone_in(context.ast.allocator),
+          BinaryOperator::Addition,
+          ast.expression_string_literal(SPAN, ast.atom("Modifiers"), None),
+        )
+        .into()
+    };
+    let modifiers_val = Expression::ObjectExpression(gen_directive_modifiers(model_modifiers, ast));
+
+    Some(ast.object_property_kind_object_property(
+      SPAN,
+      PropertyKind::Init,
+      modifers_key,
+      ast.expression_arrow_function(
+        SPAN,
+        true,
+        false,
+        NONE,
+        ast.formal_parameters(
+          SPAN,
+          FormalParameterKind::ArrowFormalParameters,
+          ast.vec(),
+          NONE,
+        ),
+        NONE,
+        ast.function_body(
+          SPAN,
+          ast.vec(),
+          ast.vec1(ast.statement_expression(SPAN, modifiers_val)),
+        ),
+      ),
+      false,
+      false,
+      !is_static,
+    ))
+  } else {
+    None
+  };
+
   let name = if is_static {
     ast.property_key_static_identifier(
       SPAN,
@@ -393,12 +452,12 @@ fn gen_model<'a>(
         SPAN,
         ast.expression_string_literal(SPAN, ast.atom("onUpdate:"), None),
         BinaryOperator::Addition,
-        expression.clone_in(ast.allocator),
+        expression,
       )
       .into()
   };
-  let handler = gen_model_handler(value, context);
 
+  let handler = gen_model_handler(value, context);
   properties.push(ast.object_property_kind_object_property(
     SPAN,
     PropertyKind::Init,
@@ -426,49 +485,8 @@ fn gen_model<'a>(
     !is_static,
   ));
 
-  if let Some(model_modifiers) = model_modifiers
-    && model_modifiers.len() > 0
-  {
-    let modifers_key = if is_static {
-      ast
-        .property_key_static_identifier(SPAN, ast.atom(&format!("{}Modifiers", camelize(&content))))
-    } else {
-      ast
-        .expression_binary(
-          SPAN,
-          expression,
-          BinaryOperator::Addition,
-          ast.expression_string_literal(SPAN, ast.atom("Modifiers"), None),
-        )
-        .into()
-    };
-    let modifiers_val = Expression::ObjectExpression(gen_directive_modifiers(model_modifiers, ast));
-
-    properties.push(ast.object_property_kind_object_property(
-      SPAN,
-      PropertyKind::Init,
-      modifers_key,
-      ast.expression_arrow_function(
-        SPAN,
-        true,
-        false,
-        NONE,
-        ast.formal_parameters(
-          SPAN,
-          FormalParameterKind::ArrowFormalParameters,
-          ast.vec(),
-          NONE,
-        ),
-        NONE,
-        ast.function_body(
-          SPAN,
-          ast.vec(),
-          ast.vec1(ast.statement_expression(SPAN, modifiers_val)),
-        ),
-      ),
-      false,
-      false,
-      !is_static,
-    ));
+  if let Some(modifiers) = modifiers {
+    properties.push(modifiers)
   }
+  properties
 }

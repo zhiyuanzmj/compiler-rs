@@ -10,12 +10,12 @@ use oxc_span::SPAN;
 
 use crate::generate::CodegenContext;
 use crate::generate::expression::gen_expression;
-use crate::generate::utils::to_valid_asset_id;
 use crate::generate::v_model::gen_v_model;
 use crate::generate::v_show::gen_v_show;
 use crate::ir::index::BlockIRNode;
 use crate::ir::index::DirectiveIRNode;
 use crate::utils::check::is_simple_identifier;
+use crate::utils::text::to_valid_asset_id;
 
 pub fn gen_builtin_directive<'a>(
   oper: DirectiveIRNode<'a>,

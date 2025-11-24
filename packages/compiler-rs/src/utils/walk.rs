@@ -30,7 +30,13 @@ pub struct WalkIdentifiers<'a, 'ctx> {
   include_all: bool,
   context: &'a CodegenContext<'ctx>,
   on_identifier: Box<
-    dyn FnMut(&mut Expression, &Ancestor, &TraverseAncestry<'a>, bool, bool) -> Option<Expression<'a>>
+    dyn FnMut(
+        &mut IdentifierReference<'a>,
+        &Ancestor,
+        &TraverseAncestry<'a>,
+        bool,
+        bool,
+      ) -> Option<Expression<'a>>
       + 'a,
   >,
   scope_ids_map: HashMap<Span, HashSet<String>>,
@@ -42,7 +48,7 @@ impl<'a, 'ctx> WalkIdentifiers<'a, 'ctx> {
     context: &'a CodegenContext<'ctx>,
     on_identifier: Box<
       dyn FnMut(
-          &mut Expression,
+          &mut IdentifierReference<'a>,
           &Ancestor,
           &TraverseAncestry<'a>,
           bool,
@@ -87,7 +93,11 @@ impl<'a, 'ctx> WalkIdentifiers<'a, 'ctx> {
     let Statement::ExpressionStatement(stmt) = &mut program.body[0] else {
       unreachable!();
     };
-    stmt.expression.take_in(ast.allocator)
+    if self.roots.is_empty() {
+      stmt.expression.take_in(ast.allocator)
+    } else {
+      stmt.expression.clone_in(ast.allocator)
+    }
   }
 
   fn exit_node(&mut self, span: &Span, ctx: &mut oxc_traverse::TraverseCtx<'a, ()>) {
@@ -108,7 +118,7 @@ impl<'a, 'ctx> WalkIdentifiers<'a, 'ctx> {
 
   fn on_identifier_reference(
     &mut self,
-    id: &mut IdentifierReference,
+    id: &mut IdentifierReference<'a>,
     ctx: &mut TraverseCtx<'a, ()>,
   ) -> Option<Expression<'a>> {
     if id.span.eq(&SPAN) {
@@ -117,18 +127,7 @@ impl<'a, 'ctx> WalkIdentifiers<'a, 'ctx> {
     let is_local = self.known_ids.contains_key(id.name.as_str());
     let is_refed = is_referenced_identifier(id, &ctx.ancestry);
     if self.include_all || (is_refed && !is_local) {
-      self.on_identifier.as_mut()(
-        &mut Expression::Identifier(
-          self
-            .context
-            .ast
-            .alloc(id.clone_in(self.context.ast.allocator)),
-        ),
-        &ctx.parent(),
-        &ctx.ancestry,
-        is_refed,
-        is_local,
-      )
+      self.on_identifier.as_mut()(id, &ctx.parent(), &ctx.ancestry, is_refed, is_local)
     } else {
       None
     }
@@ -208,8 +207,8 @@ impl<'a> Traverse<'a, ()> for WalkIdentifiers<'a, '_> {
     let allocator = self.context.ast.allocator;
     let transform_context = self.context.transform_cotext;
     unsafe {
-      for root in self.roots.drain(..) {
-        let root = &mut *root;
+      for root in &mut self.roots {
+        let root = &mut **root;
         let context: *mut TransformContext =
           &mut TransformContext::new(allocator, self.context.options);
         *(&mut *context).in_v_once.borrow_mut() = *transform_context.in_v_once.borrow();
@@ -237,7 +236,7 @@ impl<'a> Traverse<'a, ()> for WalkIdentifiers<'a, '_> {
       // so that we don't prefix them
       for p in &node.params.items {
         for id in extract_identifiers(&p.pattern, Vec::new()) {
-          mark_scope_identifier(&node.span, id, &mut self.known_ids, &mut self.scope_ids_map)
+          mark_scope_identifier(node.span, id, &mut self.known_ids, &mut self.scope_ids_map)
         }
       }
     }
@@ -260,7 +259,7 @@ impl<'a> Traverse<'a, ()> for WalkIdentifiers<'a, '_> {
       // so that we don't prefix them
       for p in &node.params.items {
         for id in extract_identifiers(&p.pattern, Vec::new()) {
-          mark_scope_identifier(&node.span, id, &mut self.known_ids, &mut self.scope_ids_map)
+          mark_scope_identifier(node.span, id, &mut self.known_ids, &mut self.scope_ids_map)
         }
       }
     }
@@ -280,7 +279,7 @@ impl<'a> Traverse<'a, ()> for WalkIdentifiers<'a, '_> {
       }
     } else {
       walk_block_declarations(&node.statements, |id| {
-        mark_scope_identifier(&node.span, id, &mut self.known_ids, &mut self.scope_ids_map);
+        mark_scope_identifier(node.span, id, &mut self.known_ids, &mut self.scope_ids_map);
       });
     }
   }
@@ -296,7 +295,7 @@ impl<'a> Traverse<'a, ()> for WalkIdentifiers<'a, '_> {
     } else {
       // #3445 record block-level local variables
       walk_block_declarations(&node.body, |id| {
-        mark_scope_identifier(&node.span, id, &mut self.known_ids, &mut self.scope_ids_map);
+        mark_scope_identifier(node.span, id, &mut self.known_ids, &mut self.scope_ids_map);
       });
     }
   }
@@ -307,7 +306,7 @@ impl<'a> Traverse<'a, ()> for WalkIdentifiers<'a, '_> {
   fn enter_catch_clause(&mut self, node: &mut CatchClause<'a>, _: &mut TraverseCtx<'a, ()>) {
     if let Some(param) = &node.param {
       for id in extract_identifiers(&param.pattern, vec![]) {
-        mark_scope_identifier(&node.span, id, &mut self.known_ids, &mut self.scope_ids_map);
+        mark_scope_identifier(node.span, id, &mut self.known_ids, &mut self.scope_ids_map);
       }
     }
   }
@@ -317,7 +316,7 @@ impl<'a> Traverse<'a, ()> for WalkIdentifiers<'a, '_> {
 
   fn enter_for_statement(&mut self, node: &mut ForStatement<'a>, _: &mut TraverseCtx<'a, ()>) {
     walk_for_statement(Either3::A(&node), true, &mut |id| {
-      mark_scope_identifier(&node.span, id, &mut self.known_ids, &mut self.scope_ids_map);
+      mark_scope_identifier(node.span, id, &mut self.known_ids, &mut self.scope_ids_map);
     })
   }
   fn exit_for_statement(&mut self, node: &mut ForStatement<'a>, ctx: &mut TraverseCtx<'a, ()>) {
@@ -325,7 +324,7 @@ impl<'a> Traverse<'a, ()> for WalkIdentifiers<'a, '_> {
   }
   fn enter_for_in_statement(&mut self, node: &mut ForInStatement<'a>, _: &mut TraverseCtx<'a, ()>) {
     walk_for_statement(Either3::B(&node), true, &mut |id| {
-      mark_scope_identifier(&node.span, id, &mut self.known_ids, &mut self.scope_ids_map);
+      mark_scope_identifier(node.span, id, &mut self.known_ids, &mut self.scope_ids_map);
     })
   }
   fn exit_for_in_statement(
@@ -338,7 +337,7 @@ impl<'a> Traverse<'a, ()> for WalkIdentifiers<'a, '_> {
 
   fn enter_for_of_statement(&mut self, node: &mut ForOfStatement<'a>, _: &mut TraverseCtx<'a, ()>) {
     walk_for_statement(Either3::C(&node), true, &mut |id| {
-      mark_scope_identifier(&node.span, id, &mut self.known_ids, &mut self.scope_ids_map);
+      mark_scope_identifier(node.span, id, &mut self.known_ids, &mut self.scope_ids_map);
     })
   }
   fn exit_for_of_statement(
@@ -359,20 +358,20 @@ pub fn mark_known_ids(name: String, known_ids: &mut HashMap<String, u32>) {
 }
 
 pub fn mark_scope_identifier<'a>(
-  node_span: &Span,
+  node_span: Span,
   child: &BindingIdentifier,
   known_ids: &mut HashMap<String, u32>,
   scope_ids_map: &mut HashMap<Span, HashSet<String>>,
 ) {
   let name = child.name.to_string();
-  if let Some(scope_ids) = scope_ids_map.get_mut(node_span) {
+  if let Some(scope_ids) = scope_ids_map.get_mut(&node_span) {
     if scope_ids.contains(&name) {
       return;
     } else {
       scope_ids.insert(name.clone());
     }
   } else {
-    scope_ids_map.insert(node_span.clone(), HashSet::from([name.clone()]));
+    scope_ids_map.insert(node_span, HashSet::from([name.clone()]));
   }
   mark_known_ids(name, known_ids);
 }

@@ -1,24 +1,64 @@
 use std::collections::HashSet;
 
 use napi::{Either, bindgen_prelude::Either16};
-use oxc_allocator::Allocator;
-use oxc_ast::ast::JSXChild;
+use oxc_allocator::{Allocator, TakeIn};
+use oxc_ast::ast::{Expression, JSXChild};
 use oxc_span::Span;
 
 pub use crate::utils::expression::SimpleExpressionNode;
 
-use crate::ir::component::{IRProp, IRProps, IRSlots};
+use crate::{
+  ir::component::{IRProp, IRProps, IRSlots},
+  utils::text::is_empty_text,
+};
 
 #[derive(Debug)]
 pub struct RootNode<'a> {
   pub is_fragment: bool,
+  pub is_single_root: bool,
   pub children: oxc_allocator::Vec<'a, JSXChild<'a>>,
 }
 impl<'a> RootNode<'a> {
   pub fn new(allocator: &'a Allocator) -> Self {
     RootNode {
       is_fragment: false,
+      is_single_root: false,
       children: oxc_allocator::Vec::new_in(allocator),
+    }
+  }
+  pub fn from(allocator: &'a Allocator, expression: Expression<'a>) -> Self {
+    let mut is_fragment = false;
+    let children = match expression {
+      Expression::JSXFragment(mut node) => {
+        is_fragment = true;
+        node.children.take_in(allocator)
+      }
+      Expression::JSXElement(mut node) => oxc_allocator::Vec::from_array_in(
+        [JSXChild::Element(oxc_allocator::Box::new_in(
+          node.take_in(allocator),
+          allocator,
+        ))],
+        allocator,
+      ),
+      _ => oxc_allocator::Vec::new_in(&allocator),
+    };
+
+    let mut is_single_root = false;
+    if !is_fragment {
+      for child in children.iter() {
+        if !is_empty_text(child) {
+          if is_single_root {
+            is_single_root = false;
+            break;
+          }
+          is_single_root = true;
+        }
+      }
+    }
+    RootNode {
+      is_fragment,
+      is_single_root,
+      children,
     }
   }
 }

@@ -1,6 +1,6 @@
 use napi::{Either, bindgen_prelude::Either16};
-use oxc_allocator::CloneIn;
-use oxc_ast::ast::{Expression, JSXChild};
+use oxc_allocator::TakeIn;
+use oxc_ast::ast::{Expression, JSXChild, JSXElement};
 use oxc_span::SPAN;
 
 use crate::{
@@ -10,25 +10,27 @@ use crate::{
     check::{is_constant_node, is_template},
     directive::resolve_directive,
     error::ErrorCodes,
-    utils::find_prop,
+    utils::{find_prop, find_prop_mut},
   },
 };
 
 pub fn transform_v_if<'a>(
-  context_node: &mut ContextNode<'a>,
+  context_node: &'a mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
+  _: &'a mut ContextNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
   let context_node = context_node as *mut ContextNode;
-  let Either::B(JSXChild::Element(node)) = (unsafe { &*context_node }) else {
+  let Either::B(JSXChild::Element(node)) = (unsafe { &mut *context_node }) else {
     return None;
   };
   if is_template(node) && find_prop(node, Either::A("v-slot".to_string())).is_some() {
     return None;
   }
+  let node = node as *mut oxc_allocator::Box<JSXElement>;
 
-  let Some(dir) = find_prop(
-    &node,
+  let Some(dir) = find_prop_mut(
+    unsafe { &mut *node },
     Either::B(vec![
       "v-if".to_string(),
       "v-else".to_string(),
@@ -67,7 +69,10 @@ pub fn transform_v_if<'a>(
     let exit_block = context.create_block(
       unsafe { &mut *context_node },
       unsafe { &mut *block },
-      Expression::JSXElement(node.clone_in(context.allocator)),
+      Expression::JSXElement(oxc_allocator::Box::new_in(
+        unsafe { &mut *node }.take_in(context.allocator),
+        context.allocator,
+      )),
       None,
     );
     return Some(Box::new(move || {
@@ -77,7 +82,7 @@ pub fn transform_v_if<'a>(
         id,
         positive: block,
         once: *context.in_v_once.borrow()
-          || is_constant_node(&dir.exp.as_ref().unwrap().ast.as_ref()),
+          || is_constant_node(&dir.exp.as_ref().unwrap().ast.as_deref()),
         condition: dir.exp.unwrap(),
         negative: None,
         anchor: None,
@@ -124,7 +129,10 @@ pub fn transform_v_if<'a>(
   let exit_block = context.create_block(
     unsafe { &mut *context_node },
     context_block,
-    Expression::JSXElement(node.clone_in(context.allocator)),
+    Expression::JSXElement(oxc_allocator::Box::new_in(
+      unsafe { &mut *node }.take_in(context.allocator),
+      context.allocator,
+    )),
     None,
   );
 
@@ -137,7 +145,7 @@ pub fn transform_v_if<'a>(
         id: -1,
         positive: block,
         once: *context.in_v_once.borrow()
-          || is_constant_node(&dir.exp.as_ref().unwrap().ast.as_ref()),
+          || is_constant_node(&dir.exp.as_ref().unwrap().ast.as_deref()),
         condition: dir.exp.unwrap(),
         parent: None,
         anchor: None,

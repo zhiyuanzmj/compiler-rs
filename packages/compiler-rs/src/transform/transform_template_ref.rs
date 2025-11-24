@@ -7,13 +7,14 @@ use oxc_ast::ast::JSXChild;
 use crate::{
   ir::index::{BlockIRNode, DeclareOldRefIRNode, SetTemplateRefIRNode, SimpleExpressionNode},
   transform::{ContextNode, TransformContext},
-  utils::{check::is_fragment_node, utils::find_prop},
+  utils::{check::is_fragment_node, utils::find_prop_mut},
 };
 
 pub fn transform_template_ref<'a>(
-  context_node: &mut ContextNode<'a>,
+  context_node: &'a mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
+  _: &'a mut ContextNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
   let Either::B(node) = context_node else {
     return None;
@@ -24,10 +25,10 @@ pub fn transform_template_ref<'a>(
   let JSXChild::Element(node) = node else {
     return None;
   };
-  let Some(dir) = find_prop(&node, Either::A(String::from("ref"))) else {
+  let Some(dir) = find_prop_mut(node, Either::A(String::from("ref"))) else {
     return None;
   };
-  let Some(value) = &dir.value else {
+  let Some(value) = &mut dir.value else {
     return None;
   };
   context.ir.borrow_mut().has_template_ref = true;

@@ -4,8 +4,9 @@ use napi::{
   Either,
   bindgen_prelude::{Either3, Either16},
 };
-use oxc_allocator::CloneIn;
+use oxc_allocator::{CloneIn, TakeIn};
 use oxc_ast::ast::{ConditionalExpression, Expression, JSXChild, LogicalExpression};
+use oxc_span::GetSpan;
 
 use crate::{
   ir::index::{
@@ -21,52 +22,58 @@ use crate::{
 };
 
 pub fn transform_text<'a>(
-  context_node: &mut ContextNode<'a>,
+  context_node: &'a mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
+  parent_node: &'a mut ContextNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
   let context_node = context_node as *mut ContextNode;
-  let Either::B(node) = (unsafe { &*context_node }) else {
+  let Either::B(node) = (unsafe { &mut *context_node }) else {
     return None;
   };
   let dynamic = &mut context_block.dynamic;
-  let start = match node {
-    JSXChild::Element(e) => e.span.start,
-    JSXChild::ExpressionContainer(e) => e.span.start,
-    JSXChild::Fragment(e) => e.span.start,
-    JSXChild::Spread(e) => e.span.start,
-    JSXChild::Text(e) => e.span.start,
-  };
+  let span = node.span();
   let seen = &mut context.seen.borrow_mut();
-  if seen.contains(&start) {
+  if seen.contains(&span.start) {
     dynamic.flags |= DynamicFlag::NonTemplate as i32;
     return None;
   }
 
   match node {
-    JSXChild::Element(node) if !is_jsx_component(node) => process_children(
-      &node.children.iter().collect::<Vec<_>>(),
-      is_template(node),
-      context,
-      context_block,
-      seen,
-    ),
-    JSXChild::Fragment(node) => process_children(
-      &node.children.iter().collect::<Vec<_>>(),
-      true,
-      context,
-      context_block,
-      seen,
-    ),
+    JSXChild::Element(node) if !is_jsx_component(node) => {
+      let is_template = is_template(node);
+      let children = &mut node.children.iter_mut().collect() as *mut _;
+      process_children(
+        is_template,
+        unsafe { &mut *children },
+        context,
+        context_block,
+        seen,
+      )
+    }
+    JSXChild::Fragment(node) => {
+      let children = &mut node.children.iter_mut().collect() as *mut _;
+      process_children(
+        true,
+        unsafe { &mut *children },
+        context,
+        context_block,
+        seen,
+      )
+    }
     JSXChild::ExpressionContainer(node) => {
-      if let Some(expression) = node.expression.as_expression() {
-        match expression.without_parentheses().get_inner_expression() {
+      if let Some(expression) = node.expression.as_expression_mut() {
+        match expression
+          .without_parentheses_mut()
+          .get_inner_expression_mut()
+        {
           Expression::ConditionalExpression(expression) => {
             return Some(process_conditional_expression(
               expression,
               unsafe { &mut *context_node },
               context,
               context_block,
+              parent_node,
             ));
           }
           Expression::LogicalExpression(expression) => {
@@ -75,9 +82,16 @@ pub fn transform_text<'a>(
               unsafe { &mut *context_node },
               context,
               context_block,
+              parent_node,
             ));
           }
-          _ => process_interpolation(context, context_block, seen),
+          _ => process_interpolation(
+            unsafe { &mut *context_node },
+            context,
+            context_block,
+            parent_node,
+            seen,
+          ),
         }
       } else {
         dynamic.flags |= DynamicFlag::NonTemplate as i32;
@@ -98,8 +112,8 @@ pub fn transform_text<'a>(
 }
 
 fn process_children<'a>(
-  children: &Vec<&JSXChild>,
   is_fragment: bool,
+  children: &'a mut Vec<&mut JSXChild<'a>>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   seen: &mut HashSet<u32>,
@@ -107,7 +121,7 @@ fn process_children<'a>(
   if children.len() > 0 {
     let mut has_interp = false;
     let mut is_all_text_like = true;
-    for child in children {
+    for child in children.iter() {
       if let JSXChild::ExpressionContainer(child) = child {
         let exp = child.expression.as_expression();
         if if let Some(exp) = exp {
@@ -130,8 +144,7 @@ fn process_children<'a>(
       process_text_container(children, context, context_block, seen)
     } else if has_interp {
       // check if there's any text before interpolation, it needs to be merged
-      let mut i = 0;
-      for child in children {
+      for (i, child) in children.iter().enumerate() {
         let prev = if i > 0 { children.get(i - 1) } else { None };
         if let JSXChild::ExpressionContainer(_) = child
           && let Some(JSXChild::Text(_)) = prev
@@ -139,53 +152,51 @@ fn process_children<'a>(
           // mark leading text node for skipping
           mark_non_template(prev.unwrap(), seen);
         }
-        i = i + 1;
       }
     }
   }
 }
 
 fn process_interpolation<'a>(
+  context_node: &'a mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
+  parent_node: &'a mut ContextNode<'a>,
   seen: &mut HashSet<u32>,
 ) {
-  let Some(parent_node) = &*context.parent_node.borrow() else {
-    return;
-  };
   let children = match parent_node {
-    ContextNode::A(e) => &e.children,
+    ContextNode::A(e) => &mut e.children,
     ContextNode::B(e) => match e {
-      JSXChild::Element(e) => &e.children,
-      JSXChild::Fragment(e) => &e.children,
+      JSXChild::Element(e) => &mut e.children,
+      JSXChild::Fragment(e) => &mut e.children,
       _ => return,
     },
   };
   if children.len() == 0 {
     return;
   }
+  let children = children as *mut oxc_allocator::Vec<JSXChild>;
   let index = *context.index.borrow() as usize;
-  let nexts = children[index..].iter().collect::<Vec<_>>();
-  let idx = nexts.iter().position(|n| !is_text_like(n));
-  let mut nodes = if let Some(idx) = idx {
-    nexts[..idx].to_vec()
-  } else {
-    nexts
+  let nodes: &mut Vec<_> = &mut (unsafe { &mut *children })[index..].iter_mut().collect();
+  match context_node {
+    Either::A(_) => (),
+    Either::B(node) => nodes[0] = node,
+  };
+  let idx = nodes.iter().position(|n| !is_text_like(n));
+  if let Some(idx) = idx {
+    nodes.truncate(idx)
   };
 
   // merge leading text
-  let prev = if index > 0 {
-    children.get(index - 1)
-  } else {
-    None
-  };
-  if let Some(prev) = prev
+  if index > 0
+    && let Some(prev) = (unsafe { &mut *children }).get_mut(index - 1)
     && let JSXChild::Text(_) = prev
   {
     nodes.insert(0, prev);
-  }
+  };
 
-  let values = process_text_like_expressions(&nodes, context, seen);
+  let nodes = nodes as *mut Vec<&mut JSXChild>;
+  let values = process_text_like_expressions(unsafe { &mut *nodes }, context, seen);
   let dynamic = &mut context_block.dynamic;
   if values.is_empty() {
     dynamic.flags |= DynamicFlag::NonTemplate as i32;
@@ -197,8 +208,8 @@ fn process_interpolation<'a>(
   if match parent_node {
     Either::A(_) => true,
     Either::B(parent) => {
-      is_fragment_node(parent)
-        || matches!(parent, JSXChild::Element(parent) if find_prop(parent, Either::A(String::from("v-slot"))).is_some())
+      is_fragment_node(&parent)
+        || matches!(parent, JSXChild::Element(parent) if find_prop(&parent, Either::A(String::from("v-slot"))).is_some())
     }
   } {
     context.register_operation(
@@ -229,18 +240,11 @@ fn process_interpolation<'a>(
 }
 
 fn mark_non_template<'a>(node: &JSXChild, seen: &'a mut HashSet<u32>) {
-  // let seen = &mut context.seen.borrow_mut();
-  seen.insert(match node {
-    JSXChild::Element(e) => e.span.start,
-    JSXChild::Fragment(e) => e.span.start,
-    JSXChild::ExpressionContainer(e) => e.span.start,
-    JSXChild::Spread(e) => e.span.start,
-    JSXChild::Text(e) => e.span.start,
-  });
+  seen.insert(node.span().start);
 }
 
 fn process_text_container<'a>(
-  children: &Vec<&JSXChild>,
+  children: &'a mut Vec<&mut JSXChild<'a>>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   seen: &mut HashSet<u32>,
@@ -280,7 +284,7 @@ fn process_text_container<'a>(
 }
 
 fn process_text_like_expressions<'a>(
-  nodes: &Vec<&JSXChild>,
+  nodes: &'a mut Vec<&mut JSXChild<'a>>,
   context: &'a TransformContext<'a>,
   seen: &mut HashSet<u32>,
 ) -> Vec<SimpleExpressionNode<'a>> {
@@ -311,18 +315,23 @@ fn is_text_like(node: &JSXChild) -> bool {
 }
 
 pub fn process_conditional_expression<'a>(
-  node: &'a ConditionalExpression,
+  node: &'a mut ConditionalExpression<'a>,
   context_node: &'a mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
+  parent_node: &'a mut ContextNode<'a>,
 ) -> Box<dyn FnOnce() + 'a> {
-  let test = &node.test;
+  let test = &mut node.test;
   let consequent = node
     .consequent
-    .without_parentheses()
-    .get_inner_expression()
-    .clone_in(context.allocator);
-  let alternate = node.alternate.without_parentheses().get_inner_expression();
+    .without_parentheses_mut()
+    .get_inner_expression_mut()
+    .take_in(context.allocator);
+  let alternate = node
+    .alternate
+    .without_parentheses_mut()
+    .get_inner_expression_mut()
+    .take_in(context.allocator);
 
   let dynamic = &mut context_block.dynamic;
   dynamic.flags = dynamic.flags | DynamicFlag::NonTemplate as i32 | DynamicFlag::Insert as i32;
@@ -331,7 +340,7 @@ pub fn process_conditional_expression<'a>(
   let exit_block = context.create_block(context_node, unsafe { &mut *block }, consequent, None);
 
   let is_const_test = is_constant_node(&Some(&test));
-  let test = SimpleExpressionNode::new(Either3::A(&test), context);
+  let test = SimpleExpressionNode::new(Either3::A(test), context);
 
   Box::new(move || {
     let block = exit_block();
@@ -346,37 +355,45 @@ pub fn process_conditional_expression<'a>(
       anchor: None,
     };
     let _context_block = context_block as *mut BlockIRNode;
-    set_negative(alternate, &mut operation, context_node, context, unsafe {
-      &mut *_context_block
-    });
+    set_negative(
+      alternate,
+      &mut operation,
+      context_node,
+      context,
+      unsafe { &mut *_context_block },
+      parent_node,
+    );
     context_block.dynamic.operation = Some(Box::new(Either16::A(operation)));
   })
 }
 
 fn process_logical_expression<'a>(
-  node: &'a LogicalExpression,
+  node: &'a mut LogicalExpression<'a>,
   context_node: &'a mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
+  parent_node: &'a mut ContextNode<'a>,
 ) -> Box<dyn FnOnce() + 'a> {
-  let left = node.left.without_parentheses().get_inner_expression();
-  let right = node.right.without_parentheses().get_inner_expression();
-  let operator_is_and = node.operator.is_and();
+  let left = node
+    .left
+    .without_parentheses_mut()
+    .get_inner_expression_mut();
+  let right = node
+    .right
+    .without_parentheses_mut()
+    .get_inner_expression_mut()
+    .take_in(context.allocator);
 
   let dynamic = &mut context_block.dynamic;
   dynamic.flags = dynamic.flags | DynamicFlag::NonTemplate as i32 | DynamicFlag::Insert as i32;
   let id = context.reference(dynamic);
   let block = context_block as *mut BlockIRNode;
-  let exit_block = context.create_block(
-    context_node,
-    unsafe { &mut *block },
-    if operator_is_and {
-      right.clone_in(context.allocator)
-    } else {
-      left.clone_in(context.allocator)
-    },
-    None,
-  );
+  let (_left, _right) = if node.operator.is_and() {
+    (right, left.clone_in(context.allocator))
+  } else {
+    (left.clone_in(context.allocator), right)
+  };
+  let exit_block = context.create_block(context_node, unsafe { &mut *block }, _left, None);
 
   Box::new(move || {
     let block = exit_block();
@@ -385,7 +402,7 @@ fn process_logical_expression<'a>(
       id,
       positive: block,
       once: *context.in_v_once.borrow() || is_constant_node(&Some(&left)),
-      condition: SimpleExpressionNode::new(Either3::A(&left), context),
+      condition: SimpleExpressionNode::new(Either3::A(left), context),
       negative: None,
       anchor: None,
       parent: None,
@@ -393,11 +410,12 @@ fn process_logical_expression<'a>(
     let _context_block = context_block as *mut BlockIRNode;
 
     set_negative(
-      if operator_is_and { left } else { right },
+      _right,
       &mut operation,
       context_node,
       context,
       unsafe { &mut *_context_block },
+      parent_node,
     );
 
     context_block.dynamic.operation = Some(Box::new(Either16::A(operation)));
@@ -405,76 +423,83 @@ fn process_logical_expression<'a>(
 }
 
 fn set_negative<'a>(
-  node: &Expression<'a>,
+  mut node: Expression<'a>,
   operation: &mut IfIRNode<'a>,
   context_node: &mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
+  parent_node: &'a mut ContextNode<'a>,
 ) {
-  let node = node.without_parentheses().get_inner_expression();
+  let node = node.without_parentheses_mut().get_inner_expression_mut();
   if let Expression::ConditionalExpression(node) = node {
+    let node = node as *mut oxc_allocator::Box<ConditionalExpression>;
     let _context_block = context_block as *mut BlockIRNode;
     let exit_block = context.create_block(
       context_node,
       unsafe { &mut *_context_block },
-      node
+      unsafe { &mut *node }
         .consequent
-        .without_parentheses()
-        .get_inner_expression()
-        .clone_in(context.allocator),
+        .without_parentheses_mut()
+        .get_inner_expression_mut()
+        .take_in(context.allocator),
       None,
     );
-    context.transform_node(Some(unsafe { &mut *_context_block }));
+    context.transform_node(Some(unsafe { &mut *_context_block }), Some(parent_node));
     let block = exit_block();
     let mut negative = IfIRNode {
       id: -1,
-      condition: SimpleExpressionNode::new(Either3::A(&node.test), context),
+      condition: SimpleExpressionNode::new(Either3::A(&mut unsafe { &mut *node }.test), context),
       positive: block,
-      once: *context.in_v_once.borrow() || is_constant_node(&Some(&node.test)),
+      once: *context.in_v_once.borrow() || is_constant_node(&Some(&unsafe { &*node }.test)),
       negative: None,
       anchor: None,
       parent: None,
     };
     set_negative(
-      &node.alternate,
+      unsafe { &mut *node }.alternate.take_in(context.allocator),
       &mut negative,
       context_node,
       context,
       context_block,
+      parent_node,
     );
     operation.negative = Some(Box::new(Either::B(negative)));
   } else if let Expression::LogicalExpression(node) = node {
-    let left = node.left.without_parentheses().get_inner_expression();
-    let right = node.right.without_parentheses().get_inner_expression();
-    let operator_is_and = node.operator.is_and();
+    let node = node as *mut oxc_allocator::Box<LogicalExpression>;
+    let left = unsafe { &mut *node }
+      .left
+      .without_parentheses_mut()
+      .get_inner_expression_mut();
+    let right = unsafe { &mut *node }
+      .right
+      .without_parentheses_mut()
+      .get_inner_expression_mut()
+      .take_in(context.allocator);
+    let (_left, mut _right) = if unsafe { &mut *node }.operator.is_and() {
+      (right, left.clone_in(context.allocator))
+    } else {
+      (left.clone_in(context.allocator), right)
+    };
     let block = context_block as *mut BlockIRNode;
-    let exit_block = context.create_block(
-      context_node,
-      unsafe { &mut *block },
-      if operator_is_and {
-        right.clone_in(context.allocator)
-      } else {
-        left.clone_in(context.allocator)
-      },
-      None,
-    );
-    context.transform_node(Some(unsafe { &mut *block }));
+    let exit_block = context.create_block(context_node, unsafe { &mut *block }, _left, None);
+    context.transform_node(Some(unsafe { &mut *block }), Some(parent_node));
     let block = exit_block();
     let mut negative = IfIRNode {
       id: -1,
-      condition: SimpleExpressionNode::new(Either3::A(&left), context),
+      once: *context.in_v_once.borrow() || is_constant_node(&Some(left)),
+      condition: SimpleExpressionNode::new(Either3::A(left), context),
       positive: block,
-      once: *context.in_v_once.borrow() || is_constant_node(&Some(&left)),
       negative: None,
       anchor: None,
       parent: None,
     };
     set_negative(
-      if operator_is_and { left } else { right },
+      _right,
       &mut negative,
       context_node,
       context,
       context_block,
+      parent_node,
     );
     operation.negative = Some(Box::new(Either::B(negative)));
   } else {
@@ -482,10 +507,10 @@ fn set_negative<'a>(
     let exit_block = context.create_block(
       context_node,
       unsafe { &mut *block },
-      node.clone_in(context.allocator),
+      node.take_in(context.allocator),
       None,
     );
-    context.transform_node(Some(context_block));
+    context.transform_node(Some(context_block), Some(parent_node));
     let block = exit_block();
     operation.negative = Some(Box::new(Either::A(block)));
   }

@@ -1,6 +1,6 @@
 use napi::{Either, Env};
 use napi_derive::napi;
-use oxc_allocator::{Allocator, CloneIn, TakeIn};
+use oxc_allocator::{Allocator, TakeIn};
 use oxc_ast::ast::{
   Expression, JSXChild, JSXClosingFragment, JSXExpressionContainer, JSXFragment, JSXOpeningFragment,
 };
@@ -47,7 +47,6 @@ use crate::{
   utils::{
     check::{is_constant_node, is_template},
     error::ErrorCodes,
-    expression::to_jsx_expression,
   },
 };
 
@@ -129,7 +128,6 @@ pub struct TransformContext<'a> {
 
   pub ir: Rc<RefCell<RootIRNode<'a>>>,
   pub node: RefCell<ContextNode<'a>>,
-  pub parent_node: RefCell<Option<ContextNode<'a>>>,
 
   pub parent_dynamic: RefCell<IRDynamicInfo<'a>>,
 }
@@ -147,7 +145,6 @@ impl<'a> TransformContext<'a> {
       seen: Rc::new(RefCell::new(HashSet::new())),
       global_id: RefCell::new(0),
       node: RefCell::new(Either::A(RootNode::new(allocator))),
-      parent_node: RefCell::new(None),
       parent_dynamic: RefCell::new(IRDynamicInfo::new()),
       ir: Rc::new(RefCell::new(RootIRNode::new(""))),
       block: RefCell::new(BlockIRNode::new()),
@@ -156,27 +153,9 @@ impl<'a> TransformContext<'a> {
   }
 
   pub fn transform(&'a self, expression: Expression<'a>, source: &'a str) -> Expression<'a> {
-    let mut is_fragment = false;
     let allocator = self.allocator;
-    let children = match expression {
-      Expression::JSXFragment(mut node) => {
-        is_fragment = true;
-        node.children.take_in(allocator)
-      }
-      Expression::JSXElement(mut node) => oxc_allocator::Vec::from_array_in(
-        [JSXChild::Element(oxc_allocator::Box::new_in(
-          node.take_in(allocator),
-          allocator,
-        ))],
-        allocator,
-      ),
-      _ => oxc_allocator::Vec::new_in(&allocator),
-    };
     let mut ir = RootIRNode::new(source);
-    *self.node.borrow_mut() = Either::A(RootNode {
-      is_fragment,
-      children,
-    });
+    *self.node.borrow_mut() = Either::A(RootNode::from(&allocator, expression));
     *self.block.borrow_mut() = mem::take(&mut ir.block);
     *self.ir.borrow_mut() = ir;
     *self.index.borrow_mut() = 0;
@@ -185,9 +164,8 @@ impl<'a> TransformContext<'a> {
     *self.children_template.borrow_mut() = vec![];
     *self.in_v_once.borrow_mut() = false;
     *self.in_v_for.borrow_mut() = 0;
-    *self.parent_node.borrow_mut() = None;
     *self.parent_dynamic.borrow_mut() = IRDynamicInfo::new();
-    self.transform_node(None);
+    self.transform_node(None, None);
     let generate_context: *const CodegenContext = &CodegenContext::new(self);
     (unsafe { &*generate_context }).generate()
   }
@@ -221,7 +199,7 @@ impl<'a> TransformContext<'a> {
     }
     expressions
       .iter()
-      .all(|exp| is_constant_node(&exp.ast.as_ref()))
+      .all(|exp| is_constant_node(&exp.ast.as_deref()))
   }
 
   pub fn register_effect(
@@ -332,13 +310,16 @@ impl<'a> TransformContext<'a> {
     exit_block
   }
 
-  pub fn wrap_fragment(self: &Self, node: Expression<'a>) -> JSXChild<'a> {
+  pub fn wrap_fragment(self: &Self, mut node: Expression<'a>) -> JSXChild<'a> {
     if let Expression::JSXFragment(node) = node {
       JSXChild::Fragment(node)
-    } else if let Expression::JSXElement(node) = &node
+    } else if let Expression::JSXElement(node) = &mut node
       && is_template(node)
     {
-      JSXChild::Element(node.clone_in(self.allocator))
+      JSXChild::Element(oxc_allocator::Box::new_in(
+        node.take_in(self.allocator),
+        self.allocator,
+      ))
     } else {
       JSXChild::Fragment(oxc_allocator::Box::new_in(
         JSXFragment {
@@ -352,7 +333,7 @@ impl<'a> TransformContext<'a> {
               _ => JSXChild::ExpressionContainer(oxc_allocator::Box::new_in(
                 JSXExpressionContainer {
                   span: SPAN,
-                  expression: to_jsx_expression(node),
+                  expression: node.into(),
                 },
                 self.allocator,
               )),
@@ -409,6 +390,7 @@ impl<'a> TransformContext<'a> {
   pub fn transform_node(
     self: &TransformContext<'a>,
     context_block: Option<&'a mut BlockIRNode<'a>>,
+    parent_node: Option<&mut ContextNode<'a>>,
   ) {
     let context_block = if let Some(context_block) = context_block {
       context_block
@@ -422,6 +404,8 @@ impl<'a> TransformContext<'a> {
     let is_root = matches!(&*self.node.borrow(), Either::A(_));
     if !is_root {
       let context = self as *const TransformContext;
+      let node = &mut *self.node.borrow_mut() as *mut _;
+      let parent_node = parent_node.unwrap() as *mut ContextNode;
       for node_transform in vec![
         transform_v_once,
         transform_v_if,
@@ -432,9 +416,12 @@ impl<'a> TransformContext<'a> {
         transform_v_slots,
         transform_v_slot,
       ] {
-        let on_exit = node_transform(&mut self.node.borrow_mut(), unsafe { &*context }, unsafe {
-          &mut *block
-        });
+        let on_exit = node_transform(
+          unsafe { &mut *node },
+          unsafe { &*context },
+          unsafe { &mut *block },
+          unsafe { &mut *parent_node },
+        );
         if let Some(on_exit) = on_exit {
           exit_fns.push(on_exit);
         }
@@ -442,7 +429,7 @@ impl<'a> TransformContext<'a> {
     }
 
     transform_children(
-      self.node.replace(Either::A(RootNode::new(self.allocator))),
+      &mut self.node.replace(Either::A(RootNode::new(self.allocator))),
       self,
       unsafe { &mut *block },
     );

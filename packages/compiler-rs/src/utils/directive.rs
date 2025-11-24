@@ -8,7 +8,7 @@ use crate::{
 };
 
 pub fn resolve_directive<'a>(
-  node: &JSXAttribute,
+  node: &'a mut JSXAttribute<'a>,
   context: &TransformContext<'a>,
 ) -> DirectiveNode<'a> {
   let mut arg_string = String::new();
@@ -81,7 +81,7 @@ pub fn resolve_directive<'a>(
     None
   };
 
-  let exp = if let Some(exp) = &node.value {
+  let exp = if let Some(exp) = &mut node.value {
     Some(SimpleExpressionNode::new(Either3::C(exp), context))
   } else {
     None

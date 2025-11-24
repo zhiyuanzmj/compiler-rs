@@ -1,4 +1,4 @@
-use oxc_allocator::CloneIn;
+use oxc_allocator::{CloneIn, TakeIn};
 use oxc_ast::{
   NONE,
   ast::{AssignmentOperator, AssignmentTarget, Expression, FormalParameterKind},
@@ -59,11 +59,11 @@ pub fn gen_expression<'a>(
         {
           return None;
         };
-        Some(gen_identifier(content, context, span, None).clone_in(context.ast.allocator))
+        Some(gen_identifier(content, context, span, None))
       }),
       false,
     )
-    .traverse(ast)
+    .traverse(ast.take_in(context.ast.allocator))
   };
   if let Some(assignment) = assignment {
     let span = expression.span();

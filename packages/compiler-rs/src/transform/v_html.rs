@@ -8,12 +8,12 @@ use crate::{
 };
 
 pub fn transform_v_html<'a>(
-  dir: &JSXAttribute,
+  dir: &'a mut JSXAttribute<'a>,
   node: &JSXElement,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<DirectiveTransformResult<'a>> {
-  let exp = if let Some(value) = &dir.value {
+  let exp = if let Some(value) = &mut dir.value {
     SimpleExpressionNode::new(Either3::C(value), context)
   } else {
     context.options.on_error.as_ref()(ErrorCodes::VHtmlNoExpression);

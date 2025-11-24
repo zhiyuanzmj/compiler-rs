@@ -18,19 +18,6 @@ pub fn is_member_expression(exp: &SimpleExpressionNode) -> bool {
   }
 }
 
-// macro_rules! def_literal_checker {
-//   ($name:ident, $type:ty) => {
-//     pub fn $name(node: Option<Object>) -> bool {
-//       let Some(node) = node else { return false };
-//       if let Ok(Some(type_value)) = node.get::<String>("type") {
-//         type_value.eq("Literal") && matches!(node.get::<$type>("value"), Ok(Some(_)))
-//       } else {
-//         false
-//       }
-//     }
-//   };
-// }
-
 pub fn is_template<'a>(node: &'a JSXElement<'a>) -> bool {
   if let JSXElementName::Identifier(name) = &node.opening_element.name {
     name.name.eq("template")

@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use indexmap::IndexMap;
 use napi::bindgen_prelude::{Either, Either4};
-use oxc_allocator::CloneIn;
+use oxc_allocator::TakeIn;
 use oxc_ast::{
   NONE,
   ast::{BindingPatternKind, Expression, FormalParameterKind, PropertyKind},
@@ -426,12 +426,12 @@ fn gen_slot_block_with_props<'a>(
         WalkIdentifiers::new(
           context,
           Box::new(|id, _, _, _, _| {
-            ids_of_props.insert(id.get_identifier_reference().unwrap().name.to_string());
+            ids_of_props.insert(id.name.to_string());
             None
           }),
           false,
         )
-        .traverse(ast);
+        .traverse(ast.take_in(context.ast.allocator));
       }
       exit_scope = Some(scope.1);
     } else {
@@ -484,10 +484,10 @@ fn gen_slot_block_with_props<'a>(
         false,
       )
     },
-    &id_map,
+    id_map,
   );
   if let Some(exit_scope) = exit_scope {
     exit_scope();
   };
-  block_fn.clone_in(ast.allocator)
+  block_fn
 }

@@ -10,8 +10,8 @@ use oxc_span::SPAN;
 use crate::generate::CodegenContext;
 use crate::generate::operation::gen_operations;
 use crate::generate::template::gen_self;
-use crate::generate::utils::to_valid_asset_id;
 use crate::ir::index::BlockIRNode;
+use crate::utils::text::to_valid_asset_id;
 
 pub fn gen_block<'a>(
   oper: BlockIRNode<'a>,

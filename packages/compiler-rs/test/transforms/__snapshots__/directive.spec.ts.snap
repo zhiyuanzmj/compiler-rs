@@ -33,7 +33,7 @@ exports[`directive > custom directive > component 1`] = `
         { world: true }
       ]]);
       return n5;
-    }, null, true);
+    });
     return n2;
   } }, true);
   _withVaporDirectives(n0, [[vTest]]);

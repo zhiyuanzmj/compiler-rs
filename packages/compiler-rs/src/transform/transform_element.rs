@@ -6,7 +6,7 @@ use napi::{
 };
 use oxc_ast::ast::{
   JSXAttribute, JSXAttributeItem, JSXAttributeName, JSXAttributeValue, JSXChild, JSXElement,
-  JSXElementName, JSXExpression,
+  JSXElementName,
 };
 use oxc_span::SPAN;
 
@@ -57,9 +57,10 @@ pub fn is_directive(s: &str) -> bool {
 }
 
 pub fn transform_element<'a>(
-  context_node: &mut ContextNode<'a>,
+  context_node: &'a mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
+  parent_node: &'a mut ContextNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
   let Either::B(JSXChild::Element(node)) = context_node else {
     return None;
@@ -91,28 +92,10 @@ pub fn transform_element<'a>(
     Rc::clone(&get_effect_index),
     Rc::clone(&get_operation_index),
   );
-  Some(Box::new(move || {
-    let single_root = if let Some(Either::A(parent_node)) = &*context.parent_node.borrow()
-      && !parent_node.is_fragment
-      && parent_node
-        .children
-        .iter()
-        .filter(|child| {
-          !matches!(
-            child,
-            JSXChild::ExpressionContainer(exp)
-            if matches!(exp.expression, JSXExpression::EmptyExpression(_))
-          )
-        })
-        .collect::<Vec<_>>()
-        .len()
-        == 1
-    {
-      true
-    } else {
-      false
-    };
 
+  let single_root = matches!(parent_node, Either::A(parent_node) if parent_node.is_single_root);
+
+  Some(Box::new(move || {
     if is_component {
       transform_component_element(tag, props_result, single_root, context, context_block);
     } else {
@@ -122,6 +105,7 @@ pub fn transform_element<'a>(
         single_root,
         context,
         context_block,
+        parent_node,
         Rc::clone(&get_effect_index),
         Rc::clone(&get_operation_index),
       );
@@ -135,6 +119,7 @@ pub fn transform_native_element<'a>(
   single_root: bool,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
+  parent_node: &'a mut ContextNode<'a>,
   get_effect_index: Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>,
   get_operation_index: Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>,
 ) {
@@ -201,7 +186,7 @@ pub fn transform_native_element<'a>(
     ir.root_template_index = Some(context.options.templates.borrow().len())
   }
 
-  if let Some(Either::B(JSXChild::Element(parent_node))) = &*context.parent_node.borrow()
+  if let Either::B(JSXChild::Element(parent_node)) = parent_node
     && let JSXElementName::Identifier(name) = &parent_node.opening_element.name
     && !is_valid_html_nesting(&name.name, &tag)
   {
@@ -266,14 +251,15 @@ pub struct PropsResult<'a> {
 }
 
 pub fn build_props<'a>(
-  node: &JSXElement,
+  node: &'a mut JSXElement<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   is_component: bool,
   get_effect_index: Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>,
   get_operation_index: Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>,
 ) -> PropsResult<'a> {
-  let props = &node.opening_element.attributes;
+  let node = node as *mut JSXElement;
+  let props = &mut (unsafe { &mut *node }).opening_element.attributes;
   if props.is_empty() {
     return PropsResult {
       dynamic: false,
@@ -287,7 +273,7 @@ pub fn build_props<'a>(
   for prop in props {
     match prop {
       JSXAttributeItem::SpreadAttribute(prop) => {
-        let value = SimpleExpressionNode::new(Either3::A(&prop.argument), context);
+        let value = SimpleExpressionNode::new(Either3::A(&mut prop.argument), context);
         if !results.is_empty() {
           dynamic_args.push(Either3::A(dedupe_properties(results)));
           results = vec![];
@@ -301,8 +287,8 @@ pub fn build_props<'a>(
       JSXAttributeItem::Attribute(prop) => {
         if prop.name.get_identifier().name.eq("v-on") {
           // v-on={obj}
-          if let Some(prop_value) = &prop.value {
-            let value = SimpleExpressionNode::new(Either3::C(&prop_value), context);
+          if let Some(prop_value) = &mut prop.value {
+            let value = SimpleExpressionNode::new(Either3::C(prop_value), context);
             if is_component {
               if !results.is_empty() {
                 dynamic_args.push(Either3::A(dedupe_properties(results)));
@@ -335,7 +321,7 @@ pub fn build_props<'a>(
         let context_block = context_block as *mut BlockIRNode;
         if let Some(prop) = transform_prop(
           prop,
-          node,
+          unsafe { &mut *node },
           is_component,
           context,
           unsafe { &mut *context_block },
@@ -386,8 +372,8 @@ pub fn build_props<'a>(
 }
 
 pub fn transform_prop<'a>(
-  prop: &JSXAttribute,
-  node: &JSXElement,
+  prop: &'a mut JSXAttribute<'a>,
+  node: &'a mut JSXElement<'a>,
   is_component: bool,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,

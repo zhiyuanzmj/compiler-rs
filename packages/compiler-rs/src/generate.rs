@@ -11,7 +11,6 @@ pub mod slot;
 pub mod template;
 pub mod template_ref;
 pub mod text;
-pub mod utils;
 pub mod v_for;
 pub mod v_if;
 pub mod v_model;
@@ -23,7 +22,6 @@ use std::{
   mem,
 };
 
-use oxc_allocator::CloneIn;
 use oxc_ast::{
   AstBuilder, NONE,
   ast::{Expression, FormalParameterKind, Program, Statement, VariableDeclarationKind},
@@ -71,22 +69,17 @@ impl<'a> CodegenContext<'a> {
   pub fn with_id(
     &self,
     _fn: impl FnOnce() -> Expression<'a>,
-    id_map: &HashMap<String, Option<Expression<'a>>>,
+    mut id_map: HashMap<String, Option<Expression<'a>>>,
   ) -> Expression<'a> {
-    let ids = id_map.keys();
-    for id in ids {
+    for (id, value) in id_map.iter_mut() {
       let mut identifiers = self.identifiers.borrow_mut();
       if identifiers.get(id).is_none() {
         identifiers.insert(id.clone(), vec![]);
       }
       identifiers.get_mut(id).unwrap().insert(
         0,
-        if let Some(value) = id_map.get(id) {
-          if let Some(value) = value {
-            value.clone_in(self.ast.allocator)
-          } else {
-            self.ast.expression_identifier(SPAN, self.ast.atom(&id))
-          }
+        if let Some(_) = value {
+          value.take().unwrap()
         } else {
           self.ast.expression_identifier(SPAN, self.ast.atom(&id))
         },

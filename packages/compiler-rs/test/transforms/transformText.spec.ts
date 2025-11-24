@@ -40,7 +40,7 @@ describe('compiler: text transform', () => {
 
 describe('compiler: expression', () => {
   test('conditional expression', () => {
-    const { code, helpers, templates } = compile(`<>{ok? <span>{msg}</span> : fail ? <div>fail</div>  : null }</>`)
+    const { code, helpers, templates } = compile(`<>{ok? (<span>{msg}</span>) : fail ? (<div>fail</div>)  : null }</>`)
     expect(code).toMatchSnapshot()
     expect(helpers).contains('createIf')
     expect(templates).toMatchInlineSnapshot(`
@@ -57,7 +57,7 @@ describe('compiler: expression', () => {
     `)
   })
   test('logical expression', () => {
-    const { code, helpers, templates } = compile(`<>{ok && <div>{msg}</div>}</>`)
+    const { code, helpers, templates } = compile(`<>{ok && (<div>{msg}</div>)}</>`)
 
     expect(helpers).contains('createIf')
     expect(templates).toMatchInlineSnapshot(`
@@ -91,5 +91,16 @@ describe('compiler: expression', () => {
         ],
       ]
     `)
+  })
+
+  test('map expression', () => {
+    const { code } = compile(`<>{Array.from({ length: count.value }).map((_, index) => {
+        if (index > 1) {
+          return <div>1</div>
+        } else {
+          return [<span>({index}) lt 1</span>, <br />]
+        }
+      })}</>`)
+    expect(code).toMatchSnapshot()
   })
 })

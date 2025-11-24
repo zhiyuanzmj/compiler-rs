@@ -186,7 +186,7 @@ fn combine_values<'a>(
       && !is_set_text
       && !value.content.is_empty()
       && !value.is_static
-      && !is_constant_node(&value.ast.as_ref());
+      && !is_constant_node(&value.ast.as_deref());
     let literal_expression_value = &value.get_literal_expression_value();
     let exp = gen_expression(value, context, None, Some(should_wrap));
     if is_set_text && literal_expression_value.is_none() {

@@ -1,17 +1,17 @@
 use std::{collections::VecDeque, mem};
 
 use napi::{Either, bindgen_prelude::Either16};
-use oxc_allocator::CloneIn;
+use oxc_allocator::{CloneIn, TakeIn};
 use oxc_ast::ast::JSXChild;
 
 use crate::{
-  ir::index::{BlockIRNode, DynamicFlag, IRDynamicInfo, InsertNodeIRNode, RootNode},
-  transform::TransformContext,
+  ir::index::{BlockIRNode, DynamicFlag, IRDynamicInfo, InsertNodeIRNode},
+  transform::{ContextNode, TransformContext},
   utils::check::{is_fragment_node, is_jsx_component},
 };
 
 pub fn transform_children<'a>(
-  node: Either<RootNode<'a>, JSXChild<'a>>,
+  node: &mut ContextNode<'a>,
   context: &TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
@@ -30,24 +30,37 @@ pub fn transform_children<'a>(
     return None;
   }
 
-  let children = match &node {
-    Either::A(node) => node.children.clone_in(context.allocator),
+  let _node = node as *mut ContextNode;
+  let children = match node {
+    Either::A(node) => &mut node.children,
     Either::B(node) => match node {
-      JSXChild::Element(node) => node.children.clone_in(context.allocator),
-      JSXChild::Fragment(node) => node.children.clone_in(context.allocator),
-      _ => panic!("ignore"),
+      JSXChild::Element(node) => &mut node.children,
+      JSXChild::Fragment(node) => &mut node.children,
+      _ => unreachable!(),
     },
-  };
-  let parent_node = context.parent_node.replace(Some(node));
+  } as *mut oxc_allocator::Vec<JSXChild>;
   let mut parent_children_template = context.children_template.take();
   let grand_parent_dynamic = context
     .parent_dynamic
     .replace(mem::take(&mut context_block.dynamic));
+  let _context_block = context_block as *mut BlockIRNode;
   let mut i = 0;
-  for child in children {
-    let _context_block = context_block as *mut BlockIRNode;
-    let exit_context = context.create(child, i, unsafe { &mut *_context_block });
-    context.transform_node(Some(unsafe { &mut *_context_block }));
+  while let Some(child) = unsafe { &mut *children }.get_mut(i) {
+    let exit_context = context.create(
+      if let Some(next) = unsafe { &mut *children }.get_mut(i + 1)
+        && let JSXChild::ExpressionContainer(_) = next
+      {
+        child.clone_in(context.allocator)
+      } else {
+        child.take_in(context.allocator)
+      },
+      i as i32,
+      unsafe { &mut *_context_block },
+    );
+    context.transform_node(
+      Some(unsafe { &mut *_context_block }),
+      Some(unsafe { &mut *_node }),
+    );
 
     let mut parent_dynamic = context.parent_dynamic.borrow_mut();
     let child_dynamic = &mut context_block.dynamic;
@@ -78,7 +91,6 @@ pub fn transform_children<'a>(
     exit_context();
     i += 1;
   }
-  *context.parent_node.borrow_mut() = parent_node;
   *context.children_template.borrow_mut() = parent_children_template;
   context_block.dynamic = context.parent_dynamic.replace(grand_parent_dynamic);
 

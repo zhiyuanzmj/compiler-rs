@@ -117,7 +117,7 @@ exports[`compiler: v-if > v-if + v-if / v-else[-if] 1`] = `
   const n0 = _createIf(() => "foo", () => {
     const n2 = t0();
     return n2;
-  }, null, true);
+  });
   _setInsertionState(n8);
   const n3 = _createIf(() => "bar", () => {
     const n5 = t1();
@@ -125,7 +125,7 @@ exports[`compiler: v-if > v-if + v-if / v-else[-if] 1`] = `
   }, () => {
     const n7 = t2();
     return n7;
-  }, true);
+  });
   return n8;
 })();
 "

@@ -1,7 +1,6 @@
 use napi::bindgen_prelude::Either3;
 
-use oxc_allocator::CloneIn;
-use oxc_ast::ast::{Expression, JSXAttributeValue, JSXChild, JSXExpression};
+use oxc_ast::ast::{Expression, JSXAttributeValue, JSXChild};
 use oxc_span::{GetSpan, SPAN, Span};
 use phf::phf_set;
 
@@ -15,7 +14,7 @@ pub struct SimpleExpressionNode<'a> {
   pub content: String,
   pub is_static: bool,
   pub loc: Span,
-  pub ast: Option<Expression<'a>>,
+  pub ast: Option<&'a mut Expression<'a>>,
 }
 
 impl<'a> Clone for SimpleExpressionNode<'a> {
@@ -42,7 +41,7 @@ impl<'a> Default for SimpleExpressionNode<'a> {
 
 impl<'a> SimpleExpressionNode<'a> {
   pub fn new(
-    node: Either3<&Expression, &JSXChild, &JSXAttributeValue>,
+    node: Either3<&'a mut Expression<'a>, &'a mut JSXChild<'a>, &'a mut JSXAttributeValue<'a>>,
     context: &TransformContext<'a>,
   ) -> SimpleExpressionNode<'a> {
     let mut is_static = false;
@@ -50,15 +49,15 @@ impl<'a> SimpleExpressionNode<'a> {
     let mut loc = SPAN;
     let content = match node {
       Either3::A(node) => {
-        ast = Some(node.clone_in(context.allocator));
         loc = node.span();
+        ast = Some(node);
         loc.source_text(context.ir.borrow().source).to_string()
       }
       Either3::B(node) => match node {
         JSXChild::ExpressionContainer(node) => {
-          let expression = node.expression.to_expression();
-          ast = Some(expression.clone_in(context.allocator));
+          let expression = node.expression.to_expression_mut();
           loc = expression.span();
+          ast = Some(expression);
           loc.source_text(context.ir.borrow().source).to_string()
         }
         JSXChild::Text(node) => {
@@ -77,15 +76,14 @@ impl<'a> SimpleExpressionNode<'a> {
       },
       Either3::C(node) => match node {
         JSXAttributeValue::ExpressionContainer(node) => {
-          let expression = node.expression.to_expression();
-          ast = Some(expression.clone_in(context.allocator));
+          let expression = node.expression.to_expression_mut();
           is_static = matches!(expression, Expression::StringLiteral(_));
           loc = expression.span();
+          ast = Some(expression);
           loc.source_text(context.ir.borrow().source).to_string()
         }
         JSXAttributeValue::StringLiteral(node) => {
           is_static = true;
-          ast = Some(Expression::StringLiteral(node.clone_in(context.allocator)));
           loc = node.span;
           node.value.to_string()
         }
@@ -122,54 +120,6 @@ impl<'a> SimpleExpressionNode<'a> {
     } else {
       None
     }
-  }
-}
-
-pub fn to_jsx_expression<'a>(expression: Expression<'a>) -> JSXExpression<'a> {
-  match expression {
-    Expression::BooleanLiteral(e) => JSXExpression::BooleanLiteral(e),
-    Expression::NullLiteral(e) => JSXExpression::NullLiteral(e),
-    Expression::NumericLiteral(e) => JSXExpression::NumericLiteral(e),
-    Expression::BigIntLiteral(e) => JSXExpression::BigIntLiteral(e),
-    Expression::RegExpLiteral(e) => JSXExpression::RegExpLiteral(e),
-    Expression::StringLiteral(e) => JSXExpression::StringLiteral(e),
-    Expression::TemplateLiteral(e) => JSXExpression::TemplateLiteral(e),
-    Expression::Identifier(e) => JSXExpression::Identifier(e),
-    Expression::MetaProperty(e) => JSXExpression::MetaProperty(e),
-    Expression::Super(e) => JSXExpression::Super(e),
-    Expression::ArrayExpression(e) => JSXExpression::ArrayExpression(e),
-    Expression::ArrowFunctionExpression(e) => JSXExpression::ArrowFunctionExpression(e),
-    Expression::AssignmentExpression(e) => JSXExpression::AssignmentExpression(e),
-    Expression::AwaitExpression(e) => JSXExpression::AwaitExpression(e),
-    Expression::BinaryExpression(e) => JSXExpression::BinaryExpression(e),
-    Expression::CallExpression(e) => JSXExpression::CallExpression(e),
-    Expression::ChainExpression(e) => JSXExpression::ChainExpression(e),
-    Expression::ClassExpression(e) => JSXExpression::ClassExpression(e),
-    Expression::ComputedMemberExpression(e) => JSXExpression::ComputedMemberExpression(e),
-    Expression::ConditionalExpression(e) => JSXExpression::ConditionalExpression(e),
-    Expression::FunctionExpression(e) => JSXExpression::FunctionExpression(e),
-    Expression::ImportExpression(e) => JSXExpression::ImportExpression(e),
-    Expression::LogicalExpression(e) => JSXExpression::LogicalExpression(e),
-    Expression::NewExpression(e) => JSXExpression::NewExpression(e),
-    Expression::ObjectExpression(e) => JSXExpression::ObjectExpression(e),
-    Expression::ParenthesizedExpression(e) => JSXExpression::ParenthesizedExpression(e),
-    Expression::PrivateFieldExpression(e) => JSXExpression::PrivateFieldExpression(e),
-    Expression::StaticMemberExpression(e) => JSXExpression::StaticMemberExpression(e),
-    Expression::SequenceExpression(e) => JSXExpression::SequenceExpression(e),
-    Expression::TaggedTemplateExpression(e) => JSXExpression::TaggedTemplateExpression(e),
-    Expression::ThisExpression(e) => JSXExpression::ThisExpression(e),
-    Expression::UnaryExpression(e) => JSXExpression::UnaryExpression(e),
-    Expression::UpdateExpression(e) => JSXExpression::UpdateExpression(e),
-    Expression::YieldExpression(e) => JSXExpression::YieldExpression(e),
-    Expression::PrivateInExpression(e) => JSXExpression::PrivateInExpression(e),
-    Expression::JSXElement(e) => JSXExpression::JSXElement(e),
-    Expression::JSXFragment(e) => JSXExpression::JSXFragment(e),
-    Expression::TSAsExpression(e) => JSXExpression::TSAsExpression(e),
-    Expression::TSSatisfiesExpression(e) => JSXExpression::TSSatisfiesExpression(e),
-    Expression::TSTypeAssertion(e) => JSXExpression::TSTypeAssertion(e),
-    Expression::TSNonNullExpression(e) => JSXExpression::TSNonNullExpression(e),
-    Expression::TSInstantiationExpression(e) => JSXExpression::TSInstantiationExpression(e),
-    Expression::V8IntrinsicExpression(e) => JSXExpression::V8IntrinsicExpression(e),
   }
 }
 

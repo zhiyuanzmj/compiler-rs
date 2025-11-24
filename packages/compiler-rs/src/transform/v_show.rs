@@ -8,7 +8,7 @@ use crate::{
 };
 
 pub fn transform_v_show<'a>(
-  _dir: &JSXAttribute,
+  _dir: &'a mut JSXAttribute<'a>,
   _: &JSXElement,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
