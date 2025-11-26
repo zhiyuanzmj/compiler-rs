@@ -25,13 +25,13 @@ pub fn transform_v_model<'a>(
   let dir = resolve_directive(_dir, context);
 
   let Some(exp) = &dir.exp else {
-    context.options.on_error.as_ref()(ErrorCodes::VModelNoExpression);
+    context.options.on_error.as_ref()(ErrorCodes::VModelNoExpression, dir.loc);
     return None;
   };
 
   let exp_string = &exp.content;
   if exp_string.trim().is_empty() || !is_member_expression(exp) {
-    context.options.on_error.as_ref()(ErrorCodes::VModelMalformedExpression);
+    context.options.on_error.as_ref()(ErrorCodes::VModelMalformedExpression, exp.loc);
     return None;
   }
 
@@ -65,7 +65,7 @@ pub fn transform_v_model<'a>(
   }
 
   if dir.arg.is_some() {
-    context.options.on_error.as_ref()(ErrorCodes::VModelArgOnElement);
+    context.options.on_error.as_ref()(ErrorCodes::VModelArgOnElement, dir.loc);
   }
 
   let tag = get_tag_name(&node.opening_element.name, context);
@@ -86,7 +86,7 @@ pub fn transform_v_model<'a>(
             "checkbox" => model_type = "checkbox",
             "file" => {
               model_type = "";
-              context.options.on_error.as_ref()(ErrorCodes::VModelOnFileInputElement);
+              context.options.on_error.as_ref()(ErrorCodes::VModelOnFileInputElement, node.span);
             }
             // text type
             _ => check_duplicated_value(node, context),
@@ -105,8 +105,8 @@ pub fn transform_v_model<'a>(
       // textarea
       check_duplicated_value(node, context)
     }
-  } else {
-    context.options.on_error.as_ref()(ErrorCodes::VModelOnInvalidElement)
+  } else if !is_custom_element {
+    context.options.on_error.as_ref()(ErrorCodes::VModelOnInvalidElement, node.span)
   }
 
   if !model_type.is_empty() {
@@ -134,7 +134,7 @@ fn check_duplicated_value(node: &JSXElement, context: &TransformContext) {
   if let Some(value) = value
     && !matches!(value.value, Some(JSXAttributeValue::StringLiteral(_)))
   {
-    context.options.on_error.as_ref()(ErrorCodes::VModelUnnecessaryValue);
+    context.options.on_error.as_ref()(ErrorCodes::VModelUnnecessaryValue, value.span);
   }
 }
 

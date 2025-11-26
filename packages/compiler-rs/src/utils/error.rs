@@ -27,6 +27,7 @@ pub enum ErrorCodes {
   VModelOnFileInputElement = 59,
   VModelUnnecessaryValue = 60,
   VShowNoExpression = 61,
+  VSlotsNoExpression = 62,
 }
 
 pub static ERROR_MESSAGES: LazyLock<HashMap<ErrorCodes, &str>> = LazyLock::new(|| {
@@ -68,6 +69,10 @@ pub static ERROR_MESSAGES: LazyLock<HashMap<ErrorCodes, &str>> = LazyLock::new(|
     (
       ErrorCodes::VSlotMisplaced,
       "v-slot can only be used on components or <template> tags.",
+    ),
+    (
+      ErrorCodes::VSlotsNoExpression,
+      "v-slots is missing expression.",
     ),
     (
       ErrorCodes::VHtmlNoExpression,
@@ -114,14 +119,10 @@ pub struct CompilerError {
   pub loc: Option<(u32, u32)>,
 }
 
-pub fn create_compiler_error<'a>(
-  env: &'a Env,
-  code: ErrorCodes,
-  loc: Option<Span>,
-) -> Result<Object<'a>> {
+pub fn create_compiler_error<'a>(env: &'a Env, code: ErrorCodes, loc: Span) -> Result<Object<'a>> {
   let msg = ERROR_MESSAGES.get(&code).unwrap().to_string();
   let mut error = env.create_error(Error::from_reason(&msg))?;
   error.set("code", code as i32)?;
-  error.set("loc", loc.map(|loc| (loc.start, loc.end)))?;
+  error.set("loc", (loc.start, loc.end))?;
   Ok(error)
 }

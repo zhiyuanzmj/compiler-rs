@@ -15,12 +15,11 @@ use crate::{
 };
 
 pub fn transform_v_if<'a>(
-  context_node: &'a mut ContextNode<'a>,
+  context_node: *mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   _: &'a mut ContextNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
-  let context_node = context_node as *mut ContextNode;
   let Either::B(JSXChild::Element(node)) = (unsafe { &mut *context_node }) else {
     return None;
   };
@@ -50,7 +49,7 @@ pub fn transform_v_if<'a>(
   if dir.name != "else"
     && (dir.exp.is_none() || dir.exp.as_ref().unwrap().content.trim().is_empty())
   {
-    context.options.on_error.as_ref()(ErrorCodes::VIfNoExpression);
+    context.options.on_error.as_ref()(ErrorCodes::VIfNoExpression, dir.loc);
     dir.exp = Some(SimpleExpressionNode {
       content: "true".to_string(),
       is_static: false,
@@ -109,7 +108,7 @@ pub fn transform_v_if<'a>(
 
   // check if IfNode is the last operation and get the root IfNode
   let Some(mut last_if_node) = last_if_node else {
-    context.options.on_error.as_ref()(ErrorCodes::VElseNoAdjacentIf);
+    context.options.on_error.as_ref()(ErrorCodes::VElseNoAdjacentIf, unsafe { &*node }.span);
     return None;
   };
 
@@ -123,7 +122,7 @@ pub fn transform_v_if<'a>(
 
   // Check if v-else was followed by v-else-if
   if dir.name == "else-if" && last_if_node.negative.is_some() {
-    context.options.on_error.as_ref()(ErrorCodes::VElseNoAdjacentIf);
+    context.options.on_error.as_ref()(ErrorCodes::VElseNoAdjacentIf, dir.loc);
   };
 
   let exit_block = context.create_block(

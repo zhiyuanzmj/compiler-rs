@@ -19,12 +19,11 @@ use crate::{
 };
 
 pub fn transform_v_for<'a>(
-  context_node: &'a mut ContextNode<'a>,
+  context_node: *mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   parent_node: &'a mut ContextNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
-  let context_node = context_node as *mut ContextNode;
   let Either::B(JSXChild::Element(node)) = (unsafe { &mut *context_node }) else {
     return None;
   };
@@ -39,21 +38,24 @@ pub fn transform_v_for<'a>(
     return None;
   };
   let seen = &mut context.seen.borrow_mut();
-  let start = dir.span.start;
-  if seen.contains(&start) {
+  let span = dir.span;
+  if seen.contains(&span.start) {
     return None;
   }
-  seen.insert(start);
+  seen.insert(span.start);
 
-  let IRFor {
+  let Some(IRFor {
     value,
     index,
     key,
     source,
-  } = get_for_parse_result(dir, context);
+  }) = get_for_parse_result(dir, context)
+  else {
+    return None;
+  };
 
   let Some(source) = source else {
-    context.options.on_error.as_ref()(ErrorCodes::VForMalformedExpression);
+    context.options.on_error.as_ref()(ErrorCodes::VForMalformedExpression, span);
     return None;
   };
 
@@ -131,7 +133,7 @@ pub fn transform_v_for<'a>(
 pub fn get_for_parse_result<'a>(
   dir: &'a mut JSXAttribute<'a>,
   context: &'a TransformContext<'a>,
-) -> IRFor<'a> {
+) -> Option<IRFor<'a>> {
   let mut value: Option<SimpleExpressionNode> = None;
   let mut index: Option<SimpleExpressionNode> = None;
   let mut key: Option<SimpleExpressionNode> = None;
@@ -176,14 +178,15 @@ pub fn get_for_parse_result<'a>(
       ));
     }
   } else {
-    context.options.on_error.as_ref()(ErrorCodes::VForNoExpression);
+    context.options.on_error.as_ref()(ErrorCodes::VForNoExpression, dir.span);
+    return None;
   }
-  return IRFor {
+  return Some(IRFor {
     value,
     index,
     key,
     source,
-  };
+  });
 }
 
 fn is_template_with_single_component<'a>(node: &'a JSXElement<'a>) -> bool {

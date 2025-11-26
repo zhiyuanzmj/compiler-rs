@@ -28,34 +28,34 @@ function vueJsxVaporTransform(source) {
 
 const bench = new Bench()
 
-let source = `
-<Comp
-  foo={foo}
-  ref={foo}
-  onClick={()=> alert(1)}
-  v-show={true}
-  v-model={foo}
-  v-once
-  v-slot={foo}
->
-  <div
-    v-if={foo}
-    v-for={({item}, index) in list}
-    key={key}
+const source = `export default () => <>${`
+  <Comp
+    foo={foo}
+    ref={foo}
+    onClick={()=> alert(1)}
+    v-show={true}
+    v-model={foo}
+    v-once
+    v-slot={foo}
   >
-    {item}
-  </div>
-  <span v-else-if={bar}>
-    bar
-  </span>
-  <Foo v-else>
-    default
-    <template v-slot:bar={{ bar }}>
-      {bar}
-    </template>
-  </Foo>
-</Comp>`
-source = `<>${source.repeat(12)}</>`
+    <div
+      v-if={foo}
+      v-for={({item}, index) in list}
+      key={key}
+    >
+      {item}
+    </div>
+    <span v-else-if={bar}>
+      bar
+    </span>
+    <Foo v-else>
+      default
+      <template v-slot:bar={{ bar }}>
+        {bar}
+      </template>
+    </Foo>
+  </Comp>`.repeat(12)}
+</>`
 
 console.time('vue-jsx                    + babel-parser  ')
 vueJsxTransform(source)
@@ -78,9 +78,9 @@ bench.add('compiler-js + babel-parser', () => {
 })
 
 bench.add('compiler-rs + oxc-parser', () => {
-  rsTransform(source, {})
+  rsTransform(source)
 })
 
-await bench.run()
+// await bench.run()
 
-console.table(bench.table())
+// console.table(bench.table())

@@ -22,12 +22,11 @@ use crate::{
 };
 
 pub fn transform_text<'a>(
-  context_node: &'a mut ContextNode<'a>,
+  context_node: *mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   parent_node: &'a mut ContextNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
-  let context_node = context_node as *mut ContextNode;
   let Either::B(node) = (unsafe { &mut *context_node }) else {
     return None;
   };

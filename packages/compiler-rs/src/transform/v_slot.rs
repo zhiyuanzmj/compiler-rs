@@ -18,16 +18,16 @@ use crate::{
 };
 
 pub fn transform_v_slot<'a>(
-  context_node: &'a mut ContextNode<'a>,
+  context_node: *mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   parent_node: &'a mut ContextNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
-  let Either::B(JSXChild::Element(node)) = context_node else {
+  let Either::B(JSXChild::Element(node)) = (unsafe { &mut *context_node }) else {
     return None;
   };
-  let node = node as *mut oxc_allocator::Box<JSXElement>;
 
+  let node = node as *mut oxc_allocator::Box<JSXElement>;
   let dir = find_prop_mut(unsafe { &mut *node }, Either::A(String::from("v-slot")))
     .map(|dir| resolve_directive(dir, context));
   let is_component = is_jsx_component(unsafe { &*node });
@@ -50,7 +50,7 @@ pub fn transform_v_slot<'a>(
   } else if is_slot_template && let Some(dir) = dir {
     return Some(transform_template_slot(dir, node, context, context_block));
   } else if !is_component && dir.is_some() {
-    context.options.on_error.as_ref()(ErrorCodes::VSlotMisplaced);
+    context.options.on_error.as_ref()(ErrorCodes::VSlotMisplaced, unsafe { &*node }.span);
   }
   None
 }
@@ -92,13 +92,16 @@ pub fn transform_component_slot<'a>(
     let has_other_slots = !slots.is_empty();
     if has_dir && has_other_slots {
       // already has on-component slot - this is incorrect usage.
-      context.options.on_error.as_ref()(ErrorCodes::VSlotMixedSlotUsage);
+      context.options.on_error.as_ref()(ErrorCodes::VSlotMixedSlotUsage, node.span);
       return;
     }
 
     if non_slot_template_children_len > 0 {
       if has_static_slot(&slots, "default") {
-        context.options.on_error.as_ref()(ErrorCodes::VSlotExtraneousDefaultSlotChildren);
+        context.options.on_error.as_ref()(
+          ErrorCodes::VSlotExtraneousDefaultSlotChildren,
+          node.span,
+        );
       } else {
         register_slot(&mut slots, arg, block);
         *context.slots.borrow_mut() = slots;
@@ -124,7 +127,7 @@ pub fn transform_template_slot<'a>(
 
   let v_for = find_prop_mut(unsafe { &mut *node }, Either::A(String::from("v-for")));
   let for_parse_result = if let Some(v_for) = v_for {
-    Some(get_for_parse_result(v_for, context))
+    get_for_parse_result(v_for, context)
   } else {
     None
   };
@@ -154,7 +157,7 @@ pub fn transform_template_slot<'a>(
         String::from("default")
       };
       if !slot_name.is_empty() && has_static_slot(&slots, &slot_name) {
-        context.options.on_error.as_ref()(ErrorCodes::VSlotDuplicateSlotNames)
+        context.options.on_error.as_ref()(ErrorCodes::VSlotDuplicateSlotNames, dir.loc)
       } else {
         register_slot(slots, arg, block);
       }
@@ -191,7 +194,7 @@ pub fn transform_template_slot<'a>(
           };
           set_slot(v_if_slot, negative);
         } else {
-          context.options.on_error.as_ref()(ErrorCodes::VElseNoAdjacentIf)
+          context.options.on_error.as_ref()(ErrorCodes::VElseNoAdjacentIf, v_else_dir.loc)
         }
       }
     } else if let Some(for_parse_result) = for_parse_result {

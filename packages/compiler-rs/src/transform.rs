@@ -6,7 +6,7 @@ use oxc_ast::ast::{
 };
 use oxc_codegen::{Codegen, CodegenReturn, IndentChar};
 use oxc_parser::Parser;
-use oxc_span::{SPAN, SourceType};
+use oxc_span::{SPAN, SourceType, Span};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::{cell::RefCell, collections::HashSet, mem, rc::Rc};
@@ -56,7 +56,7 @@ pub struct TransformOptions<'a> {
   pub delegates: RefCell<BTreeSet<String>>,
   pub with_fallback: bool,
   pub is_custom_element: Box<dyn Fn(String) -> bool + 'a>,
-  pub on_error: Box<dyn Fn(ErrorCodes) + 'a>,
+  pub on_error: Box<dyn Fn(ErrorCodes, Span) + 'a>,
   pub source_map: bool,
   pub filename: &'a str,
   pub source_type: SourceType,
@@ -73,7 +73,7 @@ impl<'a> Default for TransformOptions<'a> {
       source_map: false,
       with_fallback: false,
       is_custom_element: Box::new(|_| false),
-      on_error: Box::new(|_| {}),
+      on_error: Box::new(|_, _| {}),
       interop: false,
     }
   }
@@ -416,12 +416,9 @@ impl<'a> TransformContext<'a> {
         transform_v_slots,
         transform_v_slot,
       ] {
-        let on_exit = node_transform(
-          unsafe { &mut *node },
-          unsafe { &*context },
-          unsafe { &mut *block },
-          unsafe { &mut *parent_node },
-        );
+        let on_exit = node_transform(node, unsafe { &*context }, unsafe { &mut *block }, unsafe {
+          &mut *parent_node
+        });
         if let Some(on_exit) = on_exit {
           exit_fns.push(on_exit);
         }
@@ -480,12 +477,12 @@ pub fn _transform(env: Env, source: String, options: Option<CompilerOptions>) ->
       on_error: if let Some(on_error) = options.on_error {
         use crate::utils::error::create_compiler_error;
 
-        Box::new(move |code: ErrorCodes| {
-          let compiler_error = create_compiler_error(&env, code, None).unwrap();
+        Box::new(move |code: ErrorCodes, span: Span| {
+          let compiler_error = create_compiler_error(&env, code, span).unwrap();
           on_error.call(compiler_error).unwrap();
-        }) as Box<dyn Fn(ErrorCodes)>
+        }) as Box<dyn Fn(ErrorCodes, Span)>
       } else {
-        Box::new(|_: ErrorCodes| {}) as Box<dyn Fn(ErrorCodes)>
+        Box::new(|_: ErrorCodes, _: Span| {}) as Box<dyn Fn(ErrorCodes, Span)>
       },
     }),
   );

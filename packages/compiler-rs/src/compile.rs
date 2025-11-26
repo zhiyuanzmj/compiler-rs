@@ -85,14 +85,18 @@ pub fn _compile(
         Box::new(|_: String| false) as Box<dyn Fn(String) -> bool>
       },
       on_error: if let Some(on_error) = options.on_error {
+        use oxc_span::Span;
+
         use crate::utils::error::create_compiler_error;
 
-        Box::new(move |code: ErrorCodes| {
-          let compiler_error = create_compiler_error(&env, code, None).unwrap();
+        Box::new(move |code: ErrorCodes, span: Span| {
+          let compiler_error = create_compiler_error(&env, code, span).unwrap();
           on_error.call(compiler_error).unwrap();
-        }) as Box<dyn Fn(ErrorCodes)>
+        }) as Box<dyn Fn(ErrorCodes, Span)>
       } else {
-        Box::new(|_: ErrorCodes| {}) as Box<dyn Fn(ErrorCodes)>
+        use oxc_span::Span;
+
+        Box::new(|_: ErrorCodes, _: Span| {}) as Box<dyn Fn(ErrorCodes, Span)>
       },
     }),
   )

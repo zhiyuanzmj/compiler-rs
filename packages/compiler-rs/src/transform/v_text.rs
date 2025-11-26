@@ -16,12 +16,12 @@ pub fn transform_v_text<'a>(
   let exp = if let Some(value) = &mut dir.value {
     SimpleExpressionNode::new(Either3::C(value), context)
   } else {
-    context.options.on_error.as_ref()(ErrorCodes::VTextNoExpression);
+    context.options.on_error.as_ref()(ErrorCodes::VTextNoExpression, dir.span);
     SimpleExpressionNode::default()
   };
 
   if node.children.len() != 0 {
-    context.options.on_error.as_ref()(ErrorCodes::VTextWithChildren);
+    context.options.on_error.as_ref()(ErrorCodes::VTextWithChildren, node.span);
     return None;
   };
 

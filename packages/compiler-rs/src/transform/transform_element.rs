@@ -57,12 +57,12 @@ pub fn is_directive(s: &str) -> bool {
 }
 
 pub fn transform_element<'a>(
-  context_node: &'a mut ContextNode<'a>,
+  context_node: *mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   parent_node: &'a mut ContextNode<'a>,
 ) -> Option<Box<dyn FnOnce() + 'a>> {
-  let Either::B(JSXChild::Element(node)) = context_node else {
+  let Either::B(JSXChild::Element(node)) = (unsafe { &mut *context_node }) else {
     return None;
   };
   if is_template(node) {
@@ -285,6 +285,7 @@ pub fn build_props<'a>(
         continue;
       }
       JSXAttributeItem::Attribute(prop) => {
+        let span = prop.span;
         if prop.name.get_identifier().name.eq("v-on") {
           // v-on={obj}
           if let Some(prop_value) = &mut prop.value {
@@ -313,7 +314,7 @@ pub fn build_props<'a>(
               );
             }
           } else {
-            context.options.on_error.as_ref()(ErrorCodes::VOnNoExpression);
+            context.options.on_error.as_ref()(ErrorCodes::VOnNoExpression, span);
           }
           continue;
         }

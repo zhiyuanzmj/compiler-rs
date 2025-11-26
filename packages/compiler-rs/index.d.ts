@@ -58,7 +58,8 @@ export declare const enum ErrorCodes {
   VModelArgOnElement = 58,
   VModelOnFileInputElement = 59,
   VModelUnnecessaryValue = 60,
-  VShowNoExpression = 61
+  VShowNoExpression = 61,
+  VSlotsNoExpression = 62
 }
 
 export type Template =
