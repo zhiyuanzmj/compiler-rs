@@ -197,6 +197,7 @@ jobs:
             corepack prepare
             corepack enable
             source "$HOME/.cargo/env"
+            export PATH="$HOME/.cargo/bin:$PATH"
             echo "~~~~ rustc --version ~~~~"
             rustc --version
             echo "~~~~ node -v ~~~~"
