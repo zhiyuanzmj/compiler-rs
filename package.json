@@ -31,7 +31,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "play": "npm -C playground run dev",
-    "test": "pnpm run --filter=\"compiler-rs\" test",
+    "test": "npm -C packages/compiler-rs run test",
     "release": "bumpp -r --all -x 'pnpm run changelog'",
     "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s"
   },
