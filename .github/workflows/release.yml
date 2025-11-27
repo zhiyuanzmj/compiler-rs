@@ -409,12 +409,9 @@ jobs:
       - name: Publish
         run: |
           npm config set provenance true
-          if git log -1 --pretty=%B | grep "^v\?[0-9]\+\.[0-9]\+\.[0-9]\+$";
+          if git log -1 --pretty=%B | grep "v\?[0-9]\+\.[0-9]\+\.[0-9]\+$";
           then
             npm publish --access public
-          elif git log -1 --pretty=%B | grep "^v\?[0-9]\+\.[0-9]\+\.[0-9]\+";
-          then
-            npm publish --tag next --access public
           else
             echo "Not a release, skipping publish"
           fi
