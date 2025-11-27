@@ -51,14 +51,12 @@
     "artifacts": "napi artifacts",
     "build": "napi build --platform --release",
     "dev": "nodemon -w src -e rs -x 'napi build --platform'",
-    "format": "run-p format:prettier format:rs format:toml",
-    "format:prettier": "prettier . -w",
-    "format:toml": "taplo format",
-    "format:rs": "cargo fmt",
+    "format": "taplo format",
     "prepublishOnly": "napi prepublish -t npm",
     "version": "napi version",
     "bench": "cargo bench --no-default-features",
     "test": "cargo test --no-default-features -- --nocapture",
+    "test-watch": "nodemon -w src -e rs -x 'cargo test --no-default-features -- --nocapture'",
     "flamegraph": "CARGO_PROFILE_RELEASE_STRIP=false CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph --bench bench --no-default-features"
   },
   "devDependencies": {

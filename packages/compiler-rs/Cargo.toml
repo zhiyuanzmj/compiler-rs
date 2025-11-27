@@ -13,7 +13,7 @@ default = ["napi"]
 napi = []
 
 [dependencies]
-napi = {version = "3.3.0", features = ["napi9"]}
+napi = { version = "3.3.0", features = ["napi9"] }
 napi-derive = "3.3.0"
 oxc_parser = "0.96.0"
 oxc_ast = "0.96.0"

@@ -56,7 +56,9 @@ const isMuslFromReport = () => {
 
 const isMuslFromChildProcess = () => {
   try {
-    return require('child_process').execSync('ldd --version', { encoding: 'utf8' }).includes('musl')
+    return require('child_process')
+      .execSync('ldd --version', { encoding: 'utf8' })
+      .includes('musl')
   } catch (e) {
     // If we reach this case, we don't know if the system is musl or not, so is better to just fallback to false
     return false
@@ -66,7 +68,7 @@ const isMuslFromChildProcess = () => {
 function requireNative() {
   if (process.env.NAPI_RS_NATIVE_LIBRARY_PATH) {
     try {
-      return require(process.env.NAPI_RS_NATIVE_LIBRARY_PATH);
+      return require(process.env.NAPI_RS_NATIVE_LIBRARY_PATH)
     } catch (err) {
       loadErrors.push(err)
     }
@@ -79,9 +81,16 @@ function requireNative() {
       }
       try {
         const binding = require('@vue-jsx-vapor/compiler-rs-android-arm64')
-        const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-android-arm64/package.json').version
-        if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        const bindingPackageVersion =
+          require('@vue-jsx-vapor/compiler-rs-android-arm64/package.json').version
+        if (
+          bindingPackageVersion !== '1.1.1' &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+        ) {
+          throw new Error(
+            `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+          )
         }
         return binding
       } catch (e) {
@@ -95,16 +104,25 @@ function requireNative() {
       }
       try {
         const binding = require('@vue-jsx-vapor/compiler-rs-android-arm-eabi')
-        const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-android-arm-eabi/package.json').version
-        if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        const bindingPackageVersion =
+          require('@vue-jsx-vapor/compiler-rs-android-arm-eabi/package.json').version
+        if (
+          bindingPackageVersion !== '1.1.1' &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+        ) {
+          throw new Error(
+            `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+          )
         }
         return binding
       } catch (e) {
         loadErrors.push(e)
       }
     } else {
-      loadErrors.push(new Error(`Unsupported architecture on Android ${process.arch}`))
+      loadErrors.push(
+        new Error(`Unsupported architecture on Android ${process.arch}`),
+      )
     }
   } else if (process.platform === 'win32') {
     if (process.arch === 'x64') {
@@ -115,9 +133,16 @@ function requireNative() {
       }
       try {
         const binding = require('@vue-jsx-vapor/compiler-rs-win32-x64-msvc')
-        const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-win32-x64-msvc/package.json').version
-        if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        const bindingPackageVersion =
+          require('@vue-jsx-vapor/compiler-rs-win32-x64-msvc/package.json').version
+        if (
+          bindingPackageVersion !== '1.1.1' &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+        ) {
+          throw new Error(
+            `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+          )
         }
         return binding
       } catch (e) {
@@ -131,9 +156,16 @@ function requireNative() {
       }
       try {
         const binding = require('@vue-jsx-vapor/compiler-rs-win32-ia32-msvc')
-        const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-win32-ia32-msvc/package.json').version
-        if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        const bindingPackageVersion =
+          require('@vue-jsx-vapor/compiler-rs-win32-ia32-msvc/package.json').version
+        if (
+          bindingPackageVersion !== '1.1.1' &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+        ) {
+          throw new Error(
+            `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+          )
         }
         return binding
       } catch (e) {
@@ -147,16 +179,25 @@ function requireNative() {
       }
       try {
         const binding = require('@vue-jsx-vapor/compiler-rs-win32-arm64-msvc')
-        const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-win32-arm64-msvc/package.json').version
-        if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        const bindingPackageVersion =
+          require('@vue-jsx-vapor/compiler-rs-win32-arm64-msvc/package.json').version
+        if (
+          bindingPackageVersion !== '1.1.1' &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+        ) {
+          throw new Error(
+            `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+          )
         }
         return binding
       } catch (e) {
         loadErrors.push(e)
       }
     } else {
-      loadErrors.push(new Error(`Unsupported architecture on Windows: ${process.arch}`))
+      loadErrors.push(
+        new Error(`Unsupported architecture on Windows: ${process.arch}`),
+      )
     }
   } else if (process.platform === 'darwin') {
     try {
@@ -166,9 +207,16 @@ function requireNative() {
     }
     try {
       const binding = require('@vue-jsx-vapor/compiler-rs-darwin-universal')
-      const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-darwin-universal/package.json').version
-      if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-        throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+      const bindingPackageVersion =
+        require('@vue-jsx-vapor/compiler-rs-darwin-universal/package.json').version
+      if (
+        bindingPackageVersion !== '1.1.1' &&
+        process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+        process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+      ) {
+        throw new Error(
+          `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+        )
       }
       return binding
     } catch (e) {
@@ -182,9 +230,16 @@ function requireNative() {
       }
       try {
         const binding = require('@vue-jsx-vapor/compiler-rs-darwin-x64')
-        const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-darwin-x64/package.json').version
-        if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        const bindingPackageVersion =
+          require('@vue-jsx-vapor/compiler-rs-darwin-x64/package.json').version
+        if (
+          bindingPackageVersion !== '1.1.1' &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+        ) {
+          throw new Error(
+            `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+          )
         }
         return binding
       } catch (e) {
@@ -198,16 +253,25 @@ function requireNative() {
       }
       try {
         const binding = require('@vue-jsx-vapor/compiler-rs-darwin-arm64')
-        const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-darwin-arm64/package.json').version
-        if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        const bindingPackageVersion =
+          require('@vue-jsx-vapor/compiler-rs-darwin-arm64/package.json').version
+        if (
+          bindingPackageVersion !== '1.1.1' &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+        ) {
+          throw new Error(
+            `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+          )
         }
         return binding
       } catch (e) {
         loadErrors.push(e)
       }
     } else {
-      loadErrors.push(new Error(`Unsupported architecture on macOS: ${process.arch}`))
+      loadErrors.push(
+        new Error(`Unsupported architecture on macOS: ${process.arch}`),
+      )
     }
   } else if (process.platform === 'freebsd') {
     if (process.arch === 'x64') {
@@ -218,9 +282,16 @@ function requireNative() {
       }
       try {
         const binding = require('@vue-jsx-vapor/compiler-rs-freebsd-x64')
-        const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-freebsd-x64/package.json').version
-        if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        const bindingPackageVersion =
+          require('@vue-jsx-vapor/compiler-rs-freebsd-x64/package.json').version
+        if (
+          bindingPackageVersion !== '1.1.1' &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+        ) {
+          throw new Error(
+            `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+          )
         }
         return binding
       } catch (e) {
@@ -234,16 +305,25 @@ function requireNative() {
       }
       try {
         const binding = require('@vue-jsx-vapor/compiler-rs-freebsd-arm64')
-        const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-freebsd-arm64/package.json').version
-        if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        const bindingPackageVersion =
+          require('@vue-jsx-vapor/compiler-rs-freebsd-arm64/package.json').version
+        if (
+          bindingPackageVersion !== '1.1.1' &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+        ) {
+          throw new Error(
+            `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+          )
         }
         return binding
       } catch (e) {
         loadErrors.push(e)
       }
     } else {
-      loadErrors.push(new Error(`Unsupported architecture on FreeBSD: ${process.arch}`))
+      loadErrors.push(
+        new Error(`Unsupported architecture on FreeBSD: ${process.arch}`),
+      )
     }
   } else if (process.platform === 'linux') {
     if (process.arch === 'x64') {
@@ -255,9 +335,16 @@ function requireNative() {
         }
         try {
           const binding = require('@vue-jsx-vapor/compiler-rs-linux-x64-musl')
-          const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-linux-x64-musl/package.json').version
-          if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-            throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          const bindingPackageVersion =
+            require('@vue-jsx-vapor/compiler-rs-linux-x64-musl/package.json').version
+          if (
+            bindingPackageVersion !== '1.1.1' &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+          ) {
+            throw new Error(
+              `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+            )
           }
           return binding
         } catch (e) {
@@ -271,9 +358,16 @@ function requireNative() {
         }
         try {
           const binding = require('@vue-jsx-vapor/compiler-rs-linux-x64-gnu')
-          const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-linux-x64-gnu/package.json').version
-          if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-            throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          const bindingPackageVersion =
+            require('@vue-jsx-vapor/compiler-rs-linux-x64-gnu/package.json').version
+          if (
+            bindingPackageVersion !== '1.1.1' &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+          ) {
+            throw new Error(
+              `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+            )
           }
           return binding
         } catch (e) {
@@ -289,9 +383,16 @@ function requireNative() {
         }
         try {
           const binding = require('@vue-jsx-vapor/compiler-rs-linux-arm64-musl')
-          const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-linux-arm64-musl/package.json').version
-          if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-            throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          const bindingPackageVersion =
+            require('@vue-jsx-vapor/compiler-rs-linux-arm64-musl/package.json').version
+          if (
+            bindingPackageVersion !== '1.1.1' &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+          ) {
+            throw new Error(
+              `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+            )
           }
           return binding
         } catch (e) {
@@ -305,9 +406,16 @@ function requireNative() {
         }
         try {
           const binding = require('@vue-jsx-vapor/compiler-rs-linux-arm64-gnu')
-          const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-linux-arm64-gnu/package.json').version
-          if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-            throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          const bindingPackageVersion =
+            require('@vue-jsx-vapor/compiler-rs-linux-arm64-gnu/package.json').version
+          if (
+            bindingPackageVersion !== '1.1.1' &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+          ) {
+            throw new Error(
+              `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+            )
           }
           return binding
         } catch (e) {
@@ -323,9 +431,16 @@ function requireNative() {
         }
         try {
           const binding = require('@vue-jsx-vapor/compiler-rs-linux-arm-musleabihf')
-          const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-linux-arm-musleabihf/package.json').version
-          if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-            throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          const bindingPackageVersion =
+            require('@vue-jsx-vapor/compiler-rs-linux-arm-musleabihf/package.json').version
+          if (
+            bindingPackageVersion !== '1.1.1' &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+          ) {
+            throw new Error(
+              `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+            )
           }
           return binding
         } catch (e) {
@@ -339,9 +454,16 @@ function requireNative() {
         }
         try {
           const binding = require('@vue-jsx-vapor/compiler-rs-linux-arm-gnueabihf')
-          const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-linux-arm-gnueabihf/package.json').version
-          if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-            throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          const bindingPackageVersion =
+            require('@vue-jsx-vapor/compiler-rs-linux-arm-gnueabihf/package.json').version
+          if (
+            bindingPackageVersion !== '1.1.1' &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+          ) {
+            throw new Error(
+              `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+            )
           }
           return binding
         } catch (e) {
@@ -357,9 +479,16 @@ function requireNative() {
         }
         try {
           const binding = require('@vue-jsx-vapor/compiler-rs-linux-loong64-musl')
-          const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-linux-loong64-musl/package.json').version
-          if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-            throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          const bindingPackageVersion =
+            require('@vue-jsx-vapor/compiler-rs-linux-loong64-musl/package.json').version
+          if (
+            bindingPackageVersion !== '1.1.1' &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+          ) {
+            throw new Error(
+              `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+            )
           }
           return binding
         } catch (e) {
@@ -373,9 +502,16 @@ function requireNative() {
         }
         try {
           const binding = require('@vue-jsx-vapor/compiler-rs-linux-loong64-gnu')
-          const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-linux-loong64-gnu/package.json').version
-          if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-            throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          const bindingPackageVersion =
+            require('@vue-jsx-vapor/compiler-rs-linux-loong64-gnu/package.json').version
+          if (
+            bindingPackageVersion !== '1.1.1' &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+          ) {
+            throw new Error(
+              `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+            )
           }
           return binding
         } catch (e) {
@@ -391,9 +527,16 @@ function requireNative() {
         }
         try {
           const binding = require('@vue-jsx-vapor/compiler-rs-linux-riscv64-musl')
-          const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-linux-riscv64-musl/package.json').version
-          if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-            throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          const bindingPackageVersion =
+            require('@vue-jsx-vapor/compiler-rs-linux-riscv64-musl/package.json').version
+          if (
+            bindingPackageVersion !== '1.1.1' &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+          ) {
+            throw new Error(
+              `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+            )
           }
           return binding
         } catch (e) {
@@ -407,9 +550,16 @@ function requireNative() {
         }
         try {
           const binding = require('@vue-jsx-vapor/compiler-rs-linux-riscv64-gnu')
-          const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-linux-riscv64-gnu/package.json').version
-          if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-            throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          const bindingPackageVersion =
+            require('@vue-jsx-vapor/compiler-rs-linux-riscv64-gnu/package.json').version
+          if (
+            bindingPackageVersion !== '1.1.1' &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+            process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+          ) {
+            throw new Error(
+              `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+            )
           }
           return binding
         } catch (e) {
@@ -424,9 +574,16 @@ function requireNative() {
       }
       try {
         const binding = require('@vue-jsx-vapor/compiler-rs-linux-ppc64-gnu')
-        const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-linux-ppc64-gnu/package.json').version
-        if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        const bindingPackageVersion =
+          require('@vue-jsx-vapor/compiler-rs-linux-ppc64-gnu/package.json').version
+        if (
+          bindingPackageVersion !== '1.1.1' &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+        ) {
+          throw new Error(
+            `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+          )
         }
         return binding
       } catch (e) {
@@ -440,16 +597,25 @@ function requireNative() {
       }
       try {
         const binding = require('@vue-jsx-vapor/compiler-rs-linux-s390x-gnu')
-        const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-linux-s390x-gnu/package.json').version
-        if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        const bindingPackageVersion =
+          require('@vue-jsx-vapor/compiler-rs-linux-s390x-gnu/package.json').version
+        if (
+          bindingPackageVersion !== '1.1.1' &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+        ) {
+          throw new Error(
+            `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+          )
         }
         return binding
       } catch (e) {
         loadErrors.push(e)
       }
     } else {
-      loadErrors.push(new Error(`Unsupported architecture on Linux: ${process.arch}`))
+      loadErrors.push(
+        new Error(`Unsupported architecture on Linux: ${process.arch}`),
+      )
     }
   } else if (process.platform === 'openharmony') {
     if (process.arch === 'arm64') {
@@ -460,9 +626,16 @@ function requireNative() {
       }
       try {
         const binding = require('@vue-jsx-vapor/compiler-rs-openharmony-arm64')
-        const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-openharmony-arm64/package.json').version
-        if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        const bindingPackageVersion =
+          require('@vue-jsx-vapor/compiler-rs-openharmony-arm64/package.json').version
+        if (
+          bindingPackageVersion !== '1.1.1' &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+        ) {
+          throw new Error(
+            `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+          )
         }
         return binding
       } catch (e) {
@@ -476,9 +649,16 @@ function requireNative() {
       }
       try {
         const binding = require('@vue-jsx-vapor/compiler-rs-openharmony-x64')
-        const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-openharmony-x64/package.json').version
-        if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        const bindingPackageVersion =
+          require('@vue-jsx-vapor/compiler-rs-openharmony-x64/package.json').version
+        if (
+          bindingPackageVersion !== '1.1.1' &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+        ) {
+          throw new Error(
+            `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+          )
         }
         return binding
       } catch (e) {
@@ -492,19 +672,32 @@ function requireNative() {
       }
       try {
         const binding = require('@vue-jsx-vapor/compiler-rs-openharmony-arm')
-        const bindingPackageVersion = require('@vue-jsx-vapor/compiler-rs-openharmony-arm/package.json').version
-        if (bindingPackageVersion !== '1.1.1' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          throw new Error(`Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        const bindingPackageVersion =
+          require('@vue-jsx-vapor/compiler-rs-openharmony-arm/package.json').version
+        if (
+          bindingPackageVersion !== '1.1.1' &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK &&
+          process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0'
+        ) {
+          throw new Error(
+            `Native binding package version mismatch, expected 1.1.1 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`,
+          )
         }
         return binding
       } catch (e) {
         loadErrors.push(e)
       }
     } else {
-      loadErrors.push(new Error(`Unsupported architecture on OpenHarmony: ${process.arch}`))
+      loadErrors.push(
+        new Error(`Unsupported architecture on OpenHarmony: ${process.arch}`),
+      )
     }
   } else {
-    loadErrors.push(new Error(`Unsupported OS: ${process.platform}, architecture: ${process.arch}`))
+    loadErrors.push(
+      new Error(
+        `Unsupported OS: ${process.platform}, architecture: ${process.arch}`,
+      ),
+    )
   }
 }
 
@@ -533,7 +726,9 @@ if (!nativeBinding || process.env.NAPI_RS_FORCE_WASI) {
     }
   }
   if (process.env.NAPI_RS_FORCE_WASI === 'error' && !wasiBinding) {
-    const error = new Error('WASI binding not found and NAPI_RS_FORCE_WASI is set to error')
+    const error = new Error(
+      'WASI binding not found and NAPI_RS_FORCE_WASI is set to error',
+    )
     error.cause = wasiBindingError
     throw error
   }
