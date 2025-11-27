@@ -313,10 +313,6 @@ jobs:
               console.log('IMAGE=node:${{ matrix.node }}-slim')
             }
           " >> $GITHUB_OUTPUT
-          curl https://sh.rustup.rs -sSf --output rustup.sh
-          sh rustup.sh -y --profile minimal --default-toolchain beta
-          source "$HOME/.cargo/env"
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           echo "PNPM_STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
       - name: Install dependencies
         run: pnpm install --force
@@ -340,7 +336,15 @@ jobs:
         with:
           image: ${{ steps.docker.outputs.IMAGE }}
           options: '-v ${{ steps.docker.outputs.PNPM_STORE_PATH }}:${{ steps.docker.outputs.PNPM_STORE_PATH }} -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }} --platform ${{ steps.docker.outputs.PLATFORM }}'
-          run: npm run test
+          run: |
+            if [[ "${{ matrix.target }}" != *-musl ]]; then
+              echo "Installing Rust in Docker container..."
+              apt-get update && apt-get install -y curl build-essential
+              curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
+              export PATH="$HOME/.cargo/bin:$PATH"
+              echo "Rust installed."
+            fi
+            npm run test
   test-wasi:
     name: Test WASI target
     needs:
