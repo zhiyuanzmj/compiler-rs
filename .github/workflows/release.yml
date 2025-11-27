@@ -337,13 +337,11 @@ jobs:
           image: ${{ steps.docker.outputs.IMAGE }}
           options: '-v ${{ steps.docker.outputs.PNPM_STORE_PATH }}:${{ steps.docker.outputs.PNPM_STORE_PATH }} -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }} --platform ${{ steps.docker.outputs.PLATFORM }}'
           run: |
-            if [[ "${{ matrix.target }}" != *-musl ]]; then
-              echo "Installing Rust in Docker container..."
-              apt-get update && apt-get install -y curl build-essential
-              curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
-              export PATH="$HOME/.cargo/bin:$PATH"
-              echo "Rust installed."
-            fi
+            echo "Installing Rust in Docker container..."
+            apt-get update && apt-get install -y curl build-essential
+            curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
+            export PATH="$HOME/.cargo/bin:$PATH"
+            echo "Rust installed."
             npm run test
   test-wasi:
     name: Test WASI target
