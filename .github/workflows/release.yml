@@ -126,8 +126,8 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             ~/.napi-rs
-            .cargo-cache
-            target/
+            ./packages/compiler-rs/.cargo-cache
+            ./packages/compiler-rs/target/
           key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
       - uses: mlugg/setup-zig@v2
         if: ${{ contains(matrix.settings.target, 'musl') }}
@@ -161,14 +161,14 @@ jobs:
         if: matrix.settings.target != 'wasm32-wasip1-threads'
         with:
           name: bindings-${{ matrix.settings.target }}
-          path: '*.node'
+          path: './packages/compiler-rs/*.node'
           if-no-files-found: error
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         if: matrix.settings.target == 'wasm32-wasip1-threads'
         with:
           name: bindings-${{ matrix.settings.target }}
-          path: '*.wasm'
+          path: './packages/compiler-rs/*.wasm'
           if-no-files-found: error
   build-freebsd:
     runs-on: ubuntu-latest
@@ -218,7 +218,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bindings-freebsd
-          path: ${{ env.APP_NAME }}.*.node
+          path: ./packages/compiler-rs/${{ env.APP_NAME }}.*.node
           if-no-files-found: error
   test-macOS-windows-binding:
     name: Test bindings on ${{ matrix.settings.target }} - node@${{ matrix.node }}
@@ -260,7 +260,7 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           name: bindings-${{ matrix.settings.target }}
-          path: .
+          path: ./packages/compiler-rs/.
       - name: List packages
         run: ls -R .
         shell: bash
@@ -321,7 +321,7 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           name: bindings-${{ matrix.target }}
-          path: .
+          path: ./packages/compiler-rs/.
       - name: List packages
         run: ls -R .
         shell: bash
@@ -361,7 +361,7 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           name: bindings-wasm32-wasip1-threads
-          path: .
+          path: ./packages/compiler-rs/.
       - name: List packages
         run: ls -R .
         shell: bash
@@ -395,7 +395,7 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v5
         with:
-          path: artifacts
+          path: ./packages/compiler-rs/artifacts
       - name: create npm dirs
         run: pnpm napi create-npm-dirs
       - name: Move artifacts
