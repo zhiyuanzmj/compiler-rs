@@ -245,26 +245,25 @@ fn gen_literal_object_props<'a>(
   ast.expression_object(
     SPAN,
     ast.vec_from_iter(props.into_iter().map(|prop| {
-      ast
-        .object_property_kind_object_property(
-          SPAN,
-          PropertyKind::Init,
-          gen_prop_key(
-            prop.key,
-            prop.runtime_camelize,
-            prop.modifier,
-            prop.handler.unwrap_or(false),
-            prop
-              .handler_modifiers
-              .map(|i| i.options)
-              .unwrap_or_default(),
-            context,
-          ),
-          gen_prop_value(prop.values, context),
-          false,
-          false,
-          false,
-        )
+      ast.object_property_kind_object_property(
+        SPAN,
+        PropertyKind::Init,
+        gen_prop_key(
+          prop.key,
+          prop.runtime_camelize,
+          prop.modifier,
+          prop.handler.unwrap_or(false),
+          prop
+            .handler_modifiers
+            .map(|i| i.options)
+            .unwrap_or_default(),
+          context,
+        ),
+        gen_prop_value(prop.values, context),
+        false,
+        false,
+        false,
+      )
     })),
   )
 }

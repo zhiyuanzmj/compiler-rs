@@ -117,9 +117,10 @@ pub fn gen_identifier<'a>(
   let ast = &context.ast;
   if let Some(id_map) = context.identifiers.borrow().get(name)
     && !id_map.is_empty()
-    && let Some(replacement) = id_map.first() {
-      return replacement.clone_in(ast.allocator);
-    }
+    && let Some(replacement) = id_map.first()
+  {
+    return replacement.clone_in(ast.allocator);
+  }
 
   if let Some(assignment) = assignment {
     ast.expression_assignment(

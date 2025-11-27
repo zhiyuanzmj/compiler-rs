@@ -101,7 +101,6 @@ pub struct RootIRNode<'a> {
 }
 impl<'a> RootIRNode<'a> {
   pub fn new(source: &'a str) -> Self {
-    
     RootIRNode {
       source,
       component: HashSet::new(),

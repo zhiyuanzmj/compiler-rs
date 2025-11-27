@@ -308,7 +308,8 @@ fn gen_loop_slot<'a>(
                 } else {
                   None
                 },
-                raw_index.map(|raw_index| ast.formal_parameter(
+                raw_index.map(|raw_index| {
+                  ast.formal_parameter(
                     SPAN,
                     ast.vec(),
                     ast.binding_pattern(
@@ -321,7 +322,8 @@ fn gen_loop_slot<'a>(
                     None,
                     false,
                     false,
-                  )),
+                  )
+                }),
               ]
               .into_iter()
               .flatten(),

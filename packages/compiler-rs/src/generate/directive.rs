@@ -82,15 +82,14 @@ pub fn gen_directives_for_element<'a>(
       } else {
         None
       };
-      let argument = item.dir.arg.take().map(|arg| gen_expression(arg, context, None, None));
+      let argument = item
+        .dir
+        .arg
+        .take()
+        .map(|arg| gen_expression(arg, context, None, None));
       let modifiers = if !item.dir.modifiers.is_empty() {
         Some(gen_directive_modifiers(
-          item
-            .dir
-            .modifiers
-            .drain(..)
-            .map(|m| m.content)
-            .collect(),
+          item.dir.modifiers.drain(..).map(|m| m.content).collect(),
           ast,
         ))
       } else {

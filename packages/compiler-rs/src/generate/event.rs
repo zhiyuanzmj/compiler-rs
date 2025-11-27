@@ -76,7 +76,8 @@ pub fn gen_set_event<'a>(
     if !event_opers.iter().any(|op| {
       op.key.loc.start != oper_key_strat
         && op.delegate
-        && op.element == oper.element && op.key.content == key_content
+        && op.element == oper.element
+        && op.key.content == key_content
     }) {
       return ast.statement_expression(
         SPAN,

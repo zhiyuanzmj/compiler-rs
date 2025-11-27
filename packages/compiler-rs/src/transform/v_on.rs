@@ -42,7 +42,9 @@ pub fn transform_v_on<'a>(
     loc: name_loc,
     ast: None,
   };
-  let exp = value.as_mut().map(|value| SimpleExpressionNode::new(Either3::C(value), context));
+  let exp = value
+    .as_mut()
+    .map(|value| SimpleExpressionNode::new(Either3::C(value), context));
 
   let Modifiers {
     keys: key_modifiers,
@@ -71,13 +73,13 @@ pub fn transform_v_on<'a>(
   if non_key_modifiers
     .iter()
     .any(|modifier| modifier == "middle")
-    && is_static_click {
-      arg.content = "mouseup".to_string()
-    }
-  if non_key_modifiers.iter().any(|modifier| modifier == "right")
-    && is_static_click {
-      arg.content = "contextmenu".to_string();
-    }
+    && is_static_click
+  {
+    arg.content = "mouseup".to_string()
+  }
+  if non_key_modifiers.iter().any(|modifier| modifier == "right") && is_static_click {
+    arg.content = "contextmenu".to_string();
+  }
 
   if is_component {
     return Some(DirectiveTransformResult {

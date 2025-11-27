@@ -242,9 +242,9 @@ fn gen_children<'a>(
     if let Some(id) = id
       && let Some(directives) =
         gen_directives_for_element(id, context, unsafe { &mut *_context_block })
-      {
-        statements.push(directives)
-      };
+    {
+      statements.push(directives)
+    };
 
     prev = Some((variable.clone(), element_index));
     gen_children(
