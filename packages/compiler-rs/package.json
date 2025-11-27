@@ -13,7 +13,7 @@
   ],
   "license": "MIT",
   "repository": {
-    "url": "git+ssh://git@github.com/napi-rs/package-template-pnpm.git",
+    "url": "git+ssh://git@github.com/zhiyuanzmj/compiler-rs.git",
     "type": "git"
   },
   "files": [

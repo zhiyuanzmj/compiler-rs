@@ -413,7 +413,7 @@ jobs:
           npm config set provenance true
           if git log -1 --pretty=%B | grep "v\?[0-9]\+\.[0-9]\+\.[0-9]\+$";
           then
-            npm publish --provenance --access public
+            npm publish --access public
           else
             echo "Not a release, skipping publish"
           fi
