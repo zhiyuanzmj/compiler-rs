@@ -306,7 +306,7 @@ jobs:
               console.log('PLATFORM=linux/amd64')
             }
           " >> $GITHUB_OUTPUT
-          echo "IMAGE=cimg/rust:1.91.1-node" >> $GITHUB_OUTP
+          echo "IMAGE=cimg/rust:1.91.1-node" >> $GITHUB_OUTPT
           echo "PNPM_STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
       - name: Install dependencies
         run: pnpm install --force
