@@ -9,10 +9,9 @@ use crate::{
   transform::{DirectiveTransformResult, TransformContext},
   utils::{
     check::{is_jsx_component, is_member_expression},
-    directive::resolve_directive,
+    directive::{find_prop, resolve_directive},
     error::ErrorCodes,
     text::get_tag_name,
-    utils::find_prop,
   },
 };
 
@@ -74,7 +73,7 @@ pub fn transform_v_model<'a>(
   // TODO let runtimeDirective: VaporHelper | undefined = 'vModelText'
   if matches!(tag.as_str(), "input" | "textarea" | "select") || is_custom_element {
     if tag == "input" || is_custom_element {
-      let _type = find_prop(&node, Either::A("type".to_string()));
+      let _type = find_prop(node, Either::A("type".to_string()));
       if let Some(_type) = _type {
         let value = &_type.value;
         if let Some(JSXAttributeValue::ExpressionContainer(_)) = value {
@@ -130,7 +129,7 @@ pub fn transform_v_model<'a>(
 }
 
 fn check_duplicated_value(node: &JSXElement, context: &TransformContext) {
-  let value = find_prop(&node, Either::A("value".to_string()));
+  let value = find_prop(node, Either::A("value".to_string()));
   if let Some(value) = value
     && !matches!(value.value, Some(JSXAttributeValue::StringLiteral(_)))
   {

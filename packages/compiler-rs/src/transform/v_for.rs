@@ -12,13 +12,14 @@ use crate::{
   transform::{ContextNode, TransformContext},
   utils::{
     check::{is_constant_node, is_jsx_component, is_template},
+    directive::{find_prop, find_prop_mut},
     error::ErrorCodes,
     text::is_empty_text,
-    utils::{find_prop, find_prop_mut},
   },
 };
 
-pub fn transform_v_for<'a>(
+/// # SAFETY
+pub unsafe fn transform_v_for<'a>(
   context_node: *mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
@@ -34,9 +35,7 @@ pub fn transform_v_for<'a>(
     return None;
   }
 
-  let Some(dir) = find_prop_mut(unsafe { &mut *node }, Either::A("v-for".to_string())) else {
-    return None;
-  };
+  let dir = find_prop_mut(unsafe { &mut *node }, Either::A("v-for".to_string()))?;
   let seen = &mut context.seen.borrow_mut();
   let span = dir.span;
   if seen.contains(&span.start) {
@@ -44,15 +43,12 @@ pub fn transform_v_for<'a>(
   }
   seen.insert(span.start);
 
-  let Some(IRFor {
+  let IRFor {
     value,
     index,
     key,
     source,
-  }) = get_for_parse_result(dir, context)
-  else {
-    return None;
-  };
+  } = get_for_parse_result(dir, context)?;
 
   let Some(source) = source else {
     context.options.on_error.as_ref()(ErrorCodes::VForMalformedExpression, span);
@@ -181,12 +177,12 @@ pub fn get_for_parse_result<'a>(
     context.options.on_error.as_ref()(ErrorCodes::VForNoExpression, dir.span);
     return None;
   }
-  return Some(IRFor {
+  Some(IRFor {
     value,
     index,
     key,
     source,
-  });
+  })
 }
 
 fn is_template_with_single_component<'a>(node: &'a JSXElement<'a>) -> bool {

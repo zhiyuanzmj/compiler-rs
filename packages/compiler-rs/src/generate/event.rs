@@ -31,7 +31,7 @@ pub fn gen_set_event<'a>(
   let key_content = key.content.clone();
   let oper_key_strat = key.loc.start;
   let name = gen_expression(key, context, None, None);
-  let event_options = if options.len() == 0 && !effect {
+  let event_options = if options.is_empty() && !effect {
     None
   } else {
     let mut properties = ast.vec();
@@ -74,15 +74,9 @@ pub fn gen_set_event<'a>(
     // we can generate optimized handler attachment code
     // e.g. n1.$evtclick = () => {}
     if !event_opers.iter().any(|op| {
-      if op.key.loc.start != oper_key_strat
+      op.key.loc.start != oper_key_strat
         && op.delegate
-        && op.element == oper.element
-        && op.key.content == key_content
-      {
-        true
-      } else {
-        false
-      }
+        && op.element == oper.element && op.key.content == key_content
     }) {
       return ast.statement_expression(
         SPAN,
@@ -158,7 +152,7 @@ pub fn gen_event_handler<'a>(
     )
   };
 
-  if non_keys.len() > 0 {
+  if !non_keys.is_empty() {
     handler_exp = ast.expression_call(
       SPAN,
       ast.expression_identifier(SPAN, ast.atom(&context.helper("withModifiers"))),
@@ -180,7 +174,7 @@ pub fn gen_event_handler<'a>(
     )
   }
 
-  if keys.len() > 0 {
+  if !keys.is_empty() {
     handler_exp = ast.expression_call(
       SPAN,
       ast.expression_identifier(SPAN, ast.atom(&context.helper("withKeys"))),

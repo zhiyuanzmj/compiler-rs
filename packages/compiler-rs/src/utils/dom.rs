@@ -40,7 +40,7 @@ pub fn is_valid_html_nesting(parent: &str, child: &str) -> bool {
     return false;
   }
 
-  return true;
+  true
 }
 
 static ONLY_VALID_CHILDREN: LazyLock<HashMap<&str, Vec<&str>>> = LazyLock::new(|| {

@@ -112,7 +112,7 @@ impl<'a, 'ctx: 'a> Traverse<'a, ()> for JsxTraverse<'a, 'ctx> {
       .filter(|helper| {
         if helpers.contains(*helper) {
           helpers.remove(*helper);
-          return true;
+          true
         } else {
           false
         }

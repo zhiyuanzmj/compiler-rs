@@ -79,7 +79,7 @@ pub fn gen_v_model<'a>(
           // setter
           Some(gen_model_handler(exp, context).into()),
           // modifiers
-          if modifiers.len() > 0 {
+          if !modifiers.is_empty() {
             Some(
               ast
                 .expression_object(

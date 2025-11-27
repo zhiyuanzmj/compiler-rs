@@ -169,7 +169,7 @@ pub fn gen_for<'a>(
                       Ancestor::ObjectExpressionProperties(e) => e.span(),
                       _ => unimplemented!(),
                     };
-                    element.span().eq(&span)
+                    element.span().eq(span)
                   } else {
                     element.span().eq(&id.span())
                   }
@@ -312,10 +312,8 @@ pub fn gen_for<'a>(
   let mut selector_declarations = ast.vec();
   let mut selector_setup = ast.vec();
 
-  let mut i = 0;
-  for selector in selector_patterns {
+  for (i, selector) in selector_patterns.into_iter().enumerate() {
     let selector_name = format!("_selector{id}_{i}");
-    i += 1;
     selector_declarations.push(Statement::VariableDeclaration(
       ast.alloc_variable_declaration(
         SPAN,
@@ -408,15 +406,14 @@ pub fn gen_for<'a>(
         ast.function_body(
           SPAN,
           ast.vec(),
-          if effect_patterns.len() > 0 || key_only_binding_patterns.len() > 0 {
+          if !effect_patterns.is_empty() || !key_only_binding_patterns.is_empty() {
             gen_block_content(
               Some(render),
               context,
               context_block,
               false,
               Some(Box::new(move |statements, context_block| {
-                let mut i = 0;
-                for effect in effect_patterns {
+                for (i, effect) in effect_patterns.into_iter().enumerate() {
                   let mut body = ast.vec();
                   for oper in effect.operations {
                     let _context_block = context_block as *mut BlockIRNode;
@@ -453,7 +450,6 @@ pub fn gen_for<'a>(
                       false,
                     ),
                   ));
-                  i += 1;
                 }
 
                 for effect in key_only_binding_patterns {
@@ -574,8 +570,8 @@ pub fn gen_for<'a>(
               } else {
                 None
               },
-              if let Some(raw_index) = raw_index {
-                Some(ast.formal_parameter(
+              raw_index.map(|raw_index| {
+                ast.formal_parameter(
                   SPAN,
                   ast.vec(),
                   ast.binding_pattern(
@@ -588,10 +584,8 @@ pub fn gen_for<'a>(
                   None,
                   false,
                   false,
-                ))
-              } else {
-                None
-              },
+                )
+              }),
             ]
             .into_iter()
             .flatten(),
@@ -616,7 +610,7 @@ pub fn gen_for<'a>(
 
   statements.extend(selector_declarations);
 
-  let selector_setup_expression = if selector_setup.len() > 0 {
+  let selector_setup_expression = if !selector_setup.is_empty() {
     Some(
       ast
         .expression_arrow_function(
@@ -738,17 +732,16 @@ fn match_patterns<'a>(
     let _effects = effects as *mut Vec<IREffect>;
     for i in 0..effects.len() {
       let effect = unsafe { &mut *_effects }.get(i).unwrap();
-      if let Some(selector) = match_selector_pattern(&effect, &key_prop.content, id_map, context) {
+      if let Some(selector) = match_selector_pattern(effect, &key_prop.content, id_map, context) {
         effect_patterns.push(effects.remove(i));
         selector_patterns.push(selector);
-      } else if effect.operations.len() > 0 {
-        if let Some(ast) = &get_expression(&effect).unwrap().ast
-          && key_prop
-            .content
-            .eq(ast.span().source_text(context.ir.source))
-        {
-          key_only_binding_patterns.push(effects.remove(i));
-        }
+      } else if !effect.operations.is_empty()
+        && let Some(ast) = &get_expression(effect).unwrap().ast
+        && key_prop
+          .content
+          .eq(ast.span().source_text(context.ir.source))
+      {
+        key_only_binding_patterns.push(effects.remove(i));
       }
     }
   }
@@ -770,9 +763,7 @@ fn match_selector_pattern<'a>(
   if effect.operations.len() != 1 {
     return None;
   }
-  let Some(expression) = get_expression(effect) else {
-    return None;
-  };
+  let expression = get_expression(effect)?;
   let Some(ast) = &expression.ast else {
     return None;
   };
@@ -793,12 +784,12 @@ fn match_selector_pattern<'a>(
         let right_is_key = key.eq(&source[right.span().start as usize..right.span().end as usize]);
         if left_is_key
           && !right_is_key
-          && analyze_variable_scopes(&right, &id_map, context).len() == 0
+          && analyze_variable_scopes(right, id_map, context).is_empty()
         {
           matcheds.push((left.span(), right.span()));
         } else if right_is_key
           && !left_is_key
-          && analyze_variable_scopes(&left, &id_map, context).len() == 0
+          && analyze_variable_scopes(left, id_map, context).is_empty()
         {
           matcheds.push((right.span(), left.span()));
         }
@@ -849,10 +840,8 @@ fn analyze_variable_scopes(
     context,
     Box::new(|id, _, _, _, _| {
       let name = id.name.to_string();
-      if !is_globally_allowed(&name) {
-        if id_map.get(&name).is_some() {
-          locals.push(name);
-        }
+      if !is_globally_allowed(&name) && id_map.get(&name).is_some() {
+        locals.push(name);
       }
       None
     }),
@@ -860,20 +849,20 @@ fn analyze_variable_scopes(
   )
   .traverse(ast.clone_in(context.ast.allocator));
 
-  return locals;
+  locals
 }
 
 fn get_expression<'a>(effect: &'a IREffect<'a>) -> Option<&'a SimpleExpressionNode<'a>> {
-  let operation = effect.operations.get(0);
+  let operation = effect.operations.first();
   match operation.as_ref().unwrap() {
-    Either16::C(operation) => operation.values.get(0),
-    Either16::G(operation) => operation.values.get(0),
-    Either16::K(operation) => operation.values.get(0),
+    Either16::C(operation) => operation.values.first(),
+    Either16::G(operation) => operation.values.first(),
+    Either16::K(operation) => operation.values.first(),
     Either16::I(operation) => Some(&operation.value),
     Either16::H(operation) => operation.value.as_ref(),
     Either16::F(operation) => Some(&operation.value),
     Either16::J(operation) => Some(&operation.value),
-    Either16::D(operation) => operation.prop.values.get(0),
+    Either16::D(operation) => operation.prop.values.first(),
     _ => None,
   }
 }
@@ -883,6 +872,6 @@ struct BinaryExpressionVisitor<'a> {
 }
 impl<'a> Visit<'a> for BinaryExpressionVisitor<'a> {
   fn visit_binary_expression(&mut self, node: &BinaryExpression) {
-    self.on_binary_expression.as_mut()(&node)
+    self.on_binary_expression.as_mut()(node)
   }
 }

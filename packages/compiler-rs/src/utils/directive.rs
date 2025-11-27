@@ -1,5 +1,5 @@
-use napi::bindgen_prelude::Either3;
-use oxc_ast::ast::{JSXAttribute, JSXAttributeName};
+use napi::bindgen_prelude::{Either, Either3};
+use oxc_ast::ast::{JSXAttribute, JSXAttributeItem, JSXAttributeName, JSXElement};
 use oxc_span::SPAN;
 
 use crate::{
@@ -81,11 +81,10 @@ pub fn resolve_directive<'a>(
     None
   };
 
-  let exp = if let Some(exp) = &mut node.value {
-    Some(SimpleExpressionNode::new(Either3::C(exp), context))
-  } else {
-    None
-  };
+  let exp = node
+    .value
+    .as_mut()
+    .map(|exp| SimpleExpressionNode::new(Either3::C(exp), context));
 
   let modifiers = modifiers
     .into_iter()
@@ -101,6 +100,38 @@ pub fn resolve_directive<'a>(
     exp,
     arg,
     loc: SPAN,
-    modifiers: modifiers,
+    modifiers,
   }
 }
+
+macro_rules! define_find_prop {
+  ($fn_name:ident, $node_type: ty, $ret_type: ty, $iter: tt) => {
+    pub fn $fn_name<'a>(node: $node_type, key: Either<String, Vec<String>>) -> Option<$ret_type> {
+      for attr in node.opening_element.attributes.$iter() {
+        if let JSXAttributeItem::Attribute(attr) = attr {
+          let name = match &attr.name {
+            JSXAttributeName::Identifier(name) => name.name.to_string(),
+            JSXAttributeName::NamespacedName(name) => name.namespace.name.to_string(),
+          };
+          let name = name.split('_').collect::<Vec<&str>>()[0];
+          if !name.eq("")
+            && match &key {
+              Either::A(s) => s.eq(name),
+              Either::B(s) => s.contains(&name.to_string()),
+            }
+          {
+            return Some(attr);
+          }
+        }
+      }
+      None
+    }
+  };
+}
+define_find_prop!(find_prop, &'a JSXElement<'a>, &'a JSXAttribute<'a>, iter);
+define_find_prop!(
+  find_prop_mut,
+  &'a mut JSXElement<'a>,
+  &'a mut JSXAttribute<'a>,
+  iter_mut
+);

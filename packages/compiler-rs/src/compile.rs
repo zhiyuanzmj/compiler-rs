@@ -103,7 +103,7 @@ pub fn _compile(
 }
 
 pub fn compile(source: &str, options: Option<TransformOptions>) -> CompileCodegenResult {
-  let options = options.unwrap_or(TransformOptions::default());
+  let options = options.unwrap_or_default();
   let allocator = Allocator::default();
   let mut root = Parser::new(&allocator, source, options.source_type)
     .with_options(ParseOptions {

@@ -8,13 +8,13 @@ use crate::{
   transform::{ContextNode, TransformContext},
   utils::{
     check::{is_constant_node, is_template},
-    directive::resolve_directive,
+    directive::{find_prop, find_prop_mut, resolve_directive},
     error::ErrorCodes,
-    utils::{find_prop, find_prop_mut},
   },
 };
 
-pub fn transform_v_if<'a>(
+/// # SAFETY
+pub unsafe fn transform_v_if<'a>(
   context_node: *mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
@@ -28,16 +28,14 @@ pub fn transform_v_if<'a>(
   }
   let node = node as *mut oxc_allocator::Box<JSXElement>;
 
-  let Some(dir) = find_prop_mut(
+  let dir = find_prop_mut(
     unsafe { &mut *node },
     Either::B(vec![
       "v-if".to_string(),
       "v-else".to_string(),
       "v-else-if".to_string(),
     ]),
-  ) else {
-    return None;
-  };
+  )?;
   let seen = &mut context.seen.borrow_mut();
   let start = dir.span.start;
   if seen.contains(&start) {
@@ -92,10 +90,10 @@ pub fn transform_v_if<'a>(
 
   let siblings = &mut context.parent_dynamic.borrow_mut().children;
   let mut last_if_node = None;
-  if siblings.len() > 0 {
+  if !siblings.is_empty() {
     let mut i = siblings.len();
     while i > 0 {
-      i = i - 1;
+      i -= 1;
       let sibling = siblings.get_mut(i).unwrap() as *mut IRDynamicInfo;
       if let Some(operation) = (unsafe { &mut *sibling }).operation.as_mut()
         && let Either16::A(operation) = operation.as_mut()

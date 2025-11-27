@@ -320,7 +320,7 @@ static VOID_TAGS: phf::Set<&'static str> = phf_set! {
     "track", "wbr",
 };
 pub fn is_void_tag(tag_name: &str) -> bool {
-  VOID_TAGS.contains(&tag_name)
+  VOID_TAGS.contains(tag_name)
 }
 
 static BUILD_IN_DIRECTIVE: phf::Set<&'static str> = phf_set! {
@@ -328,7 +328,7 @@ static BUILD_IN_DIRECTIVE: phf::Set<&'static str> = phf_set! {
   "slot", "slots", "text", "memo",
 };
 pub fn is_build_in_directive(prop_name: &str) -> bool {
-  BUILD_IN_DIRECTIVE.contains(&prop_name)
+  BUILD_IN_DIRECTIVE.contains(prop_name)
 }
 
 pub fn is_simple_identifier(s: &str) -> bool {
@@ -418,7 +418,7 @@ pub fn is_referenced(
       if let PropertyKey::PrivateIdentifier(key) = &parent.key() {
         key.span.eq(&node.span)
       } else if *parent.computed() && parent.key().span().eq(&node.span()) {
-        return true;
+        true
       } else if !matches!(grandparent, Ancestor::None) {
         !grandparent.is_object_pattern()
       } else {
@@ -446,42 +446,42 @@ pub fn is_referenced(
     // yes: class Foo extends NODE {}
     Ancestor::ClassDecorators(parent) => {
       if let Some(super_class) = &parent.super_class() {
-        super_class.span().eq(&parent.span())
+        super_class.span().eq(parent.span())
       } else {
         false
       }
     }
     Ancestor::ClassId(parent) => {
       if let Some(super_class) = &parent.super_class() {
-        super_class.span().eq(&parent.span())
+        super_class.span().eq(parent.span())
       } else {
         false
       }
     }
     Ancestor::ClassTypeParameters(parent) => {
       if let Some(super_class) = &parent.super_class() {
-        super_class.span().eq(&parent.span())
+        super_class.span().eq(parent.span())
       } else {
         false
       }
     }
     Ancestor::ClassSuperTypeArguments(parent) => {
       if let Some(super_class) = &parent.super_class() {
-        super_class.span().eq(&parent.span())
+        super_class.span().eq(parent.span())
       } else {
         false
       }
     }
     Ancestor::ClassImplements(parent) => {
       if let Some(super_class) = &parent.super_class() {
-        super_class.span().eq(&parent.span())
+        super_class.span().eq(parent.span())
       } else {
         false
       }
     }
     Ancestor::ClassBody(parent) => {
       if let Some(super_class) = &parent.super_class() {
-        super_class.span().eq(&parent.span())
+        super_class.span().eq(parent.span())
       } else {
         false
       }
@@ -631,7 +631,7 @@ fn is_in_desctructure_assignment(parent: &Ancestor, ancestry: &TraverseAncestry)
     for p in ancestry.ancestors() {
       if p.is_assignment_expression() {
         return true;
-      } else if !p.is_binding_property() && !(p.is_object_pattern() || p.is_array_pattern()) {
+      } else if !(p.is_binding_property() && p.is_object_pattern() || p.is_array_pattern()) {
         break;
       }
     }

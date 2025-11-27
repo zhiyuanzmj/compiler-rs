@@ -52,7 +52,7 @@ impl<'a> CodegenContext<'a> {
     let ast = AstBuilder::new(context.allocator);
     CodegenContext {
       transform_cotext: context,
-      options: &context.options,
+      options: context.options,
       identifiers: RefCell::new(HashMap::new()),
       block: RefCell::new(block),
       scope_level: RefCell::new(0),
@@ -78,10 +78,10 @@ impl<'a> CodegenContext<'a> {
       }
       identifiers.get_mut(id).unwrap().insert(
         0,
-        if let Some(_) = value {
+        if value.is_some() {
           value.take().unwrap()
         } else {
-          self.ast.expression_identifier(SPAN, self.ast.atom(&id))
+          self.ast.expression_identifier(SPAN, self.ast.atom(id))
         },
       );
     }

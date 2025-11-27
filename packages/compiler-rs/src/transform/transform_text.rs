@@ -16,12 +16,13 @@ use crate::{
   transform::{ContextNode, TransformContext},
   utils::{
     check::{is_constant_node, is_fragment_node, is_jsx_component, is_template},
+    directive::find_prop,
     text::{is_empty_text, resolve_jsx_text},
-    utils::find_prop,
   },
 };
 
-pub fn transform_text<'a>(
+/// # SAFETY
+pub unsafe fn transform_text<'a>(
   context_node: *mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
@@ -117,7 +118,7 @@ fn process_children<'a>(
   context_block: &'a mut BlockIRNode<'a>,
   seen: &mut HashSet<u32>,
 ) {
-  if children.len() > 0 {
+  if !children.is_empty() {
     let mut has_interp = false;
     let mut is_all_text_like = true;
     for child in children.iter() {
@@ -171,7 +172,7 @@ fn process_interpolation<'a>(
       _ => return,
     },
   };
-  if children.len() == 0 {
+  if children.is_empty() {
     return;
   }
   let children = children as *mut oxc_allocator::Vec<JSXChild>;
@@ -207,8 +208,8 @@ fn process_interpolation<'a>(
   if match parent_node {
     Either::A(_) => true,
     Either::B(parent) => {
-      is_fragment_node(&parent)
-        || matches!(parent, JSXChild::Element(parent) if find_prop(&parent, Either::A(String::from("v-slot"))).is_some())
+      is_fragment_node(parent)
+        || matches!(parent, JSXChild::Element(parent) if find_prop(parent, Either::A(String::from("v-slot"))).is_some())
     }
   } {
     context.register_operation(
@@ -238,7 +239,7 @@ fn process_interpolation<'a>(
   };
 }
 
-fn mark_non_template<'a>(node: &JSXChild, seen: &'a mut HashSet<u32>) {
+fn mark_non_template(node: &JSXChild, seen: &mut HashSet<u32>) {
   seen.insert(node.span().start);
 }
 
@@ -254,7 +255,7 @@ fn process_text_container<'a>(
     .map(|e| e.get_literal_expression_value())
     .collect::<Vec<Option<String>>>();
   if literals.iter().all(|l| l.is_some()) {
-    *context.children_template.borrow_mut() = literals.into_iter().filter_map(|i| i).collect();
+    *context.children_template.borrow_mut() = literals.into_iter().flatten().collect();
   } else {
     *context.children_template.borrow_mut() = vec![" ".to_string()];
     let parent = context.reference(&mut context_block.dynamic);
@@ -338,7 +339,7 @@ pub fn process_conditional_expression<'a>(
   let block = context_block as *mut BlockIRNode;
   let exit_block = context.create_block(context_node, unsafe { &mut *block }, consequent, None);
 
-  let is_const_test = is_constant_node(&Some(&test));
+  let is_const_test = is_constant_node(&Some(test));
   let test = SimpleExpressionNode::new(Either3::A(test), context);
 
   Box::new(move || {
@@ -400,7 +401,7 @@ fn process_logical_expression<'a>(
     let mut operation = IfIRNode {
       id,
       positive: block,
-      once: *context.in_v_once.borrow() || is_constant_node(&Some(&left)),
+      once: *context.in_v_once.borrow() || is_constant_node(&Some(left)),
       condition: SimpleExpressionNode::new(Either3::A(left), context),
       negative: None,
       anchor: None,

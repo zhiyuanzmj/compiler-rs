@@ -32,12 +32,12 @@ pub fn gen_expression<'a>(
         loc,
         AssignmentOperator::Assign,
         AssignmentTarget::AssignmentTargetIdentifier(
-          ast.alloc_identifier_reference(loc, ast.atom(&content)),
+          ast.alloc_identifier_reference(loc, ast.atom(content)),
         ),
         assignment,
       )
     } else {
-      ast.expression_identifier(loc, ast.atom(&content))
+      ast.expression_identifier(loc, ast.atom(content))
     };
   }
 
@@ -116,23 +116,21 @@ pub fn gen_identifier<'a>(
 ) -> Expression<'a> {
   let ast = &context.ast;
   if let Some(id_map) = context.identifiers.borrow().get(name)
-    && id_map.len() > 0
-  {
-    if let Some(replacement) = id_map.get(0) {
+    && !id_map.is_empty()
+    && let Some(replacement) = id_map.first() {
       return replacement.clone_in(ast.allocator);
     }
-  }
 
   if let Some(assignment) = assignment {
     ast.expression_assignment(
       loc,
       AssignmentOperator::Assign,
       AssignmentTarget::AssignmentTargetIdentifier(
-        ast.alloc_identifier_reference(loc, ast.atom(&name)),
+        ast.alloc_identifier_reference(loc, ast.atom(name)),
       ),
       assignment,
     )
   } else {
-    ast.expression_identifier(loc, ast.atom(&name))
+    ast.expression_identifier(loc, ast.atom(name))
   }
 }

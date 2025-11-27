@@ -4,10 +4,10 @@ use oxc_ast::ast::JSXChild;
 use crate::{
   ir::index::BlockIRNode,
   transform::{ContextNode, TransformContext},
-  utils::utils::find_prop,
+  utils::directive::find_prop,
 };
 
-pub fn transform_v_once<'a>(
+pub unsafe fn transform_v_once<'a>(
   context_node: *mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   _: &'a mut BlockIRNode<'a>,

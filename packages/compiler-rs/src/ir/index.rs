@@ -40,7 +40,7 @@ impl<'a> RootNode<'a> {
         ))],
         allocator,
       ),
-      _ => oxc_allocator::Vec::new_in(&allocator),
+      _ => oxc_allocator::Vec::new_in(allocator),
     };
 
     let mut is_single_root = false;
@@ -101,15 +101,15 @@ pub struct RootIRNode<'a> {
 }
 impl<'a> RootIRNode<'a> {
   pub fn new(source: &'a str) -> Self {
-    let root = RootIRNode {
+    
+    RootIRNode {
       source,
       component: HashSet::new(),
       directive: HashSet::new(),
       block: BlockIRNode::new(),
       has_template_ref: false,
       root_template_index: None,
-    };
-    root
+    }
   }
 }
 

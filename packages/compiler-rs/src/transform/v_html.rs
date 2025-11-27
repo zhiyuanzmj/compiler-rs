@@ -20,7 +20,7 @@ pub fn transform_v_html<'a>(
     SimpleExpressionNode::default()
   };
 
-  if node.children.len() != 0 {
+  if !node.children.is_empty() {
     context.options.on_error.as_ref()(ErrorCodes::VHtmlWithChildren, node.span);
     return None;
   }

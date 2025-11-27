@@ -10,10 +10,11 @@ use crate::{
     index::{BlockIRNode, SimpleExpressionNode},
   },
   transform::{ContextNode, TransformContext},
-  utils::{check::is_jsx_component, error::ErrorCodes, utils::find_prop_mut},
+  utils::{check::is_jsx_component, directive::find_prop_mut, error::ErrorCodes},
 };
 
-pub fn transform_v_slots<'a>(
+/// # SAFETY
+pub unsafe fn transform_v_slots<'a>(
   context_node: *mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   _: &'a mut BlockIRNode<'a>,

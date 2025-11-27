@@ -10,7 +10,8 @@ use crate::{
   utils::check::{is_fragment_node, is_jsx_component},
 };
 
-pub fn transform_children<'a>(
+/// # SAFETY
+pub unsafe fn transform_children<'a>(
   node: &mut ContextNode<'a>,
   context: &TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
@@ -18,7 +19,7 @@ pub fn transform_children<'a>(
   let is_fragment_or_component = match &node {
     Either::A(_) => true,
     Either::B(node) => {
-      is_fragment_node(&node)
+      is_fragment_node(node)
         || match node {
           JSXChild::Element(node) => is_jsx_component(node),
           _ => false,
@@ -64,7 +65,7 @@ pub fn transform_children<'a>(
 
     let mut parent_dynamic = context.parent_dynamic.borrow_mut();
     let child_dynamic = &mut context_block.dynamic;
-    let flags = child_dynamic.flags.clone();
+    let flags = child_dynamic.flags;
     if is_fragment_or_component {
       context.register_template(child_dynamic);
       context.reference(child_dynamic);
@@ -84,9 +85,7 @@ pub fn transform_children<'a>(
       parent_dynamic.has_dynamic_child = Some(true);
     }
 
-    parent_dynamic
-      .children
-      .insert(i as usize, mem::take(child_dynamic));
+    parent_dynamic.children.insert(i, mem::take(child_dynamic));
 
     exit_context();
     i += 1;
@@ -108,22 +107,21 @@ fn process_dynamic_children<'a>(
   let mut prev_dynamics = VecDeque::new();
   let mut has_static_template = false;
 
-  let mut index = 0;
   let children = &mut context_block.dynamic.children as *mut Vec<IRDynamicInfo>;
-  for child in unsafe { &mut *children } {
+  for (index, child) in unsafe { &mut *children }.iter_mut().enumerate() {
     let flags = child.flags;
     if flags & DynamicFlag::Insert as i32 != 0 {
       prev_dynamics.push_back(child);
     }
 
     if flags & DynamicFlag::NonTemplate as i32 == 0 {
-      if prev_dynamics.len() > 0 {
+      if !prev_dynamics.is_empty() {
         if has_static_template {
           context
             .children_template
             .borrow_mut()
             .insert(index - prev_dynamics.len(), "<!>".to_string());
-          prev_dynamics[0].flags = prev_dynamics[0].flags - DynamicFlag::NonTemplate as i32;
+          prev_dynamics[0].flags -= DynamicFlag::NonTemplate as i32;
           let anchor = context.increase_id();
           prev_dynamics[0].anchor = Some(anchor);
           register_insertion(&mut prev_dynamics, context, context_block, Some(anchor));
@@ -139,10 +137,9 @@ fn process_dynamic_children<'a>(
       }
       has_static_template = true;
     }
-    index = index + 1
   }
 
-  if prev_dynamics.len() > 0 {
+  if !prev_dynamics.is_empty() {
     register_insertion(&mut prev_dynamics, context, context_block, None);
   }
 }

@@ -36,14 +36,15 @@ pub fn gen_block<'a>(
   )
 }
 
+type GenEffectsExtraFrag<'a> =
+  Option<Box<dyn FnOnce(&mut oxc_allocator::Vec<'a, Statement<'a>>, &'a mut BlockIRNode<'a>) + 'a>>;
+
 pub fn gen_block_content<'a>(
   block: Option<BlockIRNode<'a>>,
   context: &'a CodegenContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
   root: bool,
-  gen_effects_extra_frag: Option<
-    Box<dyn FnOnce(&mut oxc_allocator::Vec<'a, Statement<'a>>, &'a mut BlockIRNode<'a>) + 'a>,
-  >,
+  gen_effects_extra_frag: GenEffectsExtraFrag<'a>,
 ) -> oxc_allocator::Vec<'a, Statement<'a>> {
   let ast = &context.ast;
   let mut statements = ast.vec();
@@ -59,32 +60,29 @@ pub fn gen_block_content<'a>(
         ast.alloc_variable_declaration(
           SPAN,
           VariableDeclarationKind::Const,
-          ast.vec1(
-            ast.variable_declarator(
-              SPAN,
-              VariableDeclarationKind::Const,
-              ast.binding_pattern(
-                BindingPatternKind::BindingIdentifier(ast.alloc_binding_identifier(
-                  SPAN,
-                  ast.atom(&to_valid_asset_id(&name, "component")),
-                )),
-                NONE,
-                false,
+          ast.vec1(ast.variable_declarator(
+            SPAN,
+            VariableDeclarationKind::Const,
+            ast.binding_pattern(
+              BindingPatternKind::BindingIdentifier(
+                ast.alloc_binding_identifier(SPAN, ast.atom(&to_valid_asset_id(name, "component"))),
               ),
-              Some(ast.expression_call(
-                SPAN,
-                ast.expression_identifier(SPAN, ast.atom(&context.helper("resolveComponent"))),
-                NONE,
-                ast.vec_from_array([Argument::StringLiteral(ast.alloc_string_literal(
-                  SPAN,
-                  ast.atom(&name),
-                  None,
-                ))]),
-                false,
-              )),
+              NONE,
               false,
             ),
-          ),
+            Some(ast.expression_call(
+              SPAN,
+              ast.expression_identifier(SPAN, ast.atom(&context.helper("resolveComponent"))),
+              NONE,
+              ast.vec_from_array([Argument::StringLiteral(ast.alloc_string_literal(
+                SPAN,
+                ast.atom(name),
+                None,
+              ))]),
+              false,
+            )),
+            false,
+          )),
           false,
         ),
       ));
@@ -94,32 +92,29 @@ pub fn gen_block_content<'a>(
         ast.alloc_variable_declaration(
           SPAN,
           VariableDeclarationKind::Const,
-          ast.vec1(
-            ast.variable_declarator(
-              SPAN,
-              VariableDeclarationKind::Const,
-              ast.binding_pattern(
-                BindingPatternKind::BindingIdentifier(ast.alloc_binding_identifier(
-                  SPAN,
-                  ast.atom(&to_valid_asset_id(&name, "directive")),
-                )),
-                NONE,
-                false,
+          ast.vec1(ast.variable_declarator(
+            SPAN,
+            VariableDeclarationKind::Const,
+            ast.binding_pattern(
+              BindingPatternKind::BindingIdentifier(
+                ast.alloc_binding_identifier(SPAN, ast.atom(&to_valid_asset_id(name, "directive"))),
               ),
-              Some(ast.expression_call(
-                SPAN,
-                ast.expression_identifier(SPAN, ast.atom(&context.helper("resolveDirective"))),
-                NONE,
-                ast.vec1(Argument::StringLiteral(ast.alloc_string_literal(
-                  SPAN,
-                  ast.atom(&name),
-                  None,
-                ))),
-                false,
-              )),
+              NONE,
               false,
             ),
-          ),
+            Some(ast.expression_call(
+              SPAN,
+              ast.expression_identifier(SPAN, ast.atom(&context.helper("resolveDirective"))),
+              NONE,
+              ast.vec1(Argument::StringLiteral(ast.alloc_string_literal(
+                SPAN,
+                ast.atom(name),
+                None,
+              ))),
+              false,
+            )),
+            false,
+          )),
           false,
         ),
       ))
@@ -152,16 +147,14 @@ pub fn gen_block_content<'a>(
   });
   statements.push(ast.statement_return(
     SPAN,
-    Some(if &return_nodes.len() > &1 {
+    Some(if return_nodes.len() > 1 {
       ast.expression_array(SPAN, ast.vec_from_iter(return_nodes))
+    } else if let Some(node) = return_nodes.next()
+      && let ArrayExpressionElement::Identifier(node) = node
+    {
+      ast.expression_identifier(SPAN, node.name)
     } else {
-      if let Some(node) = return_nodes.nth(0)
-        && let ArrayExpressionElement::Identifier(node) = node
-      {
-        ast.expression_identifier(SPAN, node.name)
-      } else {
-        ast.expression_null_literal(SPAN)
-      }
+      ast.expression_null_literal(SPAN)
     }),
   ));
 

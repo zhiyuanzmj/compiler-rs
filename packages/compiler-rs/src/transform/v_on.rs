@@ -21,7 +21,7 @@ pub fn transform_v_on<'a>(
   let is_component = is_jsx_component(node);
 
   let (name, name_loc) = match &dir.name {
-    JSXAttributeName::Identifier(name) => (name.name.as_ref(), name.span.clone()),
+    JSXAttributeName::Identifier(name) => (name.name.as_ref(), name.span),
     JSXAttributeName::NamespacedName(name) => {
       (name.span.source_text(context.ir.borrow().source), name.span)
     }
@@ -42,11 +42,7 @@ pub fn transform_v_on<'a>(
     loc: name_loc,
     ast: None,
   };
-  let exp = if let Some(value) = value {
-    Some(SimpleExpressionNode::new(Either3::C(value), context))
-  } else {
-    None
-  };
+  let exp = value.as_mut().map(|value| SimpleExpressionNode::new(Either3::C(value), context));
 
   let Modifiers {
     keys: key_modifiers,
@@ -75,25 +71,18 @@ pub fn transform_v_on<'a>(
   if non_key_modifiers
     .iter()
     .any(|modifier| modifier == "middle")
-  {
-    if is_static_click {
+    && is_static_click {
       arg.content = "mouseup".to_string()
     }
-  }
-  if non_key_modifiers.iter().any(|modifier| modifier == "right") {
-    if is_static_click {
+  if non_key_modifiers.iter().any(|modifier| modifier == "right")
+    && is_static_click {
       arg.content = "contextmenu".to_string();
     }
-  }
 
   if is_component {
     return Some(DirectiveTransformResult {
       key: arg,
-      value: if let Some(exp) = exp {
-        exp
-      } else {
-        SimpleExpressionNode::default()
-      },
+      value: exp.unwrap_or_default(),
       handler: Some(true),
       handler_modifiers: Some(Modifiers {
         keys: key_modifiers,
@@ -112,7 +101,7 @@ pub fn transform_v_on<'a>(
   // - no event option modifiers (passive, capture, once)
   // - is a delegatable
   let delegate = arg.is_static
-    && event_option_modifiers.len() == 0
+    && event_option_modifiers.is_empty()
     && DELEGATED_EVENTS.contains(arg.content.as_str());
 
   let element = context.reference(&mut context_block.dynamic);
@@ -211,7 +200,7 @@ pub fn resolve_modifiers(
             ""
           }
         }
-        Either::B(string) => &string,
+        Either::B(string) => string,
       };
 
       // runtimeModifiers: modifiers that needs runtime guards

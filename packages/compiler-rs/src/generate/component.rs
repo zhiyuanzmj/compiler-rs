@@ -179,7 +179,7 @@ fn gen_raw_props<'a>(
 ) -> Option<Expression<'a>> {
   let props_len = props.len();
   if let Either3::A(static_props) = &props[0] {
-    if static_props.len() == 0 && props_len == 1 {
+    if static_props.is_empty() && props_len == 1 {
       return None;
     }
     let static_props = props.remove(0);
@@ -238,7 +238,7 @@ fn gen_dynamic_props<'a>(
   for p in props {
     let mut expr = None;
     if let Either3::A(p) = p {
-      if p.len() > 0 {
+      if !p.is_empty() {
         frags.push(gen_static_props(p, context, None))
       }
       continue;
@@ -283,7 +283,7 @@ fn gen_dynamic_props<'a>(
       ),
     ));
   }
-  if frags.len() > 0 {
+  if !frags.is_empty() {
     return Some(
       ast.expression_array(SPAN, ast.vec_from_iter(frags.into_iter().map(|i| i.into()))),
     );
@@ -394,7 +394,7 @@ fn gen_model<'a>(
   let expression = gen_expression(key, context, None, None);
 
   let modifiers = if let Some(model_modifiers) = model_modifiers
-    && model_modifiers.len() > 0
+    && !model_modifiers.is_empty()
   {
     let modifers_key = if is_static {
       ast

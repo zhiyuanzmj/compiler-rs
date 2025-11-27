@@ -148,7 +148,7 @@ fn get_runtime_helper(tag: &str, key: &str, modifier: Option<String>) -> HelperC
 
   // 5. Fallback to setDOMProp, which has a runtime `key in el` check to
   // ensure behavior consistency with vdom
-  return helpers("setProp");
+  helpers("setProp")
 }
 
 // The following attributes must be set as attribute
@@ -180,7 +180,7 @@ fn should_set_as_attr(tag_name: &str, key: &str) -> bool {
     return true;
   }
 
-  return false;
+  false
 }
 
 fn can_set_value_directly(tag_name: &str) -> bool {
@@ -265,7 +265,6 @@ fn gen_literal_object_props<'a>(
           false,
           false,
         )
-        .into()
     })),
   )
 }
@@ -283,7 +282,7 @@ pub fn gen_prop_key<'a>(
   let handler_modifier_postfix = if !options.is_empty() {
     options
       .into_iter()
-      .map(|option| option[..1].to_string().to_uppercase() + &option[1..].to_string())
+      .map(|option| option[..1].to_string().to_uppercase() + &option[1..])
       .collect::<Vec<_>>()
       .join("")
   } else {
@@ -295,7 +294,7 @@ pub fn gen_prop_key<'a>(
     let key_name = (if handler {
       format!(
         "on{}",
-        node.content[0..1].to_string().to_uppercase() + &node.content[1..].to_string()
+        node.content[0..1].to_string().to_uppercase() + &node.content[1..]
       )
     } else {
       node.content
@@ -361,7 +360,7 @@ pub fn gen_prop_value<'a>(
   context: &'a CodegenContext<'a>,
 ) -> Expression<'a> {
   let ast = &context.ast;
-  if (&values).len() == 1 {
+  if values.len() == 1 {
     return gen_expression(values.remove(0), context, None, None);
   }
   ast.expression_array(

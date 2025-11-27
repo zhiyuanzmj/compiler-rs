@@ -109,7 +109,7 @@ pub fn gen_if<'a>(
   );
 
   if !is_nested {
-    return Statement::VariableDeclaration(ast.alloc_variable_declaration(
+    Statement::VariableDeclaration(ast.alloc_variable_declaration(
       SPAN,
       VariableDeclarationKind::Const,
       ast.vec1(ast.variable_declarator(
@@ -126,7 +126,7 @@ pub fn gen_if<'a>(
         false,
       )),
       false,
-    ));
+    ))
   } else {
     ast.statement_expression(SPAN, expression)
   }

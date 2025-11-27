@@ -106,6 +106,7 @@ impl<'a> DirectiveTransformResult<'a> {
 }
 
 pub type ContextNode<'a> = Either<RootNode<'a>, JSXChild<'a>>;
+type GetIndex<'a> = Option<Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>>;
 
 pub struct TransformContext<'a> {
   pub allocator: &'a Allocator,
@@ -155,7 +156,7 @@ impl<'a> TransformContext<'a> {
   pub fn transform(&'a self, expression: Expression<'a>, source: &'a str) -> Expression<'a> {
     let allocator = self.allocator;
     let mut ir = RootIRNode::new(source);
-    *self.node.borrow_mut() = Either::A(RootNode::from(&allocator, expression));
+    *self.node.borrow_mut() = Either::A(RootNode::from(allocator, expression));
     *self.block.borrow_mut() = mem::take(&mut ir.block);
     *self.ir.borrow_mut() = ir;
     *self.index.borrow_mut() = 0;
@@ -170,23 +171,23 @@ impl<'a> TransformContext<'a> {
     (unsafe { &*generate_context }).generate()
   }
 
-  pub fn increase_id(self: &Self) -> i32 {
+  pub fn increase_id(&self) -> i32 {
     let current = *self.global_id.borrow();
     *self.global_id.borrow_mut() += 1;
     current
   }
 
-  pub fn reference(self: &Self, dynamic: &mut IRDynamicInfo) -> i32 {
+  pub fn reference(&self, dynamic: &mut IRDynamicInfo) -> i32 {
     if let Some(id) = dynamic.id {
       return id;
     }
-    dynamic.flags = dynamic.flags | DynamicFlag::Referenced as i32;
+    dynamic.flags |= DynamicFlag::Referenced as i32;
     let id = self.increase_id();
     dynamic.id = Some(id);
     id
   }
 
-  pub fn is_operation(self: &Self, expressions: Vec<&SimpleExpressionNode>) -> bool {
+  pub fn is_operation(&self, expressions: Vec<&SimpleExpressionNode>) -> bool {
     if self.in_v_once.borrow().eq(&true) {
       return true;
     }
@@ -194,7 +195,7 @@ impl<'a> TransformContext<'a> {
       .into_iter()
       .filter(|exp| !exp.is_constant_expression())
       .collect();
-    if expressions.len() == 0 {
+    if expressions.is_empty() {
       return true;
     }
     expressions
@@ -203,12 +204,12 @@ impl<'a> TransformContext<'a> {
   }
 
   pub fn register_effect(
-    self: &Self,
+    &self,
     context_block: &mut BlockIRNode<'a>,
     is_operation: bool,
     operation: OperationNode<'a>,
-    get_effect_index: Option<Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>>,
-    get_operation_index: Option<Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>>,
+    get_effect_index: GetIndex<'a>,
+    get_operation_index: GetIndex<'a>,
   ) {
     if is_operation {
       return self.register_operation(context_block, operation, get_operation_index);
@@ -229,10 +230,10 @@ impl<'a> TransformContext<'a> {
   }
 
   pub fn register_operation(
-    self: &Self,
+    &self,
     context_block: &mut BlockIRNode<'a>,
     operation: OperationNode<'a>,
-    get_operation_index: Option<Rc<RefCell<Box<dyn FnMut() -> i32 + 'a>>>>,
+    get_operation_index: GetIndex<'a>,
   ) {
     let index = if let Some(get_operation_index) = get_operation_index {
       get_operation_index.borrow_mut()() as usize
@@ -242,7 +243,7 @@ impl<'a> TransformContext<'a> {
     context_block.operation.insert(index, operation);
   }
 
-  pub fn push_template(self: &Self, content: String) -> i32 {
+  pub fn push_template(&self, content: String) -> i32 {
     let ir = self.ir.borrow_mut();
     let root_template_index = ir.root_template_index;
     let len = self.options.templates.borrow().len();
@@ -260,7 +261,7 @@ impl<'a> TransformContext<'a> {
     len as i32
   }
 
-  pub fn register_template(self: &Self, dynamic: &mut IRDynamicInfo) -> i32 {
+  pub fn register_template(&self, dynamic: &mut IRDynamicInfo) -> i32 {
     let template = self.template.borrow();
     if template.is_empty() {
       return -1;
@@ -291,7 +292,7 @@ impl<'a> TransformContext<'a> {
       *self.in_v_for.borrow_mut() += 1;
     }
 
-    let exit_block = Box::new(move || {
+    (Box::new(move || {
       // exit
       self.register_template(&mut context_block.dynamic);
       let return_block = mem::take(context_block);
@@ -305,12 +306,10 @@ impl<'a> TransformContext<'a> {
         *self.in_v_for.borrow_mut() -= 1;
       }
       return_block
-    }) as Box<dyn FnOnce() -> BlockIRNode<'a>>;
-
-    exit_block
+    }) as Box<dyn FnOnce() -> BlockIRNode<'a>>) as _
   }
 
-  pub fn wrap_fragment(self: &Self, mut node: Expression<'a>) -> JSXChild<'a> {
+  pub fn wrap_fragment(&self, mut node: Expression<'a>) -> JSXChild<'a> {
     if let Expression::JSXFragment(node) = node {
       JSXChild::Fragment(node)
     } else if let Expression::JSXElement(node) = &mut node
@@ -347,7 +346,7 @@ impl<'a> TransformContext<'a> {
   }
 
   pub fn create_block(
-    self: &'a Self,
+    &'a self,
     context_node: &mut ContextNode<'a>,
     context_block: &'a mut BlockIRNode<'a>,
     node: Expression<'a>,
@@ -392,54 +391,54 @@ impl<'a> TransformContext<'a> {
     context_block: Option<&'a mut BlockIRNode<'a>>,
     parent_node: Option<&mut ContextNode<'a>>,
   ) {
-    let context_block = if let Some(context_block) = context_block {
-      context_block
-    } else {
-      &mut self.block.borrow_mut()
-    };
+    unsafe {
+      let context_block = if let Some(context_block) = context_block {
+        context_block
+      } else {
+        &mut self.block.borrow_mut()
+      };
 
-    let block = context_block as *mut BlockIRNode;
-    let mut exit_fns = vec![];
+      let block = context_block as *mut BlockIRNode;
+      let mut exit_fns = vec![];
 
-    let is_root = matches!(&*self.node.borrow(), Either::A(_));
-    if !is_root {
-      let context = self as *const TransformContext;
-      let node = &mut *self.node.borrow_mut() as *mut _;
-      let parent_node = parent_node.unwrap() as *mut ContextNode;
-      for node_transform in vec![
-        transform_v_once,
-        transform_v_if,
-        transform_v_for,
-        transform_template_ref,
-        transform_element,
-        transform_text,
-        transform_v_slots,
-        transform_v_slot,
-      ] {
-        let on_exit = node_transform(node, unsafe { &*context }, unsafe { &mut *block }, unsafe {
-          &mut *parent_node
-        });
-        if let Some(on_exit) = on_exit {
-          exit_fns.push(on_exit);
+      let is_root = matches!(&*self.node.borrow(), Either::A(_));
+      if !is_root {
+        let context = self as *const TransformContext;
+        let node = &mut *self.node.borrow_mut() as *mut _;
+        let parent_node = parent_node.unwrap() as *mut ContextNode;
+        for node_transform in [
+          transform_v_once,
+          transform_v_if,
+          transform_v_for,
+          transform_template_ref,
+          transform_element,
+          transform_text,
+          transform_v_slots,
+          transform_v_slot,
+        ] {
+          let on_exit = node_transform(node, &*context, &mut *block, &mut *parent_node);
+          if let Some(on_exit) = on_exit {
+            exit_fns.push(on_exit);
+          }
         }
       }
-    }
 
-    transform_children(
-      &mut self.node.replace(Either::A(RootNode::new(self.allocator))),
-      self,
-      unsafe { &mut *block },
-    );
+      transform_children(
+        &mut self.node.replace(Either::A(RootNode::new(self.allocator))),
+        self,
+        &mut *block,
+      );
 
-    let mut i = exit_fns.len();
-    while i > 0 {
-      i = i - 1;
-      let on_exit = exit_fns.pop().unwrap();
-      on_exit();
-    }
+      let mut i = exit_fns.len();
+      while i > 0 {
+        i -= 1;
+        let on_exit = exit_fns.pop().unwrap();
+        on_exit();
+      }
 
-    if is_root {
-      self.register_template(&mut context_block.dynamic);
+      if is_root {
+        self.register_template(&mut context_block.dynamic);
+      }
     }
   }
 }
@@ -494,7 +493,7 @@ pub fn _transform(env: Env, source: String, options: Option<CompilerOptions>) ->
 
 pub fn transform(source: &str, options: Option<TransformOptions>) -> CodegenReturn {
   use oxc_codegen::CodegenOptions;
-  let options = options.unwrap_or(TransformOptions::default());
+  let options = options.unwrap_or_default();
   let filename = options.filename;
   let source_map = options.source_map;
   let source_type = options.source_type;

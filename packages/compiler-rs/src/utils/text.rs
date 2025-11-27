@@ -1,4 +1,4 @@
-use oxc_ast::ast::{JSXChild, JSXElementName, JSXExpression, JSXText};
+use oxc_ast::ast::{Expression, JSXChild, JSXElementName, JSXExpression, JSXText};
 
 use crate::transform::TransformContext;
 
@@ -16,9 +16,9 @@ fn is_all_empty_text(s: &str) -> bool {
 }
 
 fn start_with_newline_and_spaces(s: &str) -> bool {
-  let mut chars = s.chars();
+  let chars = s.chars();
 
-  while let Some(c) = chars.next() {
+  for c in chars {
     if c.is_whitespace() && c != '\n' && c != '\r' {
       continue;
     } else {
@@ -29,9 +29,9 @@ fn start_with_newline_and_spaces(s: &str) -> bool {
 }
 
 fn ends_with_newline_and_spaces(s: &str) -> bool {
-  let mut chars = s.chars().rev();
+  let chars = s.chars().rev();
 
-  while let Some(c) = chars.next() {
+  for c in chars {
     if c.is_whitespace() && c != '\n' && c != '\r' {
       continue;
     } else {
@@ -52,7 +52,7 @@ pub fn resolve_jsx_text(node: &JSXText) -> String {
   if ends_with_newline_and_spaces(&value) {
     value = value.trim_end().to_owned();
   }
-  return value;
+  value
 }
 
 pub fn is_empty_text(node: &JSXChild) -> bool {
@@ -104,13 +104,37 @@ pub fn to_valid_asset_id(name: &str, _type: &str) -> String {
     .chars()
     .map(|c| {
       if c == '-' {
-        return "_".to_string();
+        "_".to_string()
       } else if c.is_ascii_alphanumeric() || c == '_' || c == '$' {
-        return c.to_string();
+        c.to_string()
       } else {
         (c as u32).to_string()
       }
     })
     .collect::<String>();
   format!("_{_type}_{name}")
+}
+
+pub fn get_text_like_value(node: &Expression, exclude_number: Option<bool>) -> Option<String> {
+  let node = node.without_parentheses().get_inner_expression();
+  if let Expression::StringLiteral(node) = node {
+    return Some(node.value.to_string());
+  } else if !exclude_number.unwrap_or(false) && node.is_number_literal() {
+    if let Expression::NumericLiteral(node) = node {
+      return Some(node.value.to_string());
+    } else if let Expression::BigIntLiteral(node) = node {
+      return Some(node.value.to_string());
+    }
+  } else if let Expression::TemplateLiteral(node) = node {
+    let mut result = String::new();
+    for i in 0..node.quasis.len() {
+      result += node.quasis[i].value.cooked.unwrap().as_ref();
+      if let Some(expression) = node.expressions.get(i) {
+        let expression_value = get_text_like_value(expression, None)?;
+        result += &expression_value;
+      }
+    }
+    return Some(result);
+  }
+  None
 }

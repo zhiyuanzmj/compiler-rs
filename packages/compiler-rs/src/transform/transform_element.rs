@@ -28,8 +28,8 @@ use crate::{
     directive::resolve_directive,
     dom::is_valid_html_nesting,
     error::ErrorCodes,
+    text::get_text_like_value,
     text::{camelize, get_tag_name},
-    utils::get_text_like_value,
   },
 };
 
@@ -56,7 +56,8 @@ pub fn is_directive(s: &str) -> bool {
       .unwrap_or(false)
 }
 
-pub fn transform_element<'a>(
+/// # SAFETY
+pub unsafe fn transform_element<'a>(
   context_node: *mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
@@ -113,6 +114,7 @@ pub fn transform_element<'a>(
   }))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn transform_native_element<'a>(
   tag: String,
   props_result: PropsResult<'a>,
@@ -211,7 +213,7 @@ pub fn transform_component_element<'a>(
   if let Some(dot_index) = tag.find('.') {
     let ns = tag[0..dot_index].to_string();
     if !ns.is_empty() {
-      tag = ns + &tag[dot_index..].to_string();
+      tag = ns + &tag[dot_index..];
     }
   }
 
@@ -499,7 +501,6 @@ pub fn dedupe_properties(results: Vec<DirectiveTransformResult>) -> Vec<IRProp> 
     let existing = deduped.iter_mut().find(|i| i.key.content == name);
     if let Some(existing) = existing {
       if name == "style" || name == "class" {
-        let existing = existing;
         for value in prop.values {
           existing.values.push(value)
         }
@@ -509,5 +510,5 @@ pub fn dedupe_properties(results: Vec<DirectiveTransformResult>) -> Vec<IRProp> 
       deduped.push(prop);
     }
   }
-  return deduped;
+  deduped
 }

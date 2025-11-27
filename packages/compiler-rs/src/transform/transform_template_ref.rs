@@ -7,10 +7,11 @@ use oxc_ast::ast::JSXChild;
 use crate::{
   ir::index::{BlockIRNode, DeclareOldRefIRNode, SetTemplateRefIRNode, SimpleExpressionNode},
   transform::{ContextNode, TransformContext},
-  utils::{check::is_fragment_node, utils::find_prop_mut},
+  utils::{check::is_fragment_node, directive::find_prop_mut},
 };
 
-pub fn transform_template_ref<'a>(
+/// # SAFETY
+pub unsafe fn transform_template_ref<'a>(
   context_node: *mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
@@ -19,21 +20,19 @@ pub fn transform_template_ref<'a>(
   let Either::B(node) = (unsafe { &mut *context_node }) else {
     return None;
   };
-  if is_fragment_node(&node) {
+  if is_fragment_node(node) {
     return None;
   }
   let JSXChild::Element(node) = node else {
     return None;
   };
-  let Some(dir) = find_prop_mut(node, Either::A(String::from("ref"))) else {
-    return None;
-  };
+  let dir = find_prop_mut(node, Either::A(String::from("ref")))?;
   let Some(value) = &mut dir.value else {
     return None;
   };
   context.ir.borrow_mut().has_template_ref = true;
 
-  let value = SimpleExpressionNode::new(Either3::C(value), &context);
+  let value = SimpleExpressionNode::new(Either3::C(value), context);
   Some(Box::new(move || {
     let id = context.reference(&mut context_block.dynamic);
     let effect = !value.is_constant_expression();
@@ -56,7 +55,7 @@ pub fn transform_template_ref<'a>(
         element: id,
         value,
         ref_for: *context.in_v_for.borrow() != 0,
-        effect: effect,
+        effect,
       }),
       None,
       None,

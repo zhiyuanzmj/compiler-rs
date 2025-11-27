@@ -17,28 +17,28 @@ use crate::{
   generate::CodegenContext, transform::TransformContext, utils::check::is_referenced_identifier,
 };
 
-/**
- * Modified from https://github.com/vuejs/core/blob/main/packages/compiler-core/src/babelUtils.ts
- * To support browser environments and JSX.
- *
- * https://github.com/vuejs/core/blob/main/LICENSE
- *
- * Return value indicates whether the AST walked can be a constant
- */
+type OnIdentifier<'a> = Box<
+  dyn FnMut(
+      &mut IdentifierReference<'a>,
+      &Ancestor,
+      &TraverseAncestry<'a>,
+      bool,
+      bool,
+    ) -> Option<Expression<'a>>
+    + 'a,
+>;
+
+// Modified from https://github.com/vuejs/core/blob/main/packages/compiler-core/src/babelUtils.ts
+// To support browser environments and JSX.
+//
+// https://github.com/vuejs/core/blob/main/LICENSE
+//
+// Return value indicates whether the AST walked can be a constant
 pub struct WalkIdentifiers<'a, 'ctx> {
   known_ids: HashMap<String, u32>,
   include_all: bool,
   context: &'a CodegenContext<'ctx>,
-  on_identifier: Box<
-    dyn FnMut(
-        &mut IdentifierReference<'a>,
-        &Ancestor,
-        &TraverseAncestry<'a>,
-        bool,
-        bool,
-      ) -> Option<Expression<'a>>
-      + 'a,
-  >,
+  on_identifier: OnIdentifier<'a>,
   scope_ids_map: HashMap<Span, HashSet<String>>,
   roots: Vec<*mut Expression<'a>>,
 }
@@ -46,16 +46,7 @@ pub struct WalkIdentifiers<'a, 'ctx> {
 impl<'a, 'ctx> WalkIdentifiers<'a, 'ctx> {
   pub fn new(
     context: &'a CodegenContext<'ctx>,
-    on_identifier: Box<
-      dyn FnMut(
-          &mut IdentifierReference<'a>,
-          &Ancestor,
-          &TraverseAncestry<'a>,
-          bool,
-          bool,
-        ) -> Option<Expression<'a>>
-        + 'a,
-    >,
+    on_identifier: OnIdentifier<'a>,
     include_all: bool,
   ) -> Self {
     Self {
@@ -315,7 +306,7 @@ impl<'a> Traverse<'a, ()> for WalkIdentifiers<'a, '_> {
   }
 
   fn enter_for_statement(&mut self, node: &mut ForStatement<'a>, _: &mut TraverseCtx<'a, ()>) {
-    walk_for_statement(Either3::A(&node), true, &mut |id| {
+    walk_for_statement(Either3::A(node), true, &mut |id| {
       mark_scope_identifier(node.span, id, &mut self.known_ids, &mut self.scope_ids_map);
     })
   }
@@ -323,7 +314,7 @@ impl<'a> Traverse<'a, ()> for WalkIdentifiers<'a, '_> {
     self.exit_node(&node.span, ctx);
   }
   fn enter_for_in_statement(&mut self, node: &mut ForInStatement<'a>, _: &mut TraverseCtx<'a, ()>) {
-    walk_for_statement(Either3::B(&node), true, &mut |id| {
+    walk_for_statement(Either3::B(node), true, &mut |id| {
       mark_scope_identifier(node.span, id, &mut self.known_ids, &mut self.scope_ids_map);
     })
   }
@@ -336,7 +327,7 @@ impl<'a> Traverse<'a, ()> for WalkIdentifiers<'a, '_> {
   }
 
   fn enter_for_of_statement(&mut self, node: &mut ForOfStatement<'a>, _: &mut TraverseCtx<'a, ()>) {
-    walk_for_statement(Either3::C(&node), true, &mut |id| {
+    walk_for_statement(Either3::C(node), true, &mut |id| {
       mark_scope_identifier(node.span, id, &mut self.known_ids, &mut self.scope_ids_map);
     })
   }
@@ -357,7 +348,7 @@ pub fn mark_known_ids(name: String, known_ids: &mut HashMap<String, u32>) {
   }
 }
 
-pub fn mark_scope_identifier<'a>(
+pub fn mark_scope_identifier(
   node_span: Span,
   child: &BindingIdentifier,
   known_ids: &mut HashMap<String, u32>,
@@ -408,10 +399,8 @@ pub fn extract_identifiers<'a>(
       }
     }
     BindingPatternKind::ArrayPattern(node) => {
-      for element in &node.elements {
-        if let Some(element) = element {
-          identifiers = extract_identifiers(element, identifiers);
-        }
+      for element in (&node.elements).into_iter().flatten() {
+        identifiers = extract_identifiers(element, identifiers);
       }
     }
     BindingPatternKind::AssignmentPattern(node) => {
@@ -450,11 +439,11 @@ pub fn walk_block_declarations<'a>(
         on_ident(id);
       }
     } else if let Statement::ForStatement(stmt) = stmt {
-      walk_for_statement(Either3::A(&stmt), true, &mut on_ident);
+      walk_for_statement(Either3::A(stmt), true, &mut on_ident);
     } else if let Statement::ForInStatement(stmt) = stmt {
-      walk_for_statement(Either3::B(&stmt), true, &mut on_ident);
+      walk_for_statement(Either3::B(stmt), true, &mut on_ident);
     } else if let Statement::ForOfStatement(stmt) = stmt {
-      walk_for_statement(Either3::C(&stmt), true, &mut on_ident);
+      walk_for_statement(Either3::C(stmt), true, &mut on_ident);
     }
   }
 }

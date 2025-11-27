@@ -23,7 +23,7 @@ pub fn gen_raw_slots<'a>(
   context: &'a CodegenContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
 ) -> Option<Expression<'a>> {
-  if slots.len() == 0 {
+  if slots.is_empty() {
     return None;
   }
   if let Either4::A(_) = &slots[0] {
@@ -197,9 +197,9 @@ fn gen_loop_slot<'a>(
     source,
     ..
   } = _loop.unwrap();
-  let raw_value = value.and_then(|value| Some(value.content));
-  let raw_key = key.and_then(|key| Some(key.content));
-  let raw_index = index.and_then(|index| Some(index.content));
+  let raw_value = value.map(|value| value.content);
+  let raw_key = key.map(|key| key.content);
+  let raw_index = index.map(|index| index.content);
 
   let slot_expr = ast.expression_object(
     SPAN,
@@ -308,8 +308,7 @@ fn gen_loop_slot<'a>(
                 } else {
                   None
                 },
-                if let Some(raw_index) = raw_index {
-                  Some(ast.formal_parameter(
+                raw_index.map(|raw_index| ast.formal_parameter(
                     SPAN,
                     ast.vec(),
                     ast.binding_pattern(
@@ -322,10 +321,7 @@ fn gen_loop_slot<'a>(
                     None,
                     false,
                     false,
-                  ))
-                } else {
-                  None
-                },
+                  )),
               ]
               .into_iter()
               .flatten(),

@@ -11,13 +11,14 @@ use crate::{
   utils::{
     check::{is_jsx_component, is_template},
     directive::resolve_directive,
+    directive::{find_prop, find_prop_mut},
     error::ErrorCodes,
     text::is_empty_text,
-    utils::{find_prop, find_prop_mut},
   },
 };
 
-pub fn transform_v_slot<'a>(
+/// # SAFETY
+pub unsafe fn transform_v_slot<'a>(
   context_node: *mut ContextNode<'a>,
   context: &'a TransformContext<'a>,
   context_block: &'a mut BlockIRNode<'a>,
@@ -40,7 +41,7 @@ pub fn transform_v_slot<'a>(
       false
     };
 
-  if is_component && unsafe { &mut *node }.children.len() > 0 {
+  if is_component && !unsafe { &mut *node }.children.is_empty() {
     return Some(transform_component_slot(
       dir,
       unsafe { &mut *node },
@@ -56,7 +57,7 @@ pub fn transform_v_slot<'a>(
 }
 
 // <Foo v-slot:default>
-pub fn transform_component_slot<'a>(
+fn transform_component_slot<'a>(
   dir: Option<DirectiveNode<'a>>,
   node: &'a mut JSXElement<'a>,
   context: &'a TransformContext<'a>,
@@ -113,7 +114,7 @@ pub fn transform_component_slot<'a>(
 }
 
 // <template v-slot:foo>
-pub fn transform_template_slot<'a>(
+fn transform_template_slot<'a>(
   dir: DirectiveNode<'a>,
   node: *mut oxc_allocator::Box<'a, JSXElement<'a>>,
   context: &'a TransformContext<'a>,
@@ -132,20 +133,12 @@ pub fn transform_template_slot<'a>(
     None
   };
   let v_if = find_prop_mut(unsafe { &mut *node }, Either::A(String::from("v-if")));
-  let v_if_dir = if let Some(v_if) = v_if {
-    Some(resolve_directive(v_if, context))
-  } else {
-    None
-  };
+  let v_if_dir = v_if.map(|v_if| resolve_directive(v_if, context));
   let v_else = find_prop_mut(
     unsafe { &mut *node },
     Either::B(vec![String::from("v-else"), String::from("v-else-if")]),
   );
-  let v_else_dir = if let Some(v_else) = v_else {
-    Some(resolve_directive(v_else, context))
-  } else {
-    None
-  };
+  let v_else_dir = v_else.map(|v_else| resolve_directive(v_else, context));
 
   Box::new(move || {
     let slots = &mut context.slots.borrow_mut();
@@ -156,7 +149,7 @@ pub fn transform_template_slot<'a>(
       } else {
         String::from("default")
       };
-      if !slot_name.is_empty() && has_static_slot(&slots, &slot_name) {
+      if !slot_name.is_empty() && has_static_slot(slots, &slot_name) {
         context.options.on_error.as_ref()(ErrorCodes::VSlotDuplicateSlotNames, dir.loc)
       } else {
         register_slot(slots, arg, block);
@@ -197,15 +190,15 @@ pub fn transform_template_slot<'a>(
           context.options.on_error.as_ref()(ErrorCodes::VElseNoAdjacentIf, v_else_dir.loc)
         }
       }
-    } else if let Some(for_parse_result) = for_parse_result {
-      if for_parse_result.source.is_some() {
-        slots.push(Either4::B(IRSlotDynamicBasic {
-          slot_type: IRSlotType::DYNAMIC,
-          name: arg.unwrap(),
-          _fn: block,
-          _loop: Some(for_parse_result),
-        }))
-      }
+    } else if let Some(for_parse_result) = for_parse_result
+      && for_parse_result.source.is_some()
+    {
+      slots.push(Either4::B(IRSlotDynamicBasic {
+        slot_type: IRSlotType::DYNAMIC,
+        name: arg.unwrap(),
+        _fn: block,
+        _loop: Some(for_parse_result),
+      }))
     }
   })
 }
@@ -215,7 +208,7 @@ fn set_slot<'a>(
   slot: Either<IRSlotDynamicBasic<'a>, IRSlotDynamicConditional<'a>>,
 ) {
   if let Some(Either::B(negative)) = v_if_slot.negative.as_mut().map(|a| a.as_mut()) {
-    return set_slot(negative, slot);
+    set_slot(negative, slot)
   } else {
     v_if_slot.negative = Some(Box::new(slot));
   }
@@ -279,6 +272,6 @@ fn create_slot_block<'a>(
 ) -> Box<dyn FnOnce() -> BlockIRNode<'a> + 'a> {
   let mut block = BlockIRNode::new();
   block.props = props;
-  let exit_block = context.enter_block(context_block, block, false, exclude_slots);
-  exit_block
+
+  (context.enter_block(context_block, block, false, exclude_slots)) as _
 }

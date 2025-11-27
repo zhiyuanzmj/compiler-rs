@@ -6,7 +6,7 @@ use phf::phf_set;
 
 use crate::{
   transform::TransformContext,
-  utils::{text::resolve_jsx_text, utils::get_text_like_value},
+  utils::text::{get_text_like_value, resolve_jsx_text},
 };
 
 #[derive(Debug)]
@@ -22,7 +22,7 @@ impl<'a> Clone for SimpleExpressionNode<'a> {
     Self {
       content: self.content.clone(),
       is_static: self.is_static,
-      loc: self.loc.clone(),
+      loc: self.loc,
       ast: None,
     }
   }
@@ -110,10 +110,10 @@ impl<'a> SimpleExpressionNode<'a> {
   }
 
   pub fn get_literal_expression_value(&self) -> Option<String> {
-    if let Some(ast) = &self.ast {
-      if let Some(res) = get_text_like_value(ast, None) {
-        return Some(res);
-      }
+    if let Some(ast) = &self.ast
+      && let Some(res) = get_text_like_value(ast, None)
+    {
+      return Some(res);
     }
     if self.is_static {
       Some(self.content.to_string())
@@ -158,5 +158,5 @@ static GLOBALLY_ALLOWED: phf::Set<&'static str> = phf_set! {
     "Symbol",
 };
 pub fn is_globally_allowed(key: &str) -> bool {
-  GLOBALLY_ALLOWED.contains(&key)
+  GLOBALLY_ALLOWED.contains(key)
 }

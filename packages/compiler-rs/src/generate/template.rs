@@ -107,7 +107,7 @@ fn gen_children<'a>(
       if child.flags & DynamicFlag::Insert as i32 != 0 {
         child.anchor
       } else {
-        child.id.clone()
+        child.id
       }
     } else {
       None
@@ -239,13 +239,12 @@ fn gen_children<'a>(
       gen_self(statements, child, context, unsafe { &mut *_context_block });
     }
 
-    if let Some(id) = id {
-      if let Some(directives) =
+    if let Some(id) = id
+      && let Some(directives) =
         gen_directives_for_element(id, context, unsafe { &mut *_context_block })
       {
         statements.push(directives)
       };
-    }
 
     prev = Some((variable.clone(), element_index));
     gen_children(

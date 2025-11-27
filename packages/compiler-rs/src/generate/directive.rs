@@ -82,18 +82,13 @@ pub fn gen_directives_for_element<'a>(
       } else {
         None
       };
-      let argument = if let Some(arg) = item.dir.arg.take() {
-        Some(gen_expression(arg, context, None, None))
-      } else {
-        None
-      };
-      let modifiers = if &item.dir.modifiers.len() > &0 {
+      let argument = item.dir.arg.take().map(|arg| gen_expression(arg, context, None, None));
+      let modifiers = if !item.dir.modifiers.is_empty() {
         Some(gen_directive_modifiers(
           item
             .dir
             .modifiers
             .drain(..)
-            .into_iter()
             .map(|m| m.content)
             .collect(),
           ast,
@@ -126,11 +121,7 @@ pub fn gen_directives_for_element<'a>(
               } else {
                 None
               },
-              if let Some(modifiers) = modifiers {
-                Some(ArrayExpressionElement::ObjectExpression(modifiers))
-              } else {
-                None
-              },
+              modifiers.map(ArrayExpressionElement::ObjectExpression),
             ]
             .into_iter()
             .flatten(),
@@ -139,7 +130,7 @@ pub fn gen_directives_for_element<'a>(
       ));
     }
   }
-  if directive_items.len() == 0 {
+  if directive_items.is_empty() {
     return None;
   }
   let directives = ast.alloc_array_expression(SPAN, directive_items);
