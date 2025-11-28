@@ -1,3 +1,12 @@
+## [2.6.13](https://github.com/vuejs/vue-jsx-vapor/compare/v2.6.12...v2.6.13) (2025-11-28)
+
+
+### Features
+
+* support hmr and ssr ([0a5f7c6](https://github.com/vuejs/vue-jsx-vapor/commit/0a5f7c6593cb3719c8cbe946133415b24512db40))
+
+
+
 ## [2.6.12](https://github.com/vuejs/vue-jsx-vapor/compare/v2.6.11...v2.6.12) (2025-11-27)
 
 
