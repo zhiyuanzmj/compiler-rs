@@ -29,7 +29,7 @@ pub mod v_text;
 use crate::compile::CompilerOptions;
 use crate::compile::Template;
 use crate::generate::CodegenContext;
-use crate::traverse::JsxTraverse;
+use crate::traverse::jsx::JsxTraverse;
 use crate::{
   ir::{
     component::IRSlots,
@@ -61,6 +61,8 @@ pub struct TransformOptions<'a> {
   pub filename: &'a str,
   pub source_type: SourceType,
   pub interop: bool,
+  pub hmr: bool,
+  pub ssr: bool,
 }
 impl<'a> Default for TransformOptions<'a> {
   fn default() -> Self {
@@ -75,6 +77,8 @@ impl<'a> Default for TransformOptions<'a> {
       is_custom_element: Box::new(|_| false),
       on_error: Box::new(|_, _| {}),
       interop: false,
+      hmr: false,
+      ssr: false,
     }
   }
 }
@@ -467,6 +471,8 @@ pub fn _transform(env: Env, source: String, options: Option<CompilerOptions>) ->
       source_map: options.source_map.unwrap_or(false),
       with_fallback: options.with_fallback.unwrap_or(false),
       interop: options.interop.unwrap_or(false),
+      hmr: options.hmr.unwrap_or(false),
+      ssr: options.ssr.unwrap_or(false),
       is_custom_element: if let Some(is_custom_element) = options.is_custom_element {
         Box::new(move |tag: String| is_custom_element.call(tag).unwrap())
           as Box<dyn Fn(String) -> bool>

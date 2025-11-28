@@ -46,6 +46,16 @@ pub struct CompilerOptions {
    * while all other JSX is transformed to Virtual DOM.
    */
   pub interop: Option<bool>,
+  /**
+   * Enabled HMR support.
+   * @default false
+   */
+  pub hmr: Option<bool>,
+  /**
+   * Enabled SSR support.
+   * @default false
+   */
+  pub ssr: Option<bool>,
 }
 
 #[cfg_attr(feature = "napi", napi(object))]
@@ -78,6 +88,8 @@ pub fn _compile(
       source_map: options.source_map.unwrap_or(false),
       with_fallback: options.with_fallback.unwrap_or(false),
       interop: options.interop.unwrap_or(false),
+      hmr: options.hmr.unwrap_or(false),
+      ssr: options.ssr.unwrap_or(false),
       is_custom_element: if let Some(is_custom_element) = options.is_custom_element {
         Box::new(move |tag: String| is_custom_element.call(tag).unwrap())
           as Box<dyn Fn(String) -> bool>
